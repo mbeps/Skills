@@ -1,5 +1,5 @@
 ---
-name: coding-guidelines
+name: design patterns
 description: Writing Clean Code: An Exhaustive Architectural Framework description: An exhaustive architectural framework for implementing sustainable software engineering practices, covering core principles, design patterns, and refactoring workflows. 
 tags: [clean-code, software-architecture, solid, kiss, yagni, dry, refactoring, composition-over-inheritance]
 ---
