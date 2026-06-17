@@ -1,8 +1,6 @@
 ---
-skill: migrating-radix-to-base-ui 
-version: 1.0.0 
-frameworks: [React, Shadcn UI, Base UI, Tailwind CSS v4] 
-last_updated: 2026-02-23
+name: radix-ui-to-base-ui-migration
+description: "Guidelines and architectural protocols for migrating from Radix UI to Base UI in Shadcn UI with Tailwind CSS v4. Use whenever performing a migration from Radix UI to Base UI, including refactoring components, updating state-driven styling, and configuring Tailwind v4. Do not use when no migration tasks are being performed."
 ---
 
 # Migrating Radix UI to Base UI in Shadcn UI with Tailwind CSS v4

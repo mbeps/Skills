@@ -1,6 +1,6 @@
 ---
-name: design patterns
-description: Writing Clean Code: An Exhaustive Architectural Framework description: An exhaustive architectural framework for implementing sustainable software engineering practices, covering core principles, design patterns, and refactoring workflows. 
+name: design-patterns
+description: "Software design patterns to be used whenever writing code. These patterns are guidelines that ensure code is maintainable, readable, and extensible. Do not use when no coding tasks are being performed."
 tags: [clean-code, software-architecture, solid, kiss, yagni, dry, refactoring, composition-over-inheritance]
 ---
 

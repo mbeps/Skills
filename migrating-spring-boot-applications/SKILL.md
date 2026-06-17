@@ -1,9 +1,6 @@
 ---
-skill: migrating-spring-boot-applications
-version: 1.0.0
-framework_baseline: Spring Boot 4.0
-runtime_baseline: Java 17+
-primary_focus: Architectural Modernization & Modularization
+name: migrating-spring-boot-applications
+description: This skill orchestrates the migration of Spring Boot applications from version 3.x to 4.0, aligning with Spring Framework 7.0 and Jakarta EE 11 standards. Use when migrating codebase from Spring Boot 3.x to 4.0.
 ---
 
 # Skill Document: Migrating Spring Boot Applications

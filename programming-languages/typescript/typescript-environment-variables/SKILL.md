@@ -1,9 +1,6 @@
 ---
-description: Centralise, validate, and use environment variables in TypeScript projects with type safety and computed constants.
-domains: TypeScript, configuration, runtime safety, Next.js
-references:
-  - https://12factor.net/config
-  - https://zod.dev/
+name: typescript-environment-variables
+description: Centralise, validate, and use environment variables in TypeScript projects with type safety and computed constants. Use for all TypeScript projects, including Next.js, Node.js, and framework-agnostic apps.
 ---
 
 # Environment Variables in TypeScript

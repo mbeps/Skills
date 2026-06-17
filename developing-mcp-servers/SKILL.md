@@ -1,9 +1,6 @@
 ---
 name: developing-mcp-servers
-description: >
-  Skill for teaching AI coding agents to design, implement, test, and maintain
-  Model Context Protocol (MCP) servers, with Python-first guidance and
-  language-agnostic principles.
+description: "Skill for developing MCP servers to be used whenever MCP servers are being developed. Do not use when MCP servers or anything MCP related is not being developed."
 ---
 
 This skill guides AI coding agents through building robust MCP servers, focusing on Python while keeping the design portable to any language.[web:1][web:14]

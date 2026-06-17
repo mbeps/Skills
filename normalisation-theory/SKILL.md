@@ -1,36 +1,8 @@
 ---
 name: normalisation-theory
-description: "Database normalization theory. Covers functional dependencies, normal forms, decomposition algorithms, and comparative analysis of database models."
-compatibility: "Relational databases, NoSQL databases, columnar stores, distributed databases."
+description: "Guide for normalising relational databases. Use when normalising relational database schema or when evaluating relational database."
+compatibility: "Mostly relational databases."
 ---
-
-- [1 - Introduction and Historical Context](#1---introduction-and-historical-context)
-- [2 - Mathematical Preliminaries: Set Theory and Relations](#2---mathematical-preliminaries-set-theory-and-relations)
-  - [2.1 - Sets, Domains, and Cartesian Products](#21---sets-domains-and-cartesian-products)
-  - [2.2 - The Relation and its Schema](#22---the-relation-and-its-schema)
-- [3 - The Core Theory: Functional Dependencies](#3---the-core-theory-functional-dependencies)
-  - [3.1 - Formal Definition](#31---formal-definition)
-  - [3.2 - Trivial vs. Non-Trivial Dependencies](#32---trivial-vs-non-trivial-dependencies)
-  - [3.3 - Armstrong's Axioms](#33---armstrongs-axioms)
-  - [3.4 - The Closure of Functional Dependencies ($F^+$)](#34---the-closure-of-functional-dependencies-f)
-- [4 - Algorithms for Structural Analysis](#4---algorithms-for-structural-analysis)
-  - [4.1 - Attribute Closure Algorithm ($X^+$)](#41---attribute-closure-algorithm-x)
-  - [4.2 - Candidate Keys and Prime Attributes](#42---candidate-keys-and-prime-attributes)
-- [5 - The Hierarchy of Normal Forms](#5---the-hierarchy-of-normal-forms)
-  - [5.1 - First Normal Form (1NF): Atomicity](#51---first-normal-form-1nf-atomicity)
-  - [5.2 - Second Normal Form (2NF): Full Functional Dependency](#52---second-normal-form-2nf-full-functional-dependency)
-  - [5.3 - Third Normal Form (3NF): Transitive Dependency](#53---third-normal-form-3nf-transitive-dependency)
-  - [5.4 - Boyce-Codd Normal Form (BCNF)](#54---boyce-codd-normal-form-bcnf)
-- [6 - Decomposition Algorithms](#6---decomposition-algorithms)
-  - [6.1 - The Chase Algorithm (Lossless Join Test)](#61---the-chase-algorithm-lossless-join-test)
-  - [6.2 - 3NF Synthesis (Bernstein's Algorithm)](#62---3nf-synthesis-bernsteins-algorithm)
-  - [6.3 - BCNF Decomposition Algorithm](#63---bcnf-decomposition-algorithm)
-- [7 - Comparative Analysis: Alternative Models](#7---comparative-analysis-alternative-models)
-  - [7.1 - Pre-Relational: Hierarchical and Network Models](#71---pre-relational-hierarchical-and-network-models)
-  - [7.2 - Post-Relational: NoSQL and Columnar Stores](#72---post-relational-nosql-and-columnar-stores)
-- [8 - Conclusion](#8---conclusion)
-- [References](#references)
-
 
 # 1 - Introduction and Historical Context
 

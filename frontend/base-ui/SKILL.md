@@ -1,10 +1,6 @@
 ---
-skill_name: "Implementing Base UI: Technical Documentation and Integration"
-description: "Guidelines and architectural protocols for building accessible, unstyled React applications using Base UI."
-category: "Engineering / Frontend Development"
-technologies: ["React", "Base UI", "TypeScript", "Tailwind CSS", "WAI-ARIA"]
-version: "1.0.0"
-last_updated: 2026-02-23
+name: base-ui
+description: "Guidelines and architectural protocols for building accessible, unstyled React applications using Base UI. Use whenver working with or creating Base UI components including with Shadcn UI. Do not use when no Base UI tasks are being performed."
 ---
 
 # Implementing Base UI: Technical Documentation and Integration Skill

@@ -1,6 +1,6 @@
 ---
 name: evaluation
-description: Comprehensive codebase evaluation system that orchestrates multiple specialized analysis subagents to assess code quality
+description: "Comprehensive codebase evaluation system that orchestrates multiple specialized analysis subagents to assess code quality. Use whenever evaluation of the codebase is required."
 ---
 
 # Evaluation Skill
