@@ -11,7 +11,7 @@ Use this module when you need a complete health check of a project—a single, a
 The evaluation follows a four-phase process:
 
 ### Phase 1: Discovery
-Spawn parallel subagents to analyse different dimensions simultaneously:
+Analyse different dimensions systematically:
 - **Architecture** – Project structure, separation of concerns, module boundaries, layering
 - **Code Quality** – Readability, naming, function/class size, nesting depth, duplication, over-abstraction
 - **Design** – Use of patterns, abstractions, interfaces, composition vs inheritance, cohesion/coupling
@@ -24,7 +24,7 @@ Spawn parallel subagents to analyse different dimensions simultaneously:
 If findings are ambiguous or require context only the user can provide (e.g. intended architecture, known trade-offs), ask targeted questions grouped by theme. Wait for answers before proceeding.
 
 ### Phase 3: Evaluation
-Spawn dedicated evaluation subagents—one per dimension—to produce scored assessments based on Phase 1 findings and Phase 2 answers. Each subagent assigns a rating (Poor / Fair / Good / Excellent) and lists specific findings with file references.
+Produce scored assessments for each dimension based on Phase 1 findings and Phase 2 answers. Each dimension is assigned a rating (Poor / Fair / Good / Excellent) with specific findings and file references.
 
 ### Phase 4: Report
 Compile all evaluation results into a final report. Structure by dimension and end with a prioritised action list of the most impactful improvements, focusing on simplicity, clarity, and correctness.

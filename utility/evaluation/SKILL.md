@@ -1,11 +1,11 @@
 ---
 name: evaluation
-description: "Comprehensive codebase evaluation system that orchestrates multiple specialized analysis subagents to assess code quality. Use whenever evaluation of the codebase is required."
+description: "Comprehensive codebase evaluation system that assesses code quality across multiple dimensions. Use whenever evaluation of the codebase is required."
 ---
 
 # Evaluation Skill
 
-Comprehensive codebase evaluation system that orchestrates multiple specialized analysis subagents to assess code quality, architecture, design patterns, security, testing, dependencies, and maintainability. Produces detailed, structured diagnostic reports across multiple quality dimensions.
+Comprehensive codebase evaluation system that assesses code quality, architecture, design patterns, security, testing, dependencies, and maintainability. Produces detailed, structured diagnostic reports across multiple quality dimensions.
 
 ## When to Use
 
@@ -18,10 +18,10 @@ Use this skill when you need to:
 
 ## Core Responsibilities
 
-1. **Orchestrate Subagents** – Spawn dedicated subagents for each evaluation domain to work independently and in parallel
+1. **Analyse Systematically** – Evaluate each quality domain independently and thoroughly
 2. **Manage Quality Gates** – Ensure all findings are supported by concrete evidence from the codebase
-3. **Facilitate Debate** – When subagents disagree, mediate to reach consensus or flag findings as disputed
-4. **Synthesise Results** – Compile final reports from all subagent outputs into a single structured document
+3. **Verify Findings** – Cross-check findings to ensure accuracy and identify disputed or uncertain results
+4. **Synthesise Results** – Compile findings from all evaluation domains into a single structured document
 5. **Provide Diagnostic Value** – Report findings objectively without suggesting fixes or modifications
 
 ## Evaluation Types
@@ -60,19 +60,20 @@ Identifies custom-written logic that replicates functionality already in project
 ### Workflow
 
 ```
-User Request → Dispatch Subagents → Analyse Domains → Facilitate Consensus
-     ↓                    ↓                   ↓              ↓
-Specify target     Parallel analysis    Independent    Cross-verify
-codebase/module    of evaluation        evaluation     and synthesise
-                   dimensions           of findings    findings
+User Request → Analyse Domains → Verify Findings → Synthesise Results
+     ↓              ↓                   ↓              ↓
+Specify target     Independent      Cross-check     Compile final
+codebase/module    evaluation       findings        diagnostic report
+                   of all
+                   dimensions
 ```
 
 ### Key Principles
 
-- **Parallel Execution** – Independent evaluation domains run concurrently for efficiency
+- **Thorough Analysis** – Evaluate each quality dimension systematically
 - **Evidence-Based Findings** – Every issue cites specific file paths, line numbers, and architectural evidence
 - **Objective Assessment** – Report findings without suggesting solutions or code modifications
-- **Consensus Through Debate** – Use multiple subagents per domain to verify accuracy; surface disputed findings for manual review
+- **Verification** – Cross-check findings to ensure accuracy and identify uncertain or disputed results
 - **Simplicity-First Lens** – Prioritise maintainability, clarity, and correctness over engineering sophistication
 
 ## Required Inputs
@@ -147,7 +148,6 @@ Provide specific file paths and line numbers for all findings.
 - **clean-code** – Pragmatic coding standards and direct analysis
 - **karpathy-guidelines** – Guidelines to reduce common LLM coding mistakes
 - **design-patterns** – Architectural frameworks for sustainable software engineering
-- **subagent-driven-development** – Orchestrating parallel subagents for efficiency
 - **agent-customization** – Creating and updating agent instructions and skills
 
 ## Extension Points

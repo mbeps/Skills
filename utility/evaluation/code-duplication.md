@@ -88,5 +88,5 @@ For each duplication, provide:
 - Classification (Exact Match / Functional Similarity / Ignored Utility)
 - Rationale for extraction and estimated impact
 
-Facilitate subagent debate to confirm duplications before reporting.
+Verify duplications to ensure accuracy before reporting.
 ```

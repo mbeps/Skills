@@ -25,8 +25,8 @@ Logic that is syntactically valid but functionally obsolete—its triggers or de
 ### Side Effect Assessment
 Determine if code has global state changes, I/O operations, or other side effects that complicate safe removal.
 
-### Consensus Verification
-Subagent debate to confirm code is truly dead rather than rarely used or dynamically invoked.
+### Verification
+Confirm code is truly dead rather than rarely used or dynamically invoked, ensuring findings are accurate.
 
 ## Quality Criteria
 
