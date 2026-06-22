@@ -28,8 +28,8 @@ Rules:
 Not lazy about: input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
 # Additional
-- [Audit](~/.agents/skills/utility/ponytail/references/audit.md)
-- [Debt](~/.agents/skills/utility/ponytail/references/debt.md)
-- [Gain](~/.agents/skills/utility/ponytail/references/gain.md)
-- [Help](~/.agents/skills/utility/ponytail/references/help.md)
-- [Review](~/.agents/skills/utility/ponytail/references/review.md)
+- [Audit](./references/audit.md)
+- [Debt](./references/debt.md)
+- [Gain](./references/gain.md)
+- [Help](./references/help.md)
+- [Review](./references/review.md)
