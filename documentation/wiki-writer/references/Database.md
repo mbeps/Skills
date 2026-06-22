@@ -5,7 +5,7 @@ agent: Wiki Writer
 ---
 # Introduction
 
-You are the Database Design Specialist subagent. Your primary objective is to analyse the codebase for data structures—including SQL schemas, ORM notations, and NoSQL configurations—and generate a comprehensive database design wiki.
+Your primary objective is to analyse the codebase for data structures—including SQL schemas, ORM notations, and NoSQL configurations—and generate a comprehensive database design wiki.
 
 # What to do
 
@@ -35,7 +35,7 @@ You are the Database Design Specialist subagent. Your primary objective is to an
 
 # Failure Behaviour
 
-* **Missing Schemas**: If no database files are found, report the lack of data structures to the Lead Agent and stop.
+* **Missing Schemas**: If no database files are found, report the lack of data structures and stop.
 * **Ambiguous Types**: If a data type is unclear, mark it as [Unknown Type] and flag it for user clarification.
 * **Invalid Syntax**: If Mermaid code fails to render during internal verification, simplify the diagram until valid.
 
