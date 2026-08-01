@@ -1,5 +1,5 @@
 ---
-name: normalisation-theory
+name: database-normalisation-theory
 description: "Guide for normalising relational databases. Use when normalising relational database schema or when evaluating relational database."
 compatibility: "Mostly relational databases."
 ---
