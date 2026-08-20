@@ -1,6 +1,6 @@
 ---
 name: pydantic-v2
-description: Use when writing, reading, or refactoring Pydantic v2 code — BaseModel classes, Field() declarations, validation, model_dump / model_dump_json serialization, TypedDict outputs, TypeAdapter, field_validator / model_validator, ConfigDict, discriminated unions, or ValidationError handling. Grounded in excel-mcp (pydantic 2.12.5). Do not use for general Python code without Pydantic.
+description: Use when writing, reading, or refactoring Pydantic v2 code — BaseModel classes, Field() declarations, validation, model_dump / model_dump_json serialization, TypedDict outputs, TypeAdapter, field_validator / model_validator, ConfigDict, discriminated unions, pydantic_settings.BaseSettings / SettingsConfigDict, or ValidationError handling. Grounded in excel-mcp (pydantic 2.12.5). Do not use for general Python code without Pydantic.
 ---
 
 # Pydantic v2 Skill
@@ -31,6 +31,21 @@ PEP 604 unions + `Literal`, `model_dump()` no-arg at boundaries. The advanced
 features (field_validator, TypeAdapter, ConfigDict, discriminated unions,
 ValidationError catching) are **NOT used** in this repo — do not introduce them
 casually. Reach for the reference files only when a feature is genuinely needed.
+For env-driven config, see `settings.md` (`BaseSettings` + `SettingsConfigDict`,
+real example from `python-rag-service`).
+
+## mypy integration (this repo)
+
+This repo enables `plugins = ["pydantic.mypy"]` in `[tool.mypy]`. The plugin
+synthesizes a typed `__init__` from field annotations, so **every BaseModel field
+must carry a precise type** (never leave one untyped) or you lose constructor
+checking and get `[pydantic-field]`. If strict flags (`disallow_any_explicit`)
+error on the synthesized `__init__`, enable both `init_forbid_extra` and
+`init_typed` in `[tool.pydantic-mypy]`.
+
+**REQUIRED SUB-SKILL:** See the `programming-languages/python/mypy` skill's
+`pydantic-plugin.md` for full plugin settings and gotchas. This skill covers
+Pydantic validation only, not the typing/plugin layer.
 
 ## File map
 
@@ -41,6 +56,7 @@ casually. Reach for the reference files only when a feature is genuinely needed.
 | `validators.md` | Reference: field_validator, model_validator, computed_field. |
 | `serialization.md` | Reference: model_dump / model_dump_json / TypeAdapter. |
 | `types-unions.md` | Reference: PEP 604, Literal, TypeAlias, Annotated, discriminated unions. |
+| `settings.md` | Reference: `pydantic_settings.BaseSettings` + `SettingsConfigDict` (env config; real example from `python-rag-service`). |
 | `errors.md` | Reference: ValidationError structure and handling. |
 | `references.md` | Canonical doc URLs + version notes (2.12 vs 2.13-only). |
 | `examples/example.py` | Runnable self-check (plain asserts). |

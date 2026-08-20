@@ -1,7 +1,9 @@
 # Validators — reference
 
-`field_validator`, `model_validator`, and `computed_field`. Not used in this repo
-(see `house-style.md`) — reference only.
+`field_validator`, `model_validator`, and `computed_field`. Not used in excel-mcp
+(see `house-style.md`) — reference only. **However, `field_validator(mode="after")`
++ `@classmethod` IS genuinely used** for config normalization in `python-rag-service`
+(`src/config/settings.py`); see `settings.md` for the real example.
 
 ## field_validator
 
