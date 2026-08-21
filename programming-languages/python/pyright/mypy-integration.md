@@ -72,14 +72,14 @@ disallow_untyped_defs = false
 
 Map similar checks between tools:
 
-| MyPy Setting | Pyright Setting | Effect |
-|--------------|-----------------|--------|
-| `disallow_untyped_defs = true` | `typeCheckingMode = "strict"` | Require function annotations |
-| `disallow_any_generics = true` | `reportMissingTypeArgument = "error"` | Require generic type args |
-| `warn_return_any = true` | `reportReturnType = "error"` | Warn on returning Any |
-| `strict_optional = true` | Always on in Pyright | Check None handling |
-| `warn_redundant_casts = true` | `reportUnnecessaryCast = "error"` | Flag unnecessary casts |
-| `warn_unused_ignores = true` | `reportUnnecessaryTypeIgnoreComment = "error"` | Flag unused ignores |
+| MyPy Setting                   | Pyright Setting                                | Effect                       |
+| ------------------------------ | ---------------------------------------------- | ---------------------------- |
+| `disallow_untyped_defs = true` | `typeCheckingMode = "strict"`                  | Require function annotations |
+| `disallow_any_generics = true` | `reportMissingTypeArgument = "error"`          | Require generic type args    |
+| `warn_return_any = true`       | `reportReturnType = "error"`                   | Warn on returning Any        |
+| `strict_optional = true`       | Always on in Pyright                           | Check None handling          |
+| `warn_redundant_casts = true`  | `reportUnnecessaryCast = "error"`              | Flag unnecessary casts       |
+| `warn_unused_ignores = true`   | `reportUnnecessaryTypeIgnoreComment = "error"` | Flag unused ignores          |
 
 ## Complementary Configurations
 
@@ -319,14 +319,14 @@ Tests often need less strict checking.
 
 ## Decision Matrix
 
-| Scenario | Recommendation |
-|----------|----------------|
-| New project, VS Code team | Start with Pyright only |
-| Existing MyPy project | Add Pyright, keep MyPy |
-| Django/Pydantic/SQLAlchemy | MyPy required (plugins) |
-| Performance critical | Pyright primary, MyPy in CI |
-| Maximum safety | Both, strict mode |
-| Small project (<100 files) | Either is fine |
+| Scenario                    | Recommendation                      |
+| --------------------------- | ----------------------------------- |
+| New project, VS Code team   | Start with Pyright only             |
+| Existing MyPy project       | Add Pyright, keep MyPy              |
+| Django/Pydantic/SQLAlchemy  | MyPy required (plugins)             |
+| Performance critical        | Pyright primary, MyPy in CI         |
+| Maximum safety              | Both, strict mode                   |
+| Small project (<100 files)  | Either is fine                      |
 | Large project (1000+ files) | Pyright for speed, MyPy for plugins |
 
 ## Troubleshooting

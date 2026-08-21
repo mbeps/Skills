@@ -6,11 +6,11 @@ Complete guide to understanding and fixing Pyright type errors.
 
 Pyright groups errors by severity and type:
 
-| Severity | Meaning |
-|----------|---------|
-| **Error** | Code will likely fail or violate type safety |
-| **Warning** | Suspicious but might be intentional |
-| **Information** | Stylistic or optional improvements |
+| Severity        | Meaning                                      |
+| --------------- | -------------------------------------------- |
+| **Error**       | Code will likely fail or violate type safety |
+| **Warning**     | Suspicious but might be intentional          |
+| **Information** | Stylistic or optional improvements           |
 
 ## Top 10 Most Common Errors
 
@@ -358,19 +358,19 @@ result = dynamic_call()  # type: ignore
 
 Common error codes you can specify in suppressions:
 
-| Code | Meaning |
-|------|---------|
-| `reportGeneralTypeIssues` | Generic type incompatibility |
-| `reportOptionalMemberAccess` | Accessing member on possibly-None value |
-| `reportOptionalSubscript` | Subscripting possibly-None value |
-| `reportOptionalCall` | Calling possibly-None value |
-| `reportUnusedVariable` | Variable defined but never used |
-| `reportUnusedImport` | Import never used |
-| `reportMissingImports` | Import cannot be resolved |
-| `reportMissingTypeStubs` | No type stubs for library |
-| `reportUnknownMemberType` | Member type is Unknown |
-| `reportUntypedFunctionDecorator` | Decorator has no types |
-| `reportPrivateUsage` | Accessing private member |
+| Code                             | Meaning                                 |
+| -------------------------------- | --------------------------------------- |
+| `reportGeneralTypeIssues`        | Generic type incompatibility            |
+| `reportOptionalMemberAccess`     | Accessing member on possibly-None value |
+| `reportOptionalSubscript`        | Subscripting possibly-None value        |
+| `reportOptionalCall`             | Calling possibly-None value             |
+| `reportUnusedVariable`           | Variable defined but never used         |
+| `reportUnusedImport`             | Import never used                       |
+| `reportMissingImports`           | Import cannot be resolved               |
+| `reportMissingTypeStubs`         | No type stubs for library               |
+| `reportUnknownMemberType`        | Member type is Unknown                  |
+| `reportUntypedFunctionDecorator` | Decorator has no types                  |
+| `reportPrivateUsage`             | Accessing private member                |
 
 Full list: https://microsoft.github.io/pyright/#/configuration?id=type-check-diagnostics-settings
 

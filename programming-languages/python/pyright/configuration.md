@@ -47,12 +47,12 @@ reportMissingTypeStubs = "warning"
 
 Four modes with increasing strictness:
 
-| Mode | Description | Use When |
-|------|-------------|----------|
-| **off** | Syntax/import errors only, no type checking | Legacy code, not ready for types |
-| **basic** | Basic type checking, lenient | Introducing types gradually |
-| **standard** | Balanced checking (default) | Most projects |
-| **strict** | Maximum strictness | New projects, high-quality codebases |
+| Mode         | Description                                 | Use When                             |
+| ------------ | ------------------------------------------- | ------------------------------------ |
+| **off**      | Syntax/import errors only, no type checking | Legacy code, not ready for types     |
+| **basic**    | Basic type checking, lenient                | Introducing types gradually          |
+| **standard** | Balanced checking (default)                 | Most projects                        |
+| **strict**   | Maximum strictness                          | New projects, high-quality codebases |
 
 Set via: `"typeCheckingMode": "standard"`
 
@@ -194,13 +194,13 @@ Pylance (VS Code extension) uses these settings in `settings.json`:
 
 ### Important VS Code Settings
 
-| Setting | Description |
-|---------|-------------|
-| `python.analysis.typeCheckingMode` | Same as Pyright's typeCheckingMode |
-| `python.analysis.diagnosticMode` | "openFilesOnly" (fast) or "workspace" (thorough) |
-| `python.analysis.autoImportCompletions` | Auto-import suggestions |
-| `python.analysis.indexing` | Enable/disable indexing for performance |
-| `python.analysis.useLibraryCodeForTypes` | Parse library source when stubs missing |
+| Setting                                  | Description                                      |
+| ---------------------------------------- | ------------------------------------------------ |
+| `python.analysis.typeCheckingMode`       | Same as Pyright's typeCheckingMode               |
+| `python.analysis.diagnosticMode`         | "openFilesOnly" (fast) or "workspace" (thorough) |
+| `python.analysis.autoImportCompletions`  | Auto-import suggestions                          |
+| `python.analysis.indexing`               | Enable/disable indexing for performance          |
+| `python.analysis.useLibraryCodeForTypes` | Parse library source when stubs missing          |
 
 ## Command Line Usage
 

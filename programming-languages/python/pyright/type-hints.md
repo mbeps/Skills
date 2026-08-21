@@ -426,15 +426,15 @@ from typing_extensions import ParamSpec
 
 ## Common Type Hint Mistakes
 
-| Mistake | Fix |
-|---------|-----|
-| `def func(x) -> int:` | Add parameter type: `def func(x: int) -> int:` |
-| `items = []` | Annotate: `items: list[str] = []` |
-| `Union[str, None]` | Use `str | None` (Python 3.10+) or `Optional[str]` |
-| `List[str]` (Python 3.9+) | Use `list[str]` |
-| `return None` but no `-> None` | Add `-> None` return type |
-| Using `Any` unnecessarily | Be specific or use TypeVar |
-| Missing imports from typing | Import TypeVar, Protocol, etc. |
+| Mistake                        | Fix                                            |
+| ------------------------------ | ---------------------------------------------- |
+| `def func(x) -> int:`          | Add parameter type: `def func(x: int) -> int:` |
+| `items = []`                   | Annotate: `items: list[str] = []`              |
+| `Union[str, None]`             | Use `str                                       | None` (Python 3.10+) or `Optional[str]` |
+| `List[str]` (Python 3.9+)      | Use `list[str]`                                |
+| `return None` but no `-> None` | Add `-> None` return type                      |
+| Using `Any` unnecessarily      | Be specific or use TypeVar                     |
+| Missing imports from typing    | Import TypeVar, Protocol, etc.                 |
 
 ## Best Practices
 
