@@ -1,6 +1,6 @@
 ---
 name: writing-nextjs-vitest-tests
-description: Use when writing, adding, or maintaining unit or integration tests for a Next.js project using Vitest; when mocking Next.js runtime modules (next/navigation, next/headers, next/cache), Drizzle ORM query builders, server actions, Zustand stores, or third-party SDKs (AWS S3, Postmark); and when Vitest tests fail to import, crash at module load, or behave flakily under jsdom.
+description: Use when writing Next.js Vitest tests; mocking Next.js runtime modules, Prisma ORM, server actions, Zustand stores, SDKs (S3, Postmark), Inngest v4 durable functions, Polar.sh billing, AI SDK model providers, encrypted credentials, tRPC routers via createCaller, Jotai atoms, Prisma call-shape assertions; rendering components with @testing-library/react (DOM assertions, event firing, TestWrapper); fake timers + act(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint config; or diagnosing import crashes, hoisting errors, jsdom flakiness.
 ---
 
 # Writing Next.js Vitest Tests
@@ -24,6 +24,12 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | `configuration.md` | Scripts, vitest.config.ts, setup file, jsdom gotchas |
 | `mocking-patterns.md` | Hoisting, chainable DB mock, Next.js modules, SDKs, fetch/SSE |
 | `testing-layers.md` | What to test per layer: schemas, actions, hooks, stores, utils, coverage |
+| `component-testing.md` | Rendering components, DOM assertions, event firing, TestWrapper pattern, shadcn/ui tests |
+| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint config |
+| `inngest-testing.md` | Inngest v4 durable functions — stepMock.run sync collapse, publishMock realtime status, executor test template, channel mocking |
+| `polar-billing-testing.md` | Polar.sh subscription gating — premiumProcedure bypass, dynamic import/env stubbing, checkout/portal flows |
+| `ai-sdk-testing.md` | Vercel AI SDK — generateText mocking, provider factories (OpenAI/Anthropic/Gemini/OpenRouter), credential decryption at execution time |
+| `prisma-mock-completeness.md` | Prisma mock coverage matrix, tRPC createCaller router tests, ownership scoping assertions, pagination branch coverage |
 
 ## The Golden Rules
 

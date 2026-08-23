@@ -105,6 +105,38 @@ it("links a message to its parent's childrenIds", () => {
 - For async store methods, spy and mock the return: `vi.spyOn(useAppStore.getState(), "createChatDb").mockResolvedValueOnce("chat-abc")` (remember `restoreAllMocks`).
 - Integration alternative: render a real component, drive it with `user-event`, assert via `screen` queries.
 
+## Jotai atoms
+
+Test Jotai atoms directly via `createStore()` — no rendering needed. Each test gets an isolated store so atoms don't leak:
+
+```typescript
+import { createStore } from "jotai";
+import { editorAtom } from "@/features/editor/store/atoms";
+
+describe("editorAtom", () => {
+  it("should initialise with null", () => {
+    const store = createStore();
+    expect(store.get(editorAtom)).toBe(null);
+  });
+
+  it("should update with a ReactFlowInstance", () => {
+    const store = createStore();
+    const mockInstance = { zoomIn: () => {} } as any;
+
+    store.set(editorAtom, mockInstance);
+    expect(store.get(editorAtom)).toBe(mockInstance);
+  });
+});
+```
+
+Pattern:
+
+- `createStore()` per test for isolation
+- `store.get(atom)` reads initial/default value
+- `store.set(atom, value)` writes value
+- Use `as any` for complex objects (ReactFlowInstance) since full mocking isn't needed
+- Works for `WritableAtom<T, T[], void>` (simple setValue). For read-only `Atom<T>`, use `store.get(atom)` only.
+
 ## Utils
 
 Pure-function edge cases; use fake timers for anything time-based (verified pattern):
@@ -123,6 +155,59 @@ it("rejects when the promise outlives the timeout", async () => {
 
 - Cleanup assertions: `vi.spyOn(globalThis, "clearTimeout")` and assert it was called.
 - Network-dependent utils (e.g. URL guards): mock the resolver module, not the network — `vi.hoisted` mock for `resolveHostname`, then table-test malformed/loopback/private/IPv6 inputs. Snapshot `process.env` in `beforeEach`, restore in `afterEach` when the code reads env flags.
+
+## Encryption utilities
+
+Test real crypto round-trips by mocking env FIRST (since encryption.ts reads `env.ENCRYPTION_KEY` at import time):
+
+```typescript
+vi.mock("@/lib/env", () => ({
+  env: { ENCRYPTION_KEY: "test-key-of-at-least-32-characters-long-123" },
+}));
+import { encrypt, decrypt } from "@/lib/encryption";
+
+it("round-trips correctly", () => {
+  const encrypted = encrypt("secret-api-key");
+  expect(encrypted).not.toBe("secret-api-key");
+  expect(decrypt(encrypted)).toBe("secret-api-key");
+});
+
+it("produces unique ciphertext (IV rotation)", () => {
+  const e1 = encrypt("same-value");
+  const e2 = encrypt("same-value");
+  expect(e1).not.toBe(e2);
+});
+
+it("throws on invalid input", () => {
+  expect(() => decrypt("invalid-string")).toThrow();
+});
+```
+
+Gotcha: Some projects comment out the encryption mock globally in `vitest.setup.ts` because tests that need real crypto must import the actual module. Tests needing mocked encryption import the mock file directly before the SUT imports.
+
+## Utility functions (cn)
+
+Test class-merging utilities like `cn()` (clsx + tailwind-merge):
+
+```typescript
+import { cn } from "@/lib/utils";
+
+it("merges independent classes", () => {
+  expect(cn("px-2", "py-2")).toBe("px-2 py-2");
+});
+
+it("resolves conflicts (last wins)", () => {
+  expect(cn("px-2 py-2", "p-4")).toBe("p-4");
+});
+
+it("handles conditionals", () => {
+  expect(cn("px-2", true && "py-2", false && "mt-4")).toBe("px-2 py-2");
+});
+
+it("ignores null/undefined", () => {
+  expect(cn("px-2", null, undefined)).toBe("px-2");
+});
+```
 
 ## Coverage guidance
 

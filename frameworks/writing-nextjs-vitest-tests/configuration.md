@@ -40,7 +40,7 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
       exclude: [
-        "drizzle/**",
+        "prisma/**",
         "**/node_modules/**",
         "**/.next/**",
         "**/migrations/**",
@@ -114,6 +114,26 @@ Object.defineProperty(window, "innerWidth", {
   value: 375, // mobile width
 });
 ```
+
+### window.matchMedia stubbing
+
+For hooks that depend on viewport size (`useIsMobile`), override both `innerWidth` and `matchMedia`:
+
+```typescript
+Object.defineProperty(window, "innerWidth", {
+  writable: true,
+  configurable: true,
+  value: 1024, // or 500 for mobile tests
+});
+
+window.matchMedia = vi.fn().mockImplementation((query) => ({
+  matches: query.includes("(max-width: 767px)") ? false : true,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+}));
+```
+
+This works because jsdom does not implement `window.matchMedia`. The mock inspects the query string to return appropriate `matches` values.
 
 - React 19 logs `console.warn` (React 18: `console.error`) for state updates outside `act` — wrap async work in `await act(async () => ...)`.
 - jsdom has no layout engine; offset/geometry reads return 0.
