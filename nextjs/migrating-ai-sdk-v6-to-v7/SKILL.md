@@ -12,9 +12,10 @@ Upgrade plan for moving a Next.js App Router project from AI SDK v6 to v7 (`ai@7
 ## When to Use
 
 Use when:
-- Bumping `ai`, `@ai-sdk/react`, `@ai-sdk/mcp`, `@ai-sdk/openai` from 6.x/1.x/2.x/3.x to 7.x.
+- Bumping `ai`, `@ai-sdk/react`, `@ai-sdk/mcp`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@openrouter/ai-sdk-provider` from 6.x/1.x/2.x/3.x to 7.x/4.x/3.x.
 - Running or reviewing the `npx @ai-sdk/codemod v7` output (it has known bugs).
-- Changing `streamText`/`generateText` options (`system`, `onFinish`, `stepCountIs`, `onStepFinish`).
+- Changing `streamText`/`generateText` options (`system` → `instructions`, `onFinish` → `onEnd`, `stepCountIs` → `isStepCount`, `onStepFinish` → `onStepEnd`, `experimental_telemetry` → `telemetry`).
+- Migrating durable background jobs / workflow executor nodes (`step.ai.wrap`, Inngest, Temporal, BullMQ) using `generateText`.
 - Wrapping results with `createUIMessageStream` / `toUIMessageStream` / `createUIMessageStreamResponse`.
 - Migrating `useChat` + `DefaultChatTransport`, or fixing a `ChatStatus` `'error'` regression.
 - Updating vitest mocks that `vi.mock("ai", ...)` — after a rename they fail at runtime with `[vitest] No "X" export is defined on the "ai"`.

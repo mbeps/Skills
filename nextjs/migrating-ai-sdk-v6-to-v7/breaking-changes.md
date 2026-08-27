@@ -6,34 +6,34 @@ Legend: 🔴 removed · 🟠 renamed (alias works in 7.0.79, removed in v8) · �
 
 ## 1. Rename map (mechanical)
 
-| v6 | v7 | Applies to |
-|---|---|---|
-| `system:` option | `instructions:` 🟠 | `generateText`, `streamText`, `generateObject`, `streamObject`, `streamUI`, `prepareStep` returns, `experimental_repairToolCall`, lifecycle event fields |
-| `{ role: "system" }` in `prompt`/`messages` | **REJECTED** 🔵 | runtime `InvalidPromptError` — see §2.1 |
-| `onFinish` | `onEnd` 🟠 | `generateText`, `streamText`, agents, `ToolLoopAgent`, `createUIMessageStream`, `toUIMessageStream` |
-| `onStepFinish` | `onStepEnd` 🟠 | same set |
-| `stepCountIs(n)` | `isStepCount(n)` 🟠 | `stopWhen` helpers |
-| `fullStream` | `stream` 🟡 (alias) | `streamText` result |
-| `result.toUIMessageStream()` | stateless `toUIMessageStream({ stream: result.stream, ... })` 🟡 | result method deprecated; top-level helper |
-| `experimental_onStart` / `experimental_onStepStart` | `onStart` / `onStepStart` 🟠 | `generateText`/`streamText` |
-| `experimental_telemetry` | `telemetry` 🟠 | all calls; **OTel moved to `@ai-sdk/otel`** 🔵 (see §2.8) |
-| `experimental_context` | `context` 🟠 + `runtimeContext`/`toolsContext` split 🔵 | tool callbacks |
-| `needsApproval` on `tool()` | `toolApproval` config 🟡 | call/agent-level |
-| `experimental_output` | `output` 🔴 | removed |
-| `experimental_customProvider` | `customProvider` 🔴 | removed |
-| `experimental_generateImage` | `generateImage` 🔴 | removed |
-| `experimental_transcribe` / `experimental_generateSpeech` | `transcribe` / `generateSpeech` 🟠 | aliases kept |
-| `experimental_activeTools` | `activeTools` 🔴 | removed |
-| `ToolCallOptions` | `ToolExecutionOptions` 🔴 | type removed |
-| `isToolOrDynamicToolUIPart` | `isToolUIPart` 🔴 | removed; new `isDynamicToolUIPart` |
-| `includeRawChunks` / `experimental_include` | `include: { rawChunks, requestBody, ... }` 🟠 | `streamText` options |
-| `usage` (final step) / `totalUsage` (all) | `usage` = **all steps** 🔵; `totalUsage` 🟡 | see §2.2 |
-| `usage.cachedInputTokens` / `usage.reasoningTokens` | `usage.inputTokenDetails.cacheReadTokens` / `outputTokenDetails.reasoningTokens` 🔴 | removed top-level fields |
-| `step.response.messages` (accumulated) | **that step's messages only** 🔵 | use `result.responseMessages` |
-| `textEmbeddingModel` | `embeddingModel` (also `embedding`) 🟡 | `@ai-sdk/openai` provider |
-| MCP `redirect` default | `'follow'` → **`'error'`** 🔵 | `@ai-sdk/mcp` HTTP/SSE transports |
-| `callSettings` type | `LanguageModelCallOptions` + `RequestOptions` 🟠 | custom wrappers only |
-| `experimental_onToolCallStart/Finish` | `onToolExecutionStart/End` 🟠 | tool lifecycle |
+| v6                                                        | v7                                                                                 | Applies to                                                                                                                                               |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system:` option                                          | `instructions:` 🟠                                                                  | `generateText`, `streamText`, `generateObject`, `streamObject`, `streamUI`, `prepareStep` returns, `experimental_repairToolCall`, lifecycle event fields |
+| `{ role: "system" }` in `prompt`/`messages`               | **REJECTED** 🔵                                                                     | runtime `InvalidPromptError` — see §2.1                                                                                                                  |
+| `onFinish`                                                | `onEnd` 🟠                                                                          | `generateText`, `streamText`, agents, `ToolLoopAgent`, `createUIMessageStream`, `toUIMessageStream`                                                      |
+| `onStepFinish`                                            | `onStepEnd` 🟠                                                                      | same set                                                                                                                                                 |
+| `stepCountIs(n)`                                          | `isStepCount(n)` 🟠                                                                 | `stopWhen` helpers                                                                                                                                       |
+| `fullStream`                                              | `stream` 🟡 (alias)                                                                 | `streamText` result                                                                                                                                      |
+| `result.toUIMessageStream()`                              | stateless `toUIMessageStream({ stream: result.stream, ... })` 🟡                    | result method deprecated; top-level helper                                                                                                               |
+| `experimental_onStart` / `experimental_onStepStart`       | `onStart` / `onStepStart` 🟠                                                        | `generateText`/`streamText`                                                                                                                              |
+| `experimental_telemetry`                                  | `telemetry` 🟠                                                                      | all calls; **OTel moved to `@ai-sdk/otel`** 🔵 (see §2.8)                                                                                                 |
+| `experimental_context`                                    | `context` 🟠 + `runtimeContext`/`toolsContext` split 🔵                              | tool callbacks                                                                                                                                           |
+| `needsApproval` on `tool()`                               | `toolApproval` config 🟡                                                            | call/agent-level                                                                                                                                         |
+| `experimental_output`                                     | `output` 🔴                                                                         | removed                                                                                                                                                  |
+| `experimental_customProvider`                             | `customProvider` 🔴                                                                 | removed                                                                                                                                                  |
+| `experimental_generateImage`                              | `generateImage` 🔴                                                                  | removed                                                                                                                                                  |
+| `experimental_transcribe` / `experimental_generateSpeech` | `transcribe` / `generateSpeech` 🟠                                                  | aliases kept                                                                                                                                             |
+| `experimental_activeTools`                                | `activeTools` 🔴                                                                    | removed                                                                                                                                                  |
+| `ToolCallOptions`                                         | `ToolExecutionOptions` 🔴                                                           | type removed                                                                                                                                             |
+| `isToolOrDynamicToolUIPart`                               | `isToolUIPart` 🔴                                                                   | removed; new `isDynamicToolUIPart`                                                                                                                       |
+| `includeRawChunks` / `experimental_include`               | `include: { rawChunks, requestBody, ... }` 🟠                                       | `streamText` options                                                                                                                                     |
+| `usage` (final step) / `totalUsage` (all)                 | `usage` = **all steps** 🔵; `totalUsage` 🟡                                          | see §2.2                                                                                                                                                 |
+| `usage.cachedInputTokens` / `usage.reasoningTokens`       | `usage.inputTokenDetails.cacheReadTokens` / `outputTokenDetails.reasoningTokens` 🔴 | removed top-level fields                                                                                                                                 |
+| `step.response.messages` (accumulated)                    | **that step's messages only** 🔵                                                    | use `result.responseMessages`                                                                                                                            |
+| `textEmbeddingModel`                                      | `embeddingModel` (also `embedding`) 🟡                                              | `@ai-sdk/openai` provider                                                                                                                                |
+| MCP `redirect` default                                    | `'follow'` → **`'error'`** 🔵                                                       | `@ai-sdk/mcp` HTTP/SSE transports                                                                                                                        |
+| `callSettings` type                                       | `LanguageModelCallOptions` + `RequestOptions` 🟠                                    | custom wrappers only                                                                                                                                     |
+| `experimental_onToolCallStart/Finish`                     | `onToolExecutionStart/End` 🟠                                                       | tool lifecycle                                                                                                                                           |
 
 Deprecated aliases **still work in 7.0.79** — that is the trap: everything compiles, and the semantics change is the only thing that bites immediately. Do not defer renames; they are removed in v8.
 
@@ -45,17 +45,17 @@ Deprecated aliases **still work in 7.0.79** — that is the trap: everything com
 
 ### 2.2 Multi-step result shape — THE critical audit
 
-| v7 top-level result read | Semantics | v6 behaviour | Fix for v6 semantics |
-|---|---|---|---|
-| `result.text` | **final step only** (unchanged) | final step only | none |
-| `result.reasoningText` | final step only (deprecated) | final step only | `finalStep.reasoningText` |
-| `result.reasoning` | final step only (deprecated) | final step only | `finalStep.reasoning` |
-| `result.toolCalls` | **ALL steps** 🔵 | final step only | `finalStep.toolCalls` |
-| `result.toolResults` | **ALL steps** 🔵 | final step only | `finalStep.toolResults` |
-| `result.content` / `files` / `sources` / `warnings` | **ALL steps** 🔵 | final step only | `finalStep.*` |
-| `result.usage` | **ALL steps** 🔵 | final step only | `finalStep.usage` |
-| `result.steps` | per-step, unchanged | per-step | — |
-| `result.finalStep` | new accessor = last step | n/a | — |
+| v7 top-level result read                            | Semantics                       | v6 behaviour    | Fix for v6 semantics      |
+| --------------------------------------------------- | ------------------------------- | --------------- | ------------------------- |
+| `result.text`                                       | **final step only** (unchanged) | final step only | none                      |
+| `result.reasoningText`                              | final step only (deprecated)    | final step only | `finalStep.reasoningText` |
+| `result.reasoning`                                  | final step only (deprecated)    | final step only | `finalStep.reasoning`     |
+| `result.toolCalls`                                  | **ALL steps** 🔵                 | final step only | `finalStep.toolCalls`     |
+| `result.toolResults`                                | **ALL steps** 🔵                 | final step only | `finalStep.toolResults`   |
+| `result.content` / `files` / `sources` / `warnings` | **ALL steps** 🔵                 | final step only | `finalStep.*`             |
+| `result.usage`                                      | **ALL steps** 🔵                 | final step only | `finalStep.usage`         |
+| `result.steps`                                      | per-step, unchanged             | per-step        | —                         |
+| `result.finalStep`                                  | new accessor = last step        | n/a             | —                         |
 
 Verified in `ai@7.0.79` dist: top-level `text`/`reasoning`/`reasoningText` getters read `this.finalStep.*`; `toolCalls`/`toolResults`/`content`/`files`/`sources`/`warnings` flatMap over `steps`. The official migration guide's aggregation list is `content, toolCalls, toolResults, files, sources, warnings` (+ `usage`) — **`text` is NOT in it**. If a design doc claims "text aggregates across steps", it is wrong for this pin — verify against `node_modules/ai/dist/index.js` before acting.
 
@@ -85,7 +85,7 @@ Signature: `{ execute, onError, originalMessages?, onStepEnd?, onFinish? (alias)
 
 ### 2.8 Telemetry → `@ai-sdk/otel`
 
-OTel is no longer built into `ai`. If the project uses `experimental_telemetry`, install `@ai-sdk/otel`, `registerTelemetry(new OpenTelemetry())` once (`instrumentation.ts` in Next.js), rename to `telemetry`, drop redundant `isEnabled: true` (telemetry is now opt-out once registered). **Projects with zero telemetry usage need no `@ai-sdk/otel`** — verified case: grep for `telemetry|@opentelemetry`; if empty, skip.
+OTel is no longer built into `ai`. If the project uses `experimental_telemetry`, rename the option to `telemetry` (e.g. `telemetry: { isEnabled: true, recordInputs: true, recordOutputs: true }` in `generateText`/`streamText`). If integrating OpenTelemetry tracing, install `@ai-sdk/otel` and call `registerTelemetry(new OpenTelemetry())` once (`instrumentation.ts` in Next.js). **Projects with zero custom OpenTelemetry instrumentation do not need `@ai-sdk/otel`** — keeping `telemetry: { isEnabled: true, ... }` remains fully valid and type-safe.
 
 ### 2.9 `ChatStatus` gained `'error'`
 
