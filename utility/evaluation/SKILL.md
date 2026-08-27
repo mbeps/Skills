@@ -7,6 +7,8 @@ description: "Comprehensive codebase evaluation system that assesses code qualit
 
 Comprehensive codebase evaluation system that assesses code quality, architecture, design patterns, security, testing, dependencies, and maintainability. Produces detailed, structured diagnostic reports across multiple quality dimensions.
 
+**REQUIRED SUB-SKILL:** If the `ponytail` skill is not already loaded, load it. Its YAGNI lens keeps evaluation lean: report only what warrants change, not every theoretical alternative.
+
 ## When to Use
 
 Use this skill when you need to:
@@ -75,6 +77,9 @@ codebase/module    evaluation       findings        diagnostic report
 - **Objective Assessment** – Report findings without suggesting solutions or code modifications
 - **Verification** – Cross-check findings to ensure accuracy and identify uncertain or disputed results
 - **Simplicity-First Lens** – Prioritise maintainability, clarity, and correctness over engineering sophistication
+- **Change-Worthiness** – Only report issues whose fix would meaningfully improve the codebase. If addressing something would not change outcomes for the better, it is noise, not a finding.
+- **Cost-Weighted Findings** – Weigh fix cost against benefit. A trivial style nit in rarely-touched code does not earn a report entry. When the same "problem" appears everywhere, question whether it is a problem at all.
+- **Prefer the Working Solution** – Code that works, reads clearly, and causes no measurable harm is not a defect just because it could be structured differently.
 
 ## Required Inputs
 
@@ -102,6 +107,7 @@ All evaluation reports follow a structured Markdown format with:
 - All findings are **evidence-based** – backed by codebase references or official documentation
 - All findings are **objective** – use concrete metrics (Indirection Debt, Lines of Code, Complexity) where applicable
 - All reports use **British English** spelling and grammar
+- All reports are written in **ASD-STE100** – short sentences, plain vocabulary, one idea per sentence, no jargon
 - Reports are **diagnostic** – focused on identifying issues, not prescribing solutions
 
 ## What This Skill Does NOT Do
@@ -111,6 +117,7 @@ All evaluation reports follow a structured Markdown format with:
 - **Does not penalise simplicity** – Simple, straightforward code is the goal
 - **Does not suggest fixes** – Reports problems for the engineer to address
 - **Does not make assumptions** – Asks for clarification on intentional design choices
+- **Does not invent problems** – Does not flag code for the sake of change. A finding must pass the change-worthiness test (see Key Principles).
 - **Does not suggest new frameworks or tooling** – Focuses on code and architecture assessment
 
 ## Example Invocations
@@ -145,6 +152,7 @@ Provide specific file paths and line numbers for all findings.
 
 ## Related Skills
 
+- **ponytail** – YAGNI lens that keeps evaluation lean; load it if not already loaded
 - **clean-code** – Pragmatic coding standards and direct analysis
 - **karpathy-guidelines** – Guidelines to reduce common LLM coding mistakes
 - **design-patterns** – Architectural frameworks for sustainable software engineering
