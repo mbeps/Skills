@@ -93,27 +93,27 @@ Next.js 16 decouples `next build` from ESLint and transpiles TypeScript using Ru
 }
 ```
 
-### 4.2 Vitest 4+ & `vite-tsconfig-paths`
-Vitest transforms TypeScript via esbuild/Vite without calling `tsc`. `vite-tsconfig-paths` parses path aliases directly:
+### 4.2 Vitest 4+ Configuration
+Vitest transforms TypeScript via esbuild/Vite without calling `tsc`. Modern Vite supports native `resolve.tsconfigPaths: true` (or `vite-tsconfig-paths` plugin):
 
 ```typescript
 // vitest.config.ts
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [react()],
+  resolve: {
+    tsconfigPaths: true, // Native path alias resolution in Vite 6+
+  },
   test: {
     globals: true,
-    environment: "node",
-    coverage: {
-      provider: "v8",
-    },
+    environment: "jsdom",
   },
 });
 ```
 
-### 4.3 Recommended Modern `tsconfig.json` Flags
+### 4.3 Recommended Modern `tsconfig.json` Flags & Test Isolation
 
 ```json
 {
@@ -136,7 +136,15 @@ export default defineConfig({
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "__tests__/**/*",
+    "**/__tests__/**/*",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ]
 }
 ```
+
+> **Note:** Explicitly excluding test files from `tsconfig.json` ensures `next build` type-checking focuses purely on production application code and is never blocked by loose test mock signatures.
 

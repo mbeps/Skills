@@ -171,7 +171,8 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
         "preset": "none"
       },
       "complexity": {
-        "noForEach": "off"
+        "noForEach": "off",
+        "useArrowFunction": "off"
       },
       "correctness": {
         "useHookAtTopLevel": "error",
@@ -183,6 +184,7 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
       },
       "suspicious": {
         "noArrayIndexKey": "off",
+        "noDocumentCookie": "off",
         "noExplicitAny": "off",
         "noPrototypeBuiltins": "off"
       },
@@ -190,8 +192,8 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
         "useSortedClasses": {
           "level": "warn",
           "options": {
-            "attributes": ["classList"],
-            "functions": ["clsx", "cva", "twMerge"]
+            "attributes": ["classList", "className", "tw"],
+            "functions": ["clsx", "cva", "twMerge", "cn"]
           }
         }
       }
@@ -204,17 +206,25 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
 
 ### 2.7 Overrides (`overrides`)
 
-Target specific files (e.g. tests or scripts) for granular rule adjustments:
+Target specific files (e.g. test files or scripts) for granular rule adjustments:
 
 ```json
 {
   "overrides": [
     {
-      "includes": ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}", "__tests__/**/*"],
+      "includes": [
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.{ts,tsx}",
+        "__tests__/**/*"
+      ],
       "linter": {
         "rules": {
+          "performance": {
+            "noImgElement": "off"
+          },
           "suspicious": {
-            "noExplicitAny": "off"
+            "noExplicitAny": "off",
+            "noThenProperty": "off"
           },
           "style": {
             "noNonNullAssertion": "off"

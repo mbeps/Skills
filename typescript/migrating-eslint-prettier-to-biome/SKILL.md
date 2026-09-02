@@ -54,12 +54,23 @@ Use when:
 | "Dynamic Tailwind class interpolation (e.g. `h-\${HEIGHT}`) is safe." | Dynamic class name assembly bypasses static extraction in Tailwind compilers. Use complete static class names or `style={{ ... }}`. |
 | "Tailwind class sorting isn't working on standard format-on-save." | Biome classifies class reordering as an `unsafe` fix due to cascade specificity. Run `biome check --write --unsafe .` to apply class sorting. |
 | "We need `eslint.ignoreDuringBuilds` in Next.js 16." | Next.js 16 removed `next lint` and decoupled builds from ESLint. No `next.config.js` hacks are required. |
+| "We need `noUnescapedEntities: 'off'` in `biome.json`." | Fails schema deserialization. Biome allows unescaped quotes/apostrophes in JSX text by default. |
+| "Attribute suppressions (`noDangerouslySetInnerHtml`) go above JSX tags." | Fails with `suppressions/unused`. Biome evaluates attribute rules at the attribute AST node; place `// biome-ignore` inside the tag directly preceding the attribute. |
+| "`biome check --write --unsafe .` preserves all manual effect dependencies." | Biome drops dependencies from `useEffect` if they lack lexical references inside the effect body. Reference variables directly inside the effect (e.g. `if (!user) return;`). |
+| "It is always safe to enforce arrow functions with `useArrowFunction`." | Arrow functions lack `[[Construct]]` slots and throw `TypeError: ... is not a constructor` when instantiated with `new` in test mocks (`new S3Client()`, `new ServerClient()`). Disable `useArrowFunction` in `biome.json` or test overrides. |
+| "Next.js builds should succeed in network-restricted sandboxes." | `next build` downloads Google Fonts (`next/font/google`) during static page generation. Ensure network access is permitted during production build verification. |
 
 ## Red Flags - STOP and Correct
 
+- Converting constructor mock functions instantiated with `new` into arrow functions (`useArrowFunction`).
 - Collapsing multiline template strings in `className` without checking boundary whitespace (e.g. ``h-${NAVBAR_HEIGHT}w-full``).
 - Constructing dynamic Tailwind utility strings that evade static scanner extraction.
+- Adding non-existent rules like `noUnescapedEntities` to `biome.json`.
 - Leaving legacy ESLint packages or plugins in `package.json` after adopting Biome.
+- Duplicating object keys in JSON or configuration files (`noDuplicateObjectKeys`).
+- Placing JSX attribute suppressions above the element tag instead of on the attribute line.
+- Returning expression values from `.forEach()` callbacks (`useIterableCallbackReturn`).
 - Using `// biome-ignore` without an explanatory comment reason (Biome requires a reason after `:`).
+- Leaving unused `// biome-ignore` comments for rules disabled in config or test overrides.
 - Relying solely on `biome check` and skipping `tsc --noEmit` (Biome is a fast AST linter, not a full semantic type checker).
 - Using legacy folder ignore syntax with `/**` in Biome 2.2+ (triggers `useBiomeIgnoreFolder` warnings).

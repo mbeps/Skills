@@ -18,13 +18,13 @@ flowchart LR
 
 ### Verification Matrix
 
-| Gate | Command | Purpose |
-| :--- | :--- | :--- |
-| **Gate 1: Lint** | `yarn lint` (`biome check .`) | Verifies AST correctness, syntax, import order, and lint rules. |
-| **Gate 2: CI Check** | `yarn ci` (`biome ci .`) | Strict read-only gate ensuring zero formatting drift or unorganized imports. |
-| **Gate 3: Type Check** | `npx tsc --noEmit` | Full semantic TypeScript verification via native Go compiler. |
-| **Gate 4: Unit Tests** | `yarn test` (`vitest run`) | Validates runtime behavior and test suites. |
-| **Gate 5: Production Build** | `yarn build` (`next build --turbopack`) | Verifies Next.js SSG page generation, Turbopack bundling, and compilation. |
+| Gate                         | Command                                 | Purpose                                                                      |
+| :--------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------- |
+| **Gate 1: Lint**             | `yarn lint` (`biome check .`)           | Verifies AST correctness, syntax, import order, and lint rules.              |
+| **Gate 2: CI Check**         | `yarn ci` (`biome ci .`)                | Strict read-only gate ensuring zero formatting drift or unorganized imports. |
+| **Gate 3: Type Check**       | `npx tsc --noEmit`                      | Full semantic TypeScript verification via native Go compiler.                |
+| **Gate 4: Unit Tests**       | `yarn test` (`vitest run`)              | Validates runtime behavior and test suites.                                  |
+| **Gate 5: Production Build** | `yarn build` (`next build --turbopack`) | Verifies Next.js SSG page generation, Turbopack bundling, and compilation.   |
 
 ---
 
@@ -169,3 +169,152 @@ flowchart LR
       steps:
         - run: yarn build
   ```
+
+---
+
+### 10. `useIterableCallbackReturn` (Concise Arrow Callback in `.forEach`)
+
+- **Error**:
+  ```text
+  lint/suspicious/useIterableCallbackReturn: This callback passed to forEach() iterable method should not return a value.
+  ```
+- **Root Cause**:
+  Arrow functions with concise expressions (e.g. `items.forEach((item) => store.set(item))` or `listeners.forEach((cb) => cb())`) implicitly return the expression result. Since `.forEach()` ignores return values, returning values often signals confusing `.forEach()` with `.map()`.
+- **Fix**:
+  Wrap the callback body in braces or use a `for..of` loop:
+  ```typescript
+  // Before:
+  items.forEach((item) => store.set(item));
+
+  // After:
+  items.forEach((item) => {
+    store.set(item);
+  });
+  ```
+
+---
+
+### 11. `suppressions/unused` (Unused Suppression Comment)
+
+- **Error**:
+  ```text
+  suppressions/unused: Suppression comment has no effect.
+  ```
+- **Root Cause**:
+  A `// biome-ignore` comment was added or migrated for a rule that is already disabled in `biome.json` (e.g., in test `overrides`), or the underlying violation was resolved by an automated fix (such as `useExhaustiveDependencies` populating dependencies).
+- **Fix**:
+  Delete the redundant suppression comment.
+
+---
+
+### 12. JSX Attribute Suppression Positioning (`noDangerouslySetInnerHtml`)
+
+- **Error**:
+  `lint/security/noDangerouslySetInnerHtml` flags `dangerouslySetInnerHTML` even when `// biome-ignore` is present above the opening tag `<style>` or `<div>`.
+- **Root Cause**:
+  Biome evaluates JSX attribute rules at the attribute AST node. Placing the comment before the element tag attaches it to the element, leaving the attribute unsuppressed.
+- **Fix**:
+  Place the suppression comment inside the element tag directly above the attribute line:
+  ```tsx
+  <style
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme CSS generation
+    dangerouslySetInnerHTML={{ __html: themeCss }}
+  />
+  ```
+
+---
+
+### 13. `useExhaustiveDependencies` Unsafe Auto-Fix Stripping Intentional Dependencies
+
+- **Symptom**:
+  Running `biome check --write --unsafe .` drops dependencies from `useEffect` (e.g. changes `[isSignedIn, user]` to `[isSignedIn]`), causing test failures or stale UI when `user` changes.
+- **Root Cause**:
+  Biome AST analysis inspects variables referenced directly inside the effect closure. When state is derived outside the effect (e.g. `const isSignedIn = !!user;`), Biome treats `user` as an extraneous dependency and strips it under `--unsafe`.
+- **Fix**:
+  Reference the entity directly within the effect body so Biome recognizes it as an active dependency:
+  ```typescript
+  // Before:
+  const isSignedIn = !!user;
+  useEffect(() => {
+    if (!isSignedIn) return;
+    fetchData();
+  }, [user]); // Biome --unsafe removes user!
+
+  // After:
+  useEffect(() => {
+    if (!user) return;
+    fetchData();
+  }, [user]); // Biome recognises user as an active dependency
+  ```
+
+---
+
+### 14. Test Mock `noThenProperty` and `noImgElement`
+
+- **Error**:
+  `lint/suspicious/noThenProperty` on mock database/query builder objects defining thenable properties (`Object.defineProperty(b, "then", ...)`), or `lint/performance/noImgElement` on mocked Next.js Image components (`<img />`).
+- **Fix**:
+  Add `performance.noImgElement: "off"` and `suspicious.noThenProperty: "off"` to the `overrides` block in `biome.json` for test file globs (`__tests__/**/*`, `**/*.test.{ts,tsx}`).
+
+---
+
+### 15. `useArrowFunction` Breaking Class Constructor Mocks (`TypeError: is not a constructor`)
+
+- **Error**:
+  ```text
+  TypeError: Class constructor S3Client cannot be invoked without 'new'
+  TypeError: _postmark.ServerClient is not a constructor
+  ```
+- **Root Cause**:
+  Biome's `complexity/useArrowFunction` rule converts standard functions `function () { ... }` into arrow functions `() => { ... }`. Arrow functions do not possess a `[[Construct]]` internal method and cannot be instantiated with `new`. When libraries (e.g. `@aws-sdk/client-s3`, `postmark`) instantiate mocked classes via `new S3Client(...)`, arrow function mocks throw a runtime TypeError.
+- **Fix**:
+  1. Set `"complexity": { "useArrowFunction": "off" }` in `biome.json` (or under test `overrides`).
+  2. Implement constructor mocks using standard function expressions:
+     ```typescript
+     vi.mock("@aws-sdk/client-s3", () => ({
+       S3Client: vi.fn().mockImplementation(function () {
+         return { send: mockSend };
+       }),
+     }));
+     ```
+
+---
+
+### 16. Next.js Turbopack Font Download Failure in Sandboxed / Offline Builds
+
+- **Error**:
+  ```text
+  Failed to fetch font `Geist` from Google Fonts: 403 Forbidden / Network error
+  ```
+- **Root Cause**:
+  `next build` with Turbopack downloads Google Fonts (`next/font/google`) during static page generation. In sandboxed or offline container environments without outbound network access, font fetching fails and aborts the build.
+- **Fix**:
+  Ensure outbound network access is permitted for production builds (e.g. `BypassSandbox: true` in agent tooling or network access in CI runners).
+
+---
+
+### 17. `noDuplicateObjectKeys` (Duplicate Object Literal or JSON Keys)
+
+- **Error**:
+  ```text
+  lint/suspicious/noDuplicateObjectKeys: The key X was already declared.
+  ```
+- **Root Cause**:
+  Duplicated object keys or JSON properties left after manual edits or migrations (e.g. duplicate `"lint"` scripts in `package.json` or duplicate command mocks).
+- **Fix**:
+  Remove the duplicate preceding or shadowed key definition.
+
+---
+
+### 18. `assist/source/organizeImports` (Import Organization & Sorting)
+
+- **Error**:
+  ```text
+  assist/source/organizeImports FIXABLE: Sort the imported names.
+  ```
+- **Root Cause**:
+  Biome strictly enforces alphabetical and grouped import ordering. Modifying imports manually can leave specifiers out of order.
+- **Fix**:
+  Run `biome check --write --unsafe .` (or `npm run lint:fix`) to automatically sort import specifiers and group imports.
+
+

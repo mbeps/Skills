@@ -48,26 +48,37 @@ Biome implements Next.js best practices either natively via `linter.domains.next
 
 ### 3.2 `eslint-plugin-react`
 
-| ESLint Rule (`react/*`)               | Biome Rule                   | Group         | Description                                                                  |
-| :------------------------------------ | :--------------------------- | :------------ | :--------------------------------------------------------------------------- |
-| `react/jsx-key`                       | `useJsxKeyInIterable`        | `correctness` | Enforces `key` prop on iterable items in JSX arrays.                         |
-| `react/no-children-prop`              | `noChildrenProp`             | `correctness` | Disallows passing `children` as a prop directly (`<Comp children={...} />`). |
-| `react/no-danger-with-children`       | `noDangerWithChildren`       | `correctness` | Disallows simultaneous use of `children` and `dangerouslySetInnerHTML`.      |
-| `react/no-render-return-value`        | `noRenderReturnValue`        | `correctness` | Disallows capturing return value of `ReactDOM.render()`.                     |
-| `react/no-string-refs`                | `noStringRefs`               | `correctness` | Disallows deprecated string refs.                                            |
-| `react/no-unescaped-entities`         | `noUnescapedEntities`        | `correctness` | Flags unescaped `"` `'` `>` `}` characters in JSX text.                      |
-| `react/void-dom-elements-no-children` | `noVoidElementsWithChildren` | `correctness` | Disallows children in void tags (`<br>`, `<img>`, `<input>`).                |
-| `react/jsx-no-duplicate-props`        | `noDuplicateJsxProps`        | `correctness` | Flags duplicate attributes on JSX elements.                                  |
-| `react/jsx-no-target-blank`           | `noBlankTarget`              | `a11y`        | Enforces `rel="noreferrer"` on `target="_blank"` links.                      |
-| `react/jsx-no-useless-fragment`       | `noUselessFragments`         | `complexity`  | Eliminates redundant `<>...</>` wrappers.                                    |
-| `react/self-closing-comp`             | `useSelfClosingElements`     | `style`       | Enforces self-closing tags for components without children.                  |
-| `react/no-array-index-key`            | `noArrayIndexKey`            | `suspicious`  | Disallows array indices as React `key` props.                                |
-| `react/button-has-type`               | `useButtonType`              | `a11y`        | Enforces explicit `type="button" \| "submit" \| "reset"` on `<button>`.      |
-| `react/no-danger`                     | `noDangerouslySetInnerHtml`  | `security`    | Flags unsafe `dangerouslySetInnerHTML` usage.                                |
+| ESLint Rule (`react/*`)               | Biome Rule                   | Group         | Description                                                                                                              |
+| :------------------------------------ | :--------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------- |
+| `react/jsx-key`                       | `useJsxKeyInIterable`        | `correctness` | Enforces `key` prop on iterable items in JSX arrays.                                                                     |
+| `react/no-children-prop`              | `noChildrenProp`             | `correctness` | Disallows passing `children` as a prop directly (`<Comp children={...} />`).                                             |
+| `react/no-danger-with-children`       | `noDangerWithChildren`       | `correctness` | Disallows simultaneous use of `children` and `dangerouslySetInnerHTML`.                                                  |
+| `react/no-render-return-value`        | `noRenderReturnValue`        | `correctness` | Disallows capturing return value of `ReactDOM.render()`.                                                                 |
+| `react/no-string-refs`                | `noStringRefs`               | `correctness` | Disallows deprecated string refs.                                                                                        |
+| `react/no-unescaped-entities`         | *None (Allowed by default)*  | `N/A`         | Biome allows unescaped entities by default. Do not add `noUnescapedEntities` to `biome.json` (causes unknown key error). |
+| `react/void-dom-elements-no-children` | `noVoidElementsWithChildren` | `correctness` | Disallows children in void tags (`<br>`, `<img>`, `<input>`).                                                            |
+| `react/jsx-no-duplicate-props`        | `noDuplicateJsxProps`        | `correctness` | Flags duplicate attributes on JSX elements.                                                                              |
+| `react/jsx-no-target-blank`           | `noBlankTarget`              | `a11y`        | Enforces `rel="noreferrer"` on `target="_blank"` links.                                                                  |
+| `react/jsx-no-useless-fragment`       | `noUselessFragments`         | `complexity`  | Eliminates redundant `<>...</>` wrappers.                                                                                |
+| `react/self-closing-comp`             | `useSelfClosingElements`     | `style`       | Enforces self-closing tags for components without children.                                                              |
+| `react/no-array-index-key`            | `noArrayIndexKey`            | `suspicious`  | Disallows array indices as React `key` props.                                                                            |
+| `react/button-has-type`               | `useButtonType`              | `a11y`        | Enforces explicit `type="button" \| "submit" \| "reset"` on `<button>`.                                                  |
+| `react/no-danger`                     | `noDangerouslySetInnerHtml`  | `security`    | Flags unsafe `dangerouslySetInnerHTML` usage.                                                                            |
 
 ---
 
-## 4. TypeScript Rule Mappings (`@typescript-eslint/*`)
+## 4. General JavaScript & Core Rule Mappings
+
+| ESLint Rule             | Biome Rule                  | Group         | Notes & Caveats                                                                                                                                                                                                                                                                                         |
+| :---------------------- | :-------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `prefer-arrow-callback` | `useArrowFunction`          | `complexity`  | **Constructor Mock Caveat**: Arrow functions `() => {}` lack a `[[Construct]]` slot and throw `TypeError: ... is not a constructor` when instantiated with `new` in test mocks (e.g. `new S3Client(...)`, `new ServerClient(...)`). Set `"complexity": { "useArrowFunction": "off" }` or use overrides. |
+| `no-dupe-keys`          | `noDuplicateObjectKeys`     | `suspicious`  | Flags duplicate properties in object literals and JSON keys.                                                                                                                                                                                                                                            |
+| `no-unused-vars`        | `noUnusedVariables`         | `correctness` | Flags unused variable declarations. Prefix with `_` or remove.                                                                                                                                                                                                                                          |
+| `array-callback-return` | `useIterableCallbackReturn` | `suspicious`  | Flags `.forEach()` callbacks returning values (e.g. concise arrow `forEach(x => map.set(x))`). Wrap body in braces `{ ... }`.                                                                                                                                                                           |
+
+---
+
+## 5. TypeScript Rule Mappings (`@typescript-eslint/*`)
 
 | ESLint Rule (`@typescript-eslint/*`)             | Biome Rule                | Group         | Notes                                                    |
 | :----------------------------------------------- | :------------------------ | :------------ | :------------------------------------------------------- |
@@ -86,7 +97,7 @@ Biome implements Next.js best practices either natively via `linter.domains.next
 
 ---
 
-## 5. Suppression Comment Translation Guide
+## 6. Suppression Comment Translation Guide
 
 Biome uses strict, structured suppression comments placed directly before the statement:
 
@@ -143,4 +154,28 @@ const matrix = [
   0, 0, 1
 ];
 ```
+
+#### JSX Attribute-Level Suppressions
+
+For rules targeting specific JSX attributes (such as `lint/security/noDangerouslySetInnerHtml`), place the suppression comment **inside the JSX element directly preceding the attribute**, rather than above the element tag:
+
+```tsx
+// ❌ WRONG: triggers suppressions/unused and fails lint
+// biome-ignore lint/security/noDangerouslySetInnerHtml: theme styles
+<style dangerouslySetInnerHTML={{ __html: themeCss }} />
+
+// ✅ CORRECT: comment precedes the attribute directly
+<style
+  // biome-ignore lint/security/noDangerouslySetInnerHtml: theme styles
+  dangerouslySetInnerHTML={{ __html: themeCss }}
+/>
+```
+
+---
+
+## 7. Strict Suppression Validation (`suppressions/unused`)
+
+Biome validates suppression comments strictly:
+- If a `// biome-ignore` comment is present on code that does not trigger a diagnostic (e.g. because the rule is disabled via `biome.json`, overridden for test files, or resolved by auto-fix), Biome raises an error: `suppressions/unused: Suppression comment has no effect.`
+- **Action**: Do not keep legacy suppression comments for rules disabled in configuration or test overrides. Delete unused suppressions.
 
