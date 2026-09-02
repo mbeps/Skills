@@ -52,7 +52,7 @@ digraph upgrade_decision {
 ## Core Upgrade Principles
 
 ### 1. Zero Hacky Workarounds
-Never use monkey-patching (e.g. `patch-package`), custom compiler shims, or fragile aliasing hacks to force incompatible majors to run. If an upstream dependency (such as `eslint-plugin-react` under ESLint 10 or Next.js under TypeScript 7 Go port) breaks due to dropped APIs, **retain the latest compatible version of the current major version**.
+Never use monkey-patching (e.g. `patch-package`), custom compiler shims, or fragile aliasing hacks to force incompatible majors to run. If an upstream dependency (such as legacy ESLint AST plugins under ESLint 10 or tools requiring dropped JS Compiler APIs) breaks, **retain the latest compatible version of the current major version**.
 
 ### 2. Node.js LTS Target Alignment
 Always target active Node.js LTS versions (e.g., Node 24 or Node 26). Ensure `@types/node` matches the major runtime version declared in `package.json` -> `engines.node` and Docker/CI environments.
@@ -67,10 +67,10 @@ Always scan for and update deprecated language, framework, and library APIs (e.g
 ### 5. Multi-Gate Verification
 Every upgrade must pass all gates:
 1. Type Safety: `tsc --noEmit`
-2. Linting: `eslint . --max-warnings=0`
+2. Linting: `biome check .` or `eslint . --max-warnings=0`
 3. Test Suite: `vitest run` or `jest`
 4. Test Coverage: `vitest run --coverage`
-5. Production Build: `next build --turbopack` (all static/dynamic routes compile)
+5. Production Build: `next build --turbopack` (or `--turbo`) (all static/dynamic routes compile)
 
 ---
 
@@ -80,15 +80,16 @@ Every upgrade must pass all gates:
 Run existing checks to establish a clean passing baseline:
 ```bash
 yarn test
-yarn lint
+yarn lint # (biome check . or eslint .)
 yarn build
 yarn outdated
 ```
 
-### Step 2: Research Compatibility & Major Version Contracts
-For each major update, investigate breaking changes:
-- **TypeScript 7 vs 6**: TS 7 dropped `lib/typescript.js` JS Compiler API. If Next.js relies on in-process compiler, stay on TS 6.x.
-- **ESLint 10 vs 9**: ESLint 10 removed `.eslintrc` and `context.getFilename()`. If plugins throw errors, stay on ESLint 9.x with latest `@eslint/eslintrc`.
+### Step 2: Research Compatibility & Toolchain Constraints
+For each major update, investigate toolchain and engine constraints:
+- **TypeScript 7 vs 6**: Next.js 16+ Turbopack and Biome projects support TS 7.0+ for native speed (5x–12x faster). Pin to TS 6.x only when legacy ESLint AST plugins strictly require the deprecated `lib/typescript.js`.
+- **Next.js `tsconfig.json` Scope**: Ensure `tsconfig.json` excludes test files (`exclude: ["__tests__", "coverage"]`) so mock function typing does not block production build type checking.
+- **Node.js Engine Ranges**: When major upgrades specify strict Node engine ranges (e.g. `jsdom@30`), check the runtime Node version. Pin to the prior major if the environment does not meet engine requirements.
 - Detailed compatibility rules: [framework-compatibility.md](references/framework-compatibility.md) and [eslint-flat-config.md](references/eslint-flat-config.md).
 
 ### Step 3: Update Manifest & Install
@@ -104,13 +105,16 @@ Scan and modernize deprecated calls across the codebase.
 ### Step 5: Multi-Gate Verification
 Execute full verification sequence:
 ```bash
-# 1. Tests & Coverage
-yarn test:coverage
+# 1. Type Safety
+yarn tsc --noEmit
 
 # 2. Linting
 yarn lint
 
-# 3. Production Build & Static Page Generation
+# 3. Tests & Coverage
+yarn test:coverage
+
+# 4. Production Build & Static Page Generation
 yarn build
 ```
 - See full diagnostic guide: [verification-matrix.md](references/verification-matrix.md).
@@ -121,19 +125,21 @@ yarn build
 
 | Excuse / Temptation | Reality & Correct Action |
 | :--- | :--- |
-| "Let's install TypeScript 7 and alias it or use an experimental flag." | Violates the zero-hack rule. TS 7 dropped the JS Compiler API needed by Next.js. Pin to latest TS 6.x. |
-| "ESLint 10 failed on a plugin, let's patch node_modules with patch-package." | Fragile workaround. Pin to latest ESLint 9.x until upstream plugins support Flat Config natively. |
+| "We can't upgrade to TypeScript 7 on Next.js." | Next.js 16+ with Turbopack and Biome supports TS 7 cleanly. Verify if actual AST plugin blockers exist before assuming TS 7 is incompatible. |
+| "Let's use --ignore-engines to force install an incompatible major (e.g. jsdom@30)." | Engine mismatches cause runtime or parser crashes. Pin to the latest compatible major until the Node runtime is updated. |
+| "Test mock type errors mean application code has broken types." | Next.js type-checks files matching `tsconfig.json`. Exclude test directories from the production build tsconfig. |
+| "ESLint 10 failed on a plugin, let's patch node_modules with patch-package." | Fragile workaround. Pin to latest ESLint 9.x until upstream plugins support Flat Config natively, or migrate to Biome. |
 | "Tests passed, so we can skip the production build check." | Tests do not validate Next.js Turbopack compilation, font fetching, or static page generation. Run `next build`. |
 | "Let's upgrade @types/node to latest even if runtime is an older LTS." | Type mismatch will allow unsupported Node APIs in code. Pin `@types/node` to the project's target Node LTS. |
-| "We don't need to fix minor deprecated methods like substr." | Deprecated methods are technical debt and risk engine removal. Modernize them during dependency upgrades. |
 
 ---
 
 ## Red Flags - STOP and Correct
 
-- Upgrading to a major version that requires monkey-patching or `patch-package`.
+- Upgrading to a major version that requires monkey-patching, `patch-package`, or `--ignore-engines`.
 - Bypassing type-checking or linting errors with `--no-verify` or `ignoreBuildErrors`.
-- Upgrading runtime dependencies across major versions without checking `peerDependencies`.
+- Upgrading runtime dependencies across major versions without checking `peerDependencies` or Node engine ranges.
+- Letting test mock signatures fail production `next build` type checking instead of properly configuring `tsconfig.json` exclusions.
 - Making major architectural refactorings without prior user approval.
 - Leaving any test failure or lint warning unresolved.
 
