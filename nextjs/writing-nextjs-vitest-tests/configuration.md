@@ -56,6 +56,7 @@ export default defineConfig({
       ],
       thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
     },
+    testTimeout: 15000,
   },
 });
 ```
@@ -64,7 +65,8 @@ Key points:
 
 - `defineConfig` comes from `vitest/config` (not `vite`).
 - Vite-level options (`plugins`, `resolve.alias`) live at the config root, **not** inside `test`.
-- `@vitejs/plugin-react` enables JSX in `.tsx` tests; `vite-tsconfig-paths` resolves tsconfig path aliases (the `@` alias is then configured twice — harmless).
+- `testTimeout: 15000` prevents false-positive timeouts when running full suites under parallel V8 coverage collection.
+- `@vitejs/plugin-react` enables JSX in `.tsx` tests; `vite-tsconfig-paths` resolves tsconfig path aliases. **Crucial**: when `__tests__` is excluded in `tsconfig.json` to keep `next build` clean, `vite-tsconfig-paths` will ignore path mapping for files inside `__tests__`. You MUST define `resolve.alias: { "@": path.resolve(__dirname, ".") }` in `vitest.config.ts` so imports resolve regardless of `tsconfig.json` exclusions.
 - `globals: true` — `describe`/`it`/`expect`/`vi` without imports; also enables Testing Library auto-cleanup.
 - `setupFiles` runs before every test file in the same process (unlike `globalSetup`, which runs once in a separate scope).
 - `include` controls which test files run; `coverage.exclude` is separate from `test.exclude` — a file can be excluded from coverage but still run.
@@ -76,11 +78,22 @@ Key points:
 
 ```typescript
 import "@testing-library/jest-dom/vitest";
+
+// Stub ResizeObserver for cmdk, Base UI, Radix modals/popovers
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+// Stub scrollIntoView called by cmdk/listbox focus management
+Element.prototype.scrollIntoView = vi.fn();
+HTMLElement.prototype.scrollIntoView = vi.fn();
 ```
 
 - The `/vitest` suffix is **required** — the bare import is the Jest entry and silently does nothing here.
 - Provides DOM matchers: `toBeInTheDocument`, `toBeVisible`, `toHaveTextContent`, etc.
-- With `globals: true` this is the whole setup file; Testing Library registers its own `afterEach` DOM cleanup.
+- With `globals: true`, Testing Library registers its own `afterEach` DOM cleanup.
 
 ## Per-file environment override
 
@@ -135,9 +148,59 @@ window.matchMedia = vi.fn().mockImplementation((query) => ({
 
 This works because jsdom does not implement `window.matchMedia`. The mock inspects the query string to return appropriate `matches` values.
 
+- `ResizeObserver` is undefined in jsdom — components using `cmdk`, Base UI, or Radix throw `ReferenceError: ResizeObserver is not defined`. Stub in setup file.
+- `scrollIntoView` is undefined in jsdom — focus-managed listboxes (`cmdk`) throw `TypeError: ...scrollIntoView is not a function` on mount/navigation. Stub both `Element` and `HTMLElement` prototypes.
 - React 19 logs `console.warn` (React 18: `console.error`) for state updates outside `act` — wrap async work in `await act(async () => ...)`.
 - jsdom has no layout engine; offset/geometry reads return 0.
-- `tsconfig.json` typically excludes `__tests__/**` and the Vitest config — tests are transformed by Vitest, not type-checked by `next build`.
+
+## TypeScript, Linter & IDE Integration
+
+Tests are transformed and executed by Vitest/Vite directly, not by `next build` or production linters. Exclude tests from production compilation and linting to avoid false failures and editor noise:
+
+### 1. tsconfig.json — Exclude Tests from Next.js Build
+In `tsconfig.json`, add test files and configs to `exclude`:
+```json
+"exclude": [
+  "node_modules",
+  "__tests__",
+  "tests",
+  "**/*.test.ts",
+  "**/*.test.tsx",
+  "**/*.spec.ts",
+  "**/*.spec.tsx",
+  "vitest.config.mts",
+  "vitest.setup.ts"
+]
+```
+`next build` and root `tsc --noEmit` will skip tests, speeding up builds and preventing test assertions from failing production compilation.
+
+### 2. Linter Ignore (Biome & ESLint)
+- **Biome (`biome.json`)**: Add test patterns to `files.includes`. In Biome 2.2+, folder ignores use `!__tests__` without trailing `/**`:
+```json
+"files": {
+  "includes": [
+    "**",
+    "!node_modules",
+    "!__tests__",
+    "!tests",
+    "!**/*.test.*",
+    "!**/*.spec.*",
+    "!vitest.config.*",
+    "!vitest.setup.*"
+  ]
+}
+```
+- **ESLint (`eslint.config.mjs`)**: Use `globalIgnores(["__tests__/**", "tests/**", "**/*.test.*"])`.
+
+### 3. VS Code — Suppress Unwanted Diagnostics in Tests
+To prevent VS Code from background-scanning excluded or non-project test files into the Problems panel:
+```json
+// .vscode/settings.json
+{
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false
+}
+```
+*(Note: `typescript.tsserver.experimental.enableProjectDiagnostics` is deprecated; use `js/ts.tsserver.experimental.enableProjectDiagnostics`)*.
 
 ## Vitest 5 (upcoming — note only)
 

@@ -75,7 +75,12 @@ screen.getByText("Welcome back");
 
 // ❌ Avoid — brittle, implementation detail
 screen.getByTestId("submit-button");
+
+// ❌ Avoid — index-based selection breaks when layout/icons change
+screen.getAllByRole("button")[1];
 ```
+
+> **Base UI / Radix focus guards**: Focus-trap primitives inject hidden `<span data-base-ui-focus-guard="" role="button" />` elements. Querying unlabelled buttons with `{ name: "" }` or bare `getAllByRole("button")` will collide with them. Target buttons by explicit accessible name, icon class, or scoped container.
 
 ## Firing Events
 
@@ -205,9 +210,89 @@ it("shows content when authenticated", () => {
 });
 ```
 
+### SVG element class assertions
+
+In jsdom, `(svg as HTMLElement).className` returns an `SVGAnimatedString` object (`[object SVGAnimatedString]`), so `.className.includes(...)` or `.className.toContain(...)` fails. Use `toHaveClass` or `getAttribute`:
+
+```typescript
+const icon = screen.getByTestId("status-icon");
+// ✅ Correct
+expect(icon).toHaveClass("text-muted-foreground");
+expect(icon.getAttribute("class")).toContain("text-muted-foreground");
+
+// ❌ Throws or fails: icon.className is SVGAnimatedString, not string
+// expect(icon.className).toContain("text-muted-foreground");
+```
+
+### Preserving compound subcomponents (e.g. Component.Skeleton)
+
+When partially mocking a parent component using `importOriginal`, returning a new function component drops attached static properties (e.g. `Item.Skeleton`), causing React error `Element type is invalid: expected string or class/function but got: undefined`:
+
+```typescript
+vi.mock("@/components/item", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/item")>();
+  const MockItem = ({ children, onClick }: any) => (
+    <div onClick={onClick}>{children}</div>
+  );
+  // Re-attach static subcomponents
+  MockItem.Skeleton = actual.Item.Skeleton;
+  return { ...actual, Item: MockItem };
+});
+```
+
+### Isolating click events in dialog/modal mock wrappers
+
+When mocking dialog wrappers (e.g. `ConfirmModal`), rendering an unisolated wrapper `<div>` allows click events from dialog buttons to bubble up to parent rows or cards (e.g. unintentionally triggering a parent row's `router.push`):
+
+```typescript
+vi.mock("@/components/modals/confirm-modal", () => ({
+  ConfirmModal: ({ children, onConfirm }: any) => (
+    <div onClick={(e) => e.stopPropagation()}>
+      {children}
+      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }}>
+        Confirm
+      </button>
+    </div>
+  ),
+}));
+```
+
+### Headless UI Dialog / Transition exit animations in jsdom
+
+Headless UI `<Transition show={isOpen}>` leaves the component in the DOM during exit transitions. In jsdom, transition completion events do not fire automatically. Synchronously asserting `expect(screen.queryByText(...)).not.toBeInTheDocument()` after `rerender(<Modal isOpen={false} />)` will fail because the leaving node remains mounted.
+
+- **Recommended**: Test the closed state on an initial mount (`render(<Modal isOpen={false} ... />); expect(...).not.toBeInTheDocument()`), and test the open state in a separate render.
+- Alternatively, wait for removal using `await waitFor(() => expect(screen.queryByText(...)).not.toBeInTheDocument())`.
+
+### Avoiding nested button collision in wrapper mocks (e.g. CldUploadButton)
+
+When partially mocking wrapper components that render children buttons (such as `CldUploadButton` wrapping a `<Button>Change</Button>`), returning `<button onClick=...>{children}</button>` creates nested `<button><button>Change</button></button>` elements. This causes `screen.getByRole("button", { name: "Change" })` to fail with `"Found multiple elements with the role button"`.
+
+```typescript
+// ✅ Correct: Use a non-button container to preserve child button role
+vi.mock("next-cloudinary", () => ({
+  CldUploadButton: ({ children, onSuccess }: any) => (
+    <div
+      role="none"
+      onClick={() => onSuccess({ info: { secure_url: "https://example.com/img.png" } })}
+    >
+      {children}
+    </div>
+  ),
+}));
+```
+
+### Spinner and loader element queries
+
+Libraries like `react-spinners` (`ClipLoader`, `PulseLoader`) render `<span>` elements styled with CSS borders and keyframes, NOT `<svg>` icons. Asserting `expect(container.querySelector("svg")).toBeInTheDocument()` fails; assert on container class, role, or `span` presence instead.
+
 ## Red Flags
 
 - Using `container.querySelector` instead of `screen.getBy*` — breaks multi-root queries
+- Index-based element queries (`getAllByRole("button")[1]`) instead of accessible names or icons
+- Direct `.className` inspection on SVG elements (`SVGAnimatedString` in jsdom)
+- Modal/dialog mock wrappers that allow click events to bubble to parent container handlers
+- Dropping static compound subcomponents (`Component.Skeleton`) when mocking components
 - Asserting on CSS classes as primary assertion — classes can change; roles/text are stable
 - Missing `beforeEach` cleanup — leftover mocks leak between tests
 - Not mocking child components that have side effects — causes import-time crashes

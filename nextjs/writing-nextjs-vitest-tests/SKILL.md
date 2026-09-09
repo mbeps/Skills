@@ -1,6 +1,6 @@
 ---
 name: writing-nextjs-vitest-tests
-description: Use when writing Next.js Vitest tests; mocking Next.js runtime modules, Prisma ORM, server actions, Zustand stores, SDKs (S3, Postmark), Inngest v4 durable functions, Polar.sh billing, AI SDK model providers, encrypted credentials, tRPC routers via createCaller, Jotai atoms, Prisma call-shape assertions; rendering components with @testing-library/react (DOM assertions, event firing, TestWrapper); fake timers + act(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint config; or diagnosing import crashes, hoisting errors, jsdom flakiness.
+description: Use when writing Next.js Vitest tests; mocking Next.js runtime modules, Convex api Proxy, Prisma ORM, server actions, Zustand stores, SDKs (S3, Postmark), Inngest v4 durable functions, Polar.sh billing, AI SDK model providers, encrypted credentials, tRPC routers via createCaller, Jotai atoms, Prisma call-shape assertions; rendering components with @testing-library/react (DOM assertions, event firing, TestWrapper, modal isolation); fake timers + act(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint config; or diagnosing import crashes, hoisting errors, jsdom flakiness (ResizeObserver, scrollIntoView).
 ---
 
 # Writing Next.js Vitest Tests
@@ -12,7 +12,7 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 ## When to Use
 
 - Writing tests for server actions, hooks, Zod schemas, Zustand stores, or lib utilities
-- Mocking Drizzle queries, better-auth sessions, global fetch, or class-constructor SDKs (S3, Postmark)
+- Mocking Drizzle queries, Convex api Proxy, better-auth sessions, global fetch, or class-constructor SDKs (S3, Postmark)
 - Diagnosing import-time crashes, hoisting errors, or jsdom flakiness in existing tests
 
 **Not for:** end-to-end browser flows (use Playwright) or visual snapshot testing.
@@ -21,11 +21,11 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 
 | File | Covers |
 |---|---|
-| `configuration.md` | Scripts, vitest.config.ts, setup file, jsdom gotchas |
-| `mocking-patterns.md` | Hoisting, chainable DB mock, Next.js modules, SDKs, fetch/SSE |
+| `configuration.md` | Scripts, vitest.config.ts, setup file, jsdom gotchas (ResizeObserver, scrollIntoView), tsconfig/linter/IDE exclusions |
+| `mocking-patterns.md` | Hoisting, chainable DB mock, Next.js modules, SDKs, fetch/SSE, Convex api Proxy |
 | `testing-layers.md` | What to test per layer: schemas, actions, hooks, stores, utils, coverage |
-| `component-testing.md` | Rendering components, DOM assertions, event firing, TestWrapper pattern, shadcn/ui tests |
-| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint config |
+| `component-testing.md` | Rendering components, DOM assertions (SVG, focus guards), event firing, modal isolation, compound subcomponents, TestWrapper |
+| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint & Biome ignore, tsconfig & IDE diagnostics |
 | `inngest-testing.md` | Inngest v4 durable functions — stepMock.run sync collapse, publishMock realtime status, executor test template, channel mocking |
 | `polar-billing-testing.md` | Polar.sh subscription gating — premiumProcedure bypass, dynamic import/env stubbing, checkout/portal flows |
 | `ai-sdk-testing.md` | Vercel AI SDK — generateText mocking, provider factories (OpenAI/Anthropic/Gemini/OpenRouter), credential decryption at execution time |
@@ -51,6 +51,11 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "clearAllMocks is enough cleanup" | Spies stay active; restoreAllMocks for vi.spyOn |
 | "The returned row is enough to assert" | Same shape can come from the wrong query — assert args |
 | "Happy path plus one error is fine" | 80% branch coverage needs both sides of every guard |
+| "Convex api references match by identity in mocks" | Convex `api` creates a new Proxy on every access — mock `@/convex/_generated/api` with literal constants |
+| "SVG element classes can be tested via .className" | jsdom returns `SVGAnimatedString` — use `toHaveClass()` or `getAttribute('class')` |
+| "Next.js build should type-check all test files" | Tests are transformed by Vitest; exclude `__tests__` in `tsconfig.json` so test mock types don't break `next build` |
+| "vite-tsconfig-paths will always resolve @ aliases" | When tests are excluded in tsconfig.json, vite-tsconfig-paths ignores them — always configure resolve.alias in vitest.config.ts |
+| "Closing a Headless UI modal can be tested by synchronous rerender" | Headless UI Transition exit animations keep elements in jsdom DOM; test closed state on separate initial mount or wait for animation |
 
 ## Red Flags
 

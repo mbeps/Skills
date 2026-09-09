@@ -182,8 +182,11 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn().mockReturnValue({ push: mockPush, refresh: mockRefresh }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("next/headers", () => ({ headers: vi.fn().mockResolvedValue({}) }));
+const mockHeaders = vi.hoisted(() => vi.fn().mockResolvedValue(new Headers()));
+vi.mock("next/headers", () => ({ headers: mockHeaders }));
 ```
+
+In Next.js 15+, `headers()` is async (`await headers()`). When asserting that actions pass incoming request headers to session or auth callers, override per-test with `mockHeaders.mockResolvedValueOnce(fakeHeaders)`.
 
 Then assert navigation: `expect(mockPush).toHaveBeenCalledWith("/chat/chat-abc")`.
 
@@ -218,6 +221,16 @@ vi.mock("postmark", () => ({
     return { sendEmail: mockSendEmail };
   }),
 }));
+```
+
+```typescript
+// react-hot-toast (handles both `import toast` and `import { toast }`)
+vi.mock("react-hot-toast", () => {
+  const toastFn: any = vi.fn();
+  toastFn.error = vi.fn();
+  toastFn.success = vi.fn();
+  return { default: toastFn, toast: toastFn };
+});
 ```
 
 Assertions: `expect(mockSend).toHaveBeenCalledOnce(); expect(mockSend.mock.calls[0][0]).toMatchObject({ Bucket: "test-bucket", Key: key })`. Re-arm the resolved value in each `beforeEach` (`clearAllMocks` keeps hoisted defaults, so only override what changed).
@@ -276,4 +289,42 @@ vi.mock(import("@/lib/chat/build-prompt"), async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/chat/build-prompt")>();
   return { ...mod, buildPrompt: vi.fn() };
 });
+```
+
+## 10. Generated recursive Proxy APIs (Convex `anyApi`)
+
+Libraries like Convex generate an `api` object (e.g. `@/convex/_generated/api`) backed by a recursive `Proxy` where each property access generates a new Proxy reference:
+
+```typescript
+// With real Convex api:
+api.documents.archive !== api.documents.archive; // true — different Proxy instances
+```
+
+Comparing `fn === api.documents.archive` inside a mocked hook (`useMutation`, `useQuery`) will **never match**.
+
+**Pattern**: Mock the generated API module with literal strings or symbols, then route in the hook mock:
+
+```typescript
+// 1. Mock the generated api module with constant identifiers
+vi.mock("@/convex/_generated/api", () => ({
+  api: {
+    documents: {
+      archive: "archive",
+      restore: "restore",
+      remove: "remove",
+    },
+  },
+}));
+
+// 2. Route mock implementations by identity in useMutation / useQuery
+const mockArchive = vi.fn();
+const mockRemove = vi.fn();
+
+vi.mock("convex/react", () => ({
+  useMutation: vi.fn((mutation) => {
+    if (mutation === "archive") return mockArchive;
+    if (mutation === "remove") return mockRemove;
+    return vi.fn();
+  }),
+}));
 ```

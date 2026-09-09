@@ -411,12 +411,12 @@ Rules:
 - Both patterns work; pick one convention and stick to it.
 - Co-located tests make it easier to find tests when navigating source code.
 
-## 11. ESLint Ignore for Tests
+## 11. Linter, TypeScript & IDE Diagnostics Exclusions
 
-Exclude test directories from linting rules that don't apply:
+Exclude test directories from production linting and build checks:
 
+### ESLint (`eslint.config.mjs`)
 ```typescript
-// eslint.config.mjs
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
@@ -430,10 +430,36 @@ export default defineConfig([
 ]);
 ```
 
+### Biome (`biome.json`)
+```json
+"files": {
+  "includes": [
+    "**",
+    "!node_modules",
+    "!__tests__",
+    "!tests",
+    "!**/*.test.*",
+    "!**/*.spec.*",
+    "!vitest.config.*",
+    "!vitest.setup.*"
+  ]
+}
+```
+*(In Biome 2.2+, folder ignores do not require trailing `/**`)*.
+
+### TypeScript (`tsconfig.json`) & VS Code
+Exclude test suites in `tsconfig.json` so `next build` and root `tsc --noEmit` don't fail on test mocks or fixture types. In `.vscode/settings.json`, set:
+```json
+{
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false
+}
+```
+*(Note: `typescript.tsserver.experimental.enableProjectDiagnostics` is deprecated; always use `js/ts.tsserver.experimental.enableProjectDiagnostics`)*.
+
 Rules:
-- Test files often use patterns that lint rules flag (unused imports, globals, etc.).
-- `globalIgnores` excludes paths from ALL lint rules.
-- Consider whether you want linting on co-located tests (`lib/actions/**/*.test.ts`) — if so, don't glob-ignore them.
+- Test files often use patterns that production lint and build rules flag (mock casts, unused imports, globals).
+- `globalIgnores` (ESLint) and `files.includes` negative globs (Biome) exclude paths from ALL rules.
+- Consider whether you want linting on co-located tests (`lib/actions/**/*.test.ts`) — if so, do not glob-ignore them.
 
 ## Red Flags
 
