@@ -73,27 +73,29 @@ Biome implements Next.js best practices either natively via `linter.domains.next
 | :---------------------- | :-------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `prefer-arrow-callback` | `useArrowFunction`          | `complexity`  | **Constructor Mock Caveat**: Arrow functions `() => {}` lack a `[[Construct]]` slot and throw `TypeError: ... is not a constructor` when instantiated with `new` in test mocks (e.g. `new S3Client(...)`, `new ServerClient(...)`). Set `"complexity": { "useArrowFunction": "off" }` or use overrides. |
 | `no-dupe-keys`          | `noDuplicateObjectKeys`     | `suspicious`  | Flags duplicate properties in object literals and JSON keys.                                                                                                                                                                                                                                            |
-| `no-unused-vars`        | `noUnusedVariables`         | `correctness` | Flags unused variable declarations. Prefix with `_` or remove.                                                                                                                                                                                                                                          |
-| `array-callback-return` | `useIterableCallbackReturn` | `suspicious`  | Flags `.forEach()` callbacks returning values (e.g. concise arrow `forEach(x => map.set(x))`). Wrap body in braces `{ ... }`.                                                                                                                                                                           |
+| `no-unused-vars`        | `noUnusedVariables`         | `correctness` | Flags unused variable declarations. Prefix with `_` (e.g. tuple destructuring `[val, _loading]` or callbacks `(_err) => ...`) or remove.                                                                                                                                                                |
+| `prefer-template`       | `useTemplate`               | `style`       | Flags string concatenation where template literals are preferred (e.g. `${prefix}\uf8ff`).                                                                                                                                                                                                              |
+| `array-callback-return` | `useIterableCallbackReturn` | `suspicious`  | Flags `.forEach()` callbacks returning values (wrap in braces `{ ... }`) and `.map()` callbacks omitting return values for side-effects (replace with `.forEach(...)`).                                                                                                                                 |
 
 ---
 
 ## 5. TypeScript Rule Mappings (`@typescript-eslint/*`)
 
-| ESLint Rule (`@typescript-eslint/*`)             | Biome Rule                | Group         | Notes                                                    |
-| :----------------------------------------------- | :------------------------ | :------------ | :------------------------------------------------------- |
-| `@typescript-eslint/no-explicit-any`             | `noExplicitAny`           | `suspicious`  | Flags untyped `any` annotations.                         |
-| `@typescript-eslint/no-unused-vars`              | `noUnusedVariables`       | `correctness` | Flags unused variable declarations.                      |
-| `@typescript-eslint/no-non-null-assertion`       | `noNonNullAssertion`      | `style`       | Flags `!` non-null assertion operator.                   |
-| `@typescript-eslint/consistent-type-imports`     | `useImportType`           | `style`       | Enforces `import type { T }` syntax.                     |
-| `@typescript-eslint/consistent-type-exports`     | `useExportType`           | `style`       | Enforces `export type { T }` syntax.                     |
-| `@typescript-eslint/no-empty-interface`          | `noEmptyInterface`        | `suspicious`  | Flags empty `interface Foo {}` declarations.             |
-| `@typescript-eslint/no-inferrable-types`         | `noInferrableTypes`       | `style`       | Disallows explicit types on initialized literals.        |
-| `@typescript-eslint/prefer-as-const`             | `useAsConst`              | `style`       | Enforces `as const` instead of literal type assertions.  |
-| `@typescript-eslint/prefer-for-of`               | `useForOf`                | `complexity`  | Suggests `for..of` over traditional indexed `for` loops. |
-| `@typescript-eslint/prefer-optional-chain`       | `useOptionalChain`        | `complexity`  | Enforces `a?.b` over `a && a.b`.                         |
-| `@typescript-eslint/no-duplicate-enum-values`    | `noDuplicateEnumValues`   | `suspicious`  | Flags duplicate values in TypeScript enums.              |
-| `@typescript-eslint/no-extra-non-null-assertion` | `noExtraNonNullAssertion` | `suspicious`  | Flags redundant `x!!!.y` assertions.                     |
+| ESLint Rule (`@typescript-eslint/*`)             | Biome Rule                | Group         | Notes                                                                                           |
+| :----------------------------------------------- | :------------------------ | :------------ | :---------------------------------------------------------------------------------------------- |
+| `@typescript-eslint/no-explicit-any`             | `noExplicitAny`           | `suspicious`  | Flags untyped `any` annotations.                                                                |
+| `@typescript-eslint/no-unused-vars`              | `noUnusedVariables`       | `correctness` | Flags unused variable declarations. Prefix with `_`.                                            |
+| `@typescript-eslint/ban-types`                   | `noBannedTypes`           | `complexity`  | Flags `{}` as a type (e.g. `type Props = {};`). Use `Record<string, never>` or explicit shapes. |
+| `@typescript-eslint/no-non-null-assertion`       | `noNonNullAssertion`      | `style`       | Flags `!` non-null assertion operator.                                                          |
+| `@typescript-eslint/consistent-type-imports`     | `useImportType`           | `style`       | Enforces `import type { T }` syntax.                                                            |
+| `@typescript-eslint/consistent-type-exports`     | `useExportType`           | `style`       | Enforces `export type { T }` syntax.                                                            |
+| `@typescript-eslint/no-empty-interface`          | `noEmptyInterface`        | `suspicious`  | Flags empty `interface Foo {}` declarations.                                                    |
+| `@typescript-eslint/no-inferrable-types`         | `noInferrableTypes`       | `style`       | Disallows explicit types on initialized literals.                                               |
+| `@typescript-eslint/prefer-as-const`             | `useAsConst`              | `style`       | Enforces `as const` instead of literal type assertions.                                         |
+| `@typescript-eslint/prefer-for-of`               | `useForOf`                | `complexity`  | Suggests `for..of` over traditional indexed `for` loops.                                        |
+| `@typescript-eslint/prefer-optional-chain`       | `useOptionalChain`        | `complexity`  | Enforces `a?.b` over `a && a.b`.                                                                |
+| `@typescript-eslint/no-duplicate-enum-values`    | `noDuplicateEnumValues`   | `suspicious`  | Flags duplicate values in TypeScript enums.                                                     |
+| `@typescript-eslint/no-extra-non-null-assertion` | `noExtraNonNullAssertion` | `suspicious`  | Flags redundant `x!!!.y` assertions.                                                            |
 
 ---
 
@@ -169,6 +171,24 @@ For rules targeting specific JSX attributes (such as `lint/security/noDangerousl
   // biome-ignore lint/security/noDangerouslySetInnerHtml: theme styles
   dangerouslySetInnerHTML={{ __html: themeCss }}
 />
+```
+
+#### React Hook Suppressions (`useExhaustiveDependencies` Placement)
+
+In ESLint, suppressions were often placed inside the callback body directly above the statement triggering the missing dependency. In Biome, `lint/correctness/useExhaustiveDependencies` evaluates at the `useEffect` call expression:
+
+```tsx
+// ❌ WRONG: Placing inside callback triggers suppressions/unused and leaves hook unsuppressed
+useEffect(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initial setup
+  startTimer();
+}, []);
+
+// ✅ CORRECT: Place suppression directly above the useEffect call
+// biome-ignore lint/correctness/useExhaustiveDependencies: initial setup
+useEffect(() => {
+  startTimer();
+}, []);
 ```
 
 ---

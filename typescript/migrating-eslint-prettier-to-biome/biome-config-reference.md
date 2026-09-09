@@ -8,7 +8,7 @@ Comprehensive guide to configuring Biome (`biome.json` and `biome.jsonc`) across
 
 | Feature / Setting     | Biome 1.9                                        | Biome 2.0 – 2.5+                                                             | Migration Note                                                               |
 | :-------------------- | :----------------------------------------------- | :--------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
-| **`$schema` URL**     | `https://biomejs.dev/schemas/1.9.4/schema.json`  | `https://biomejs.dev/schemas/2.5.11/schema.json`                             | Update URL to match installed CLI version.                                   |
+| **`$schema` URL**     | `https://biomejs.dev/schemas/1.9.4/schema.json`  | `https://biomejs.dev/schemas/2.5.12/schema.json`                             | Update URL to match installed CLI version (e.g. `2.5.12`).                   |
 | **Import Sorting**    | `"organizeImports": { "enabled": true }`         | `"assist": { "actions": { "source": { "organizeImports": "on" } } }`         | `organizeImports` moved under the new `assist` engine.                       |
 | **File Inclusion**    | `"files": { "include": [...] }`                  | `"files": { "includes": [...] }`                                             | `include` is deprecated in favor of `includes`.                              |
 | **Folder Ignore**     | `"ignore": ["**/dist/**", "**/node_modules/**"]` | `"includes": ["**", "!dist", "!node_modules", "!.next", "!public"]`          | In 2.2+, folder ignores use bare directory names without `/**`.              |
@@ -70,7 +70,10 @@ Controls file resolution, glob targeting, and size boundaries.
       "!dist",
       "!build",
       "!coverage",
-      "!public"
+      "!public",
+      "!__tests__",
+      "!tests",
+      "!.vscode"
     ],
     "maxSize": 1048576,
     "ignoreUnknown": true
@@ -78,7 +81,9 @@ Controls file resolution, glob targeting, and size boundaries.
 }
 ```
 
-* **`includes`** `(string[])`: Glob patterns specifying files to process. Prefix with `!` to exclude folders.
+* **`includes`** `(string[])`: Glob patterns specifying files to process. Prefix bare directory names with `!` to exclude folders entirely.
+  * **Test Folders (`"!__tests__"`, `"!tests"`)**: Test suites use test runner globals (`describe`, `it`, `vi`), thenable mocks, and mock fixtures that conflict with production rules. Exclude test folders from Biome to prevent false positives; test runners handle test validation.
+  * **Editor & Read-Only Metadata (`"!.vscode"`)**: Prevents `internalError/io: Read-only file system (os error 30)` in restricted sandbox or container environments where editor metadata is mounted read-only.
 * **`maxSize`** `(number)`: Maximum allowed file size in bytes (default `1048576` = 1MB).
 * **`ignoreUnknown`** `(boolean)`: When `true`, silently skips files with extensions unsupported by Biome.
 
@@ -172,7 +177,8 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
       },
       "complexity": {
         "noForEach": "off",
-        "useArrowFunction": "off"
+        "useArrowFunction": "off",
+        "useIndexOf": "off"
       },
       "correctness": {
         "useHookAtTopLevel": "error",
@@ -186,6 +192,7 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
         "noArrayIndexKey": "off",
         "noDocumentCookie": "off",
         "noExplicitAny": "off",
+        "noImplicitAnyLet": "off",
         "noPrototypeBuiltins": "off"
       },
       "nursery": {
@@ -206,7 +213,7 @@ In Biome 2.x, import sorting actions are managed under the `assist` block:
 
 ### 2.7 Overrides (`overrides`)
 
-Target specific files (e.g. test files or scripts) for granular rule adjustments:
+Target specific files (e.g. scripts, CLI utilities, or configs) for granular rule adjustments. When test folders are excluded via `files.includes` (the recommended practice), test-specific overrides are unnecessary:
 
 ```json
 {

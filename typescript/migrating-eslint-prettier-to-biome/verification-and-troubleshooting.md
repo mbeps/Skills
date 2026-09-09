@@ -121,6 +121,7 @@ flowchart LR
     window.scroll(0, 0);
   }, [pathname]);
   ```
+  *(Note: Always place the suppression comment directly above `useEffect`, never inside the callback body, to avoid `suppressions/unused` errors).*
 
 ---
 
@@ -172,23 +173,34 @@ flowchart LR
 
 ---
 
-### 10. `useIterableCallbackReturn` (Concise Arrow Callback in `.forEach`)
+### 10. `useIterableCallbackReturn` (Concise Arrow Callback in `.forEach` or Side-Effect `.map`)
 
 - **Error**:
   ```text
   lint/suspicious/useIterableCallbackReturn: This callback passed to forEach() iterable method should not return a value.
+  lint/suspicious/useIterableCallbackReturn: This callback passed to map() iterable method should always return a value.
   ```
 - **Root Cause**:
-  Arrow functions with concise expressions (e.g. `items.forEach((item) => store.set(item))` or `listeners.forEach((cb) => cb())`) implicitly return the expression result. Since `.forEach()` ignores return values, returning values often signals confusing `.forEach()` with `.map()`.
+  1. Arrow functions with concise expressions (e.g. `items.forEach((item) => store.set(item))` or `listeners.forEach((cb) => cb())`) implicitly return the expression result. Since `.forEach()` ignores return values, returning values often signals confusing `.forEach()` with `.map()`.
+  2. Calling `.map()` solely for side-effects without returning a value (e.g. `users.map((user) => { socket.emit(user); })`) violates functional semantics and creates unnecessary arrays.
 - **Fix**:
-  Wrap the callback body in braces or use a `for..of` loop:
+  - For `.forEach()` returning values: wrap the callback body in braces `{ ... }` or use a `for..of` loop.
+  - For `.map()` without returns: replace `.map(...)` with `.forEach(...)`:
   ```typescript
-  // Before:
+  // Before (.forEach returning concise expression):
   items.forEach((item) => store.set(item));
-
   // After:
   items.forEach((item) => {
     store.set(item);
+  });
+
+  // Before (.map used for side effects without return):
+  items.map((item) => {
+    dispatch(item);
+  });
+  // After:
+  items.forEach((item) => {
+    dispatch(item);
   });
   ```
 
@@ -315,6 +327,350 @@ flowchart LR
 - **Root Cause**:
   Biome strictly enforces alphabetical and grouped import ordering. Modifying imports manually can leave specifiers out of order.
 - **Fix**:
-  Run `biome check --write --unsafe .` (or `npm run lint:fix`) to automatically sort import specifiers and group imports.
+  Run `biome check --write .` (or `npm run lint`) to automatically sort import specifiers and group imports safely without risking semantic changes.
+
+---
+
+### 19. Next.js 16+ `next lint` Command Removal (`Invalid project directory provided: .../lint`)
+
+- **Error**:
+  ```text
+  Invalid project directory provided, no such directory: /path/to/project/lint
+  ```
+- **Root Cause**:
+  Next.js 16 deprecated and removed `next lint`. When `next lint` is executed, Next.js treats `lint` as a positional project directory argument instead of a CLI subcommand.
+- **Fix**:
+  Update `package.json` scripts directly to invoke Biome:
+  ```json
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check --write --unsafe .",
+    "format": "biome format --write .",
+    "ci": "biome ci ."
+  }
+  ```
+
+---
+
+### 20. `noNonNullAssertedOptionalChain` (`user?.uid!`)
+
+- **Error**:
+  ```text
+  lint/suspicious/noNonNullAssertedOptionalChain: Forbidden non-null assertion after optional chaining.
+  ```
+- **Root Cause**:
+  Using `!` immediately following optional chaining `?.` defeats the purpose of optional chaining and risks runtime exceptions if nullish.
+- **Fix**:
+  Use nullish coalescing `?? ""` or standard non-null assertion `!` if the reference is already guarded:
+  ```typescript
+  // Before:
+  await createItem(user?.uid!);
+
+  // After:
+  await createItem(user?.uid ?? "");
+  // or if guarded earlier:
+  await createItem(user!.uid);
+  ```
+
+---
+
+### 21. `noRedeclare` on Test Factory Functions and Domain Types
+
+- **Error**:
+  ```text
+  lint/suspicious/noRedeclare: 'Post' is redeclared in the same scope.
+  ```
+- **Root Cause**:
+  Test helper files often import a type `import type { Post } from "@/types/post"` while also declaring a factory function `function Post(over = {}): Post`. TypeScript in `isolatedModules` and Biome's `noRedeclare` flag this as a naming collision in the same module scope.
+- **Fix**:
+  Alias the imported type when defining factory functions:
+  ```typescript
+  // Before:
+  import type { Post, PostVote } from "@/types/post";
+  export function Post(over: Partial<Post> = {}): Post { ... }
+
+  // After:
+  import type { Post as PostType, PostVote } from "@/types/post";
+  export function Post(over: Partial<PostType> = {}): PostType { ... }
+  ```
+
+---
+
+### 22. React Hooks Flagged on Lowercase Component Definitions
+
+- **Error / Warning**:
+  ```text
+  React Hook "useCallCreatePost" is called in function "icons" that is neither a React component function nor a custom React Hook function.
+  ```
+- **Root Cause**:
+  Component names starting with a lowercase letter (e.g. `const icons: React.FC = () => ...`) violate React component naming conventions. Linters fail to recognize them as components, leading developers to mistakenly add `/* eslint-disable react-hooks/rules-of-hooks */`.
+- **Fix**:
+  Rename the component to PascalCase (`const Icons: React.FC = () => ...`) and remove the disable comment.
+
+---
+
+### 23. Package Manager Removal Traps with Mixed Dependencies
+
+- **Error**:
+  ```text
+  error This module isn't specified in a package.json file.
+  error Request failed "403 Forbidden" (during lockfile re-indexing in offline/restricted sandbox)
+  ```
+- **Root Cause**:
+  Running `yarn remove` across packages that span both `dependencies` and `devDependencies` (such as `eslint-config-next` in `dependencies` and `eslint` in `devDependencies`), or in environments where lockfile regeneration attempts registry network lookups during module removal.
+- **Fix**:
+  Directly remove the legacy packages from `dependencies` and `devDependencies` in `package.json`, then install `@biomejs/biome`:
+  ```bash
+  # After removing legacy dependencies in package.json:
+  yarn add -D @biomejs/biome
+  ```
+
+---
+
+### 24. `noUselessFragments` Breaking Positional Children / Slot Layouts
+
+- **Symptom**:
+  Sidebars disappear, layout columns break, or components receive `undefined` slots after removing `<>...</>` to satisfy `lint/complexity/noUselessFragments`.
+- **Root Cause**:
+  Parent layout components (e.g. `PageContent.tsx`) often index positional children directly (`children?.[0]` for main column, `children?.[1]` for sidebar). If a slot contained multiple children wrapped in a fragment:
+  ```tsx
+  <PageContent>
+    <>
+      <MainHeader />
+      <MainFeed />
+    </>
+    <Sidebar />
+  </PageContent>
+  ```
+  Unwrapping the fragment flattens `children` into 3 elements: `children[0]` is `<MainHeader />`, `children[1]` is `<MainFeed />`, and `<Sidebar />` (child 2) is completely dropped!
+- **Fix**:
+  1. Wrap multiple elements inside a slot with a semantic container like `<Stack>` or `<Box>` instead of `<>`:
+     ```tsx
+     <PageContent>
+       <Stack gap={4}>
+         <MainHeader />
+         <MainFeed />
+       </Stack>
+       <Sidebar />
+     </PageContent>
+     ```
+  2. For intentional empty/placeholder slots in conditionals, pass `{null}` rather than empty fragments `<></>`:
+     ```tsx
+     <PageContent>
+       <MainLoader />
+       {null}
+     </PageContent>
+     ```
+
+---
+
+### 25. `noBannedTypes` on Empty Component Props (`type Props = {};`)
+
+- **Error**:
+  ```text
+  lint/complexity/noBannedTypes: Don't use '{}' as a type.
+  ```
+- **Root Cause**:
+  In TypeScript, `{}` denotes any non-nullish value (including numbers and strings), not an empty object. Developers often used `type Props = {};` for components without props.
+- **Fix**:
+  Replace `{}` with `Record<string, never>` or remove the empty type annotation:
+  ```typescript
+  // Before:
+  type CreatePostProps = {};
+  export const CreatePost: React.FC<CreatePostProps> = () => { ... };
+
+  // After:
+  type CreatePostProps = Record<string, never>;
+  // or simply:
+  export const CreatePost: React.FC = () => { ... };
+  ```
+
+---
+
+### 26. `useExhaustiveDependencies` Infinite Loop Trap (Inlining vs Suppressing Unmemoized Callbacks)
+
+- **Symptom**:
+  Adding functions flagged by `useExhaustiveDependencies` causes the browser to freeze with `Maximum update depth exceeded` or continuous network fetching.
+- **Root Cause**:
+  Helper functions defined at the component/hook level (e.g. `const fetchPosts = async () => { ... }`) are re-instantiated on every render. If passed into `useEffect` dependencies, invoking the function triggers a state update (`setState`), which causes a re-render, creating a new function instance, re-running the effect in an infinite loop.
+- **Fix**:
+  - **Pattern A (Self-contained helper)**: Define the function *inside* the `useEffect` body so it does not need to be in dependencies, keeping only stable primitives, setters, or refs in the dependency array:
+    ```typescript
+    useEffect(() => {
+      if (!user || !communityId) return;
+      const loadVotes = async () => {
+        const votes = await fetchVotesLib(user.uid, communityId);
+        setVotes(votes);
+      };
+      loadVotes();
+    }, [user, communityId, setVotes]);
+    ```
+  - **Pattern B (Intentional lifecycle/route trigger or external unmemoized function)**: Add an explicit explanatory ignore comment instead of creating loops:
+    ```typescript
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Refetch feed when community or mode changes
+    useEffect(() => {
+      fetchPosts();
+    }, [communityId, isGenericFeed]);
+    ```
+
+---
+
+### 27. `noUnusedVariables` in Tuple Destructuring & Public Component Props
+
+- **Error**:
+  `lint/correctness/noUnusedVariables` or `lint/correctness/noUnusedFunctionParameters` on hook returns or component props.
+- **Root Cause**:
+  1. Destructuring positional tuples (e.g. `const [func, user, loading, error] = useAuthHook()`). Deleting `user` breaks the index position of `loading` and `error`.
+  2. Component props that implement a shared interface or are passed by external callers/tests but not rendered.
+- **Fix**:
+  Prefix with `_` — Biome natively recognizes the underscore prefix convention:
+  ```typescript
+  // Tuple destructuring:
+  const [func, _user, loading, _error] = useAuthHook();
+
+  // Component props destructuring:
+  const PostItem: React.FC<PostItemProps> = ({
+    post,
+    showCommunityImage: _showCommunityImage,
+    votingDisabled: _votingDisabled,
+  }) => { ... };
+  ```
+
+---
+
+### 28. `useIndexOf` Breaking Strict TypeScript Types (`TS2345`)
+
+- **Error**:
+  ```text
+  error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+    Type 'undefined' is not assignable to type 'T'.
+  ```
+- **Root Cause**:
+  Biome's `complexity/useIndexOf` rule replaces `array.findIndex((item) => item === target)` with `array.indexOf(target)`. In strict TypeScript mode, `Array.prototype.indexOf(searchElement: T)` requires `searchElement` to strictly match `T`. If `target` is typed `T | undefined` (common for state like `activeId` or optional parameters), `indexOf` throws `TS2345` because `undefined` is not assignable to `T`.
+- **Fix**:
+  1. Add `"complexity": { "useIndexOf": "off" }` to `biome.json` to prevent automated replacement of safe `findIndex` predicates.
+  2. Keep `findIndex((item) => item === target)` whenever searching by an optional/nullable identifier.
+
+---
+
+### 29. `noShadowRestrictedNames` on Next.js `app/error.tsx`
+
+- **Error**:
+  ```text
+  lint/suspicious/noShadowRestrictedNames: Do not shadow the global "Error" property.
+  ```
+- **Root Cause**:
+  Next.js App Router conventions often define error boundaries with `const Error = () => ... export default Error`. Biome flags local variables named `Error` because they shadow the global JavaScript `Error` constructor.
+- **Fix**:
+  Rename the local component to `RootError` or `GlobalError`:
+  ```tsx
+  // app/error.tsx
+  const RootError = () => {
+    return <ErrorMessage />;
+  };
+
+  export default RootError;
+  ```
+
+---
+
+### 30. Deprecated `target: es5` Emitting `TS5107` in Modern TypeScript (TS 6.0+)
+
+- **Error**:
+  ```text
+  tsconfig.json:3:15 - error TS5107: Option 'target=ES5' is deprecated and will stop functioning in TypeScript 7.0.
+  ```
+- **Root Cause**:
+  Older repository templates often keep `"target": "es5"`. TypeScript 6.0+ deprecates ES5 emit, warning that it will be removed entirely in TypeScript 7.0.
+- **Fix**:
+  Update `tsconfig.json` compiler options to target a modern ECMAScript standard:
+  ```json
+  "compilerOptions": {
+    "target": "es2022"
+  }
+  ```
+
+---
+
+### 31. Preserving ESLint Parity with `"a11y": { "preset": "none" }`
+
+- **Symptom**:
+  Running Biome check on a project previously using `eslint-config-next` emits numerous accessibility errors (`useButtonType`, `useKeyWithClickEvents`, `noStaticElementInteractions`, `useSemanticElements`).
+- **Root Cause**:
+  Standard Next.js ESLint (`eslint-config-next/core-web-vitals`) does not include strict `eslint-plugin-jsx-a11y` rules. Biome 2.x recommended rules enable the full `a11y` rule suite by default, causing immediate lint failures on existing components.
+- **Fix**:
+  Add `"a11y": { "preset": "none" }` to `biome.json` under `linter.rules` to preserve exact baseline parity with ESLint Next.js projects, or enable a11y rules incrementally.
+
+---
+
+### 32. Excluding Test Directories from Biome (`files.includes`)
+
+- **Symptom**:
+  Biome emits diagnostics or formatting churn across test files for test globals (`vi`, `jest`, `describe`), thenable query builder mocks (`noThenProperty`), unoptimized test `<img>` tags (`noImgElement`), or requires complex overrides.
+- **Root Cause**:
+  Test suites follow testing framework paradigms rather than production code rules. Including test suites in Biome source linting produces false positives without adding value over Vitest/Jest execution.
+- **Fix**:
+  Exclude test folders directly in `files.includes`:
+  ```json
+  "files": {
+    "includes": ["**", "!node_modules", "!.next", "!coverage", "!__tests__", "!tests"]
+  }
+  ```
+
+---
+
+### 33. React 19 Dropzone Ref Forwarding (`DropzoneInputProps` / `TS2353`)
+
+- **Error**:
+  ```text
+  Type error: Object literal may only specify known properties, and 'ref' does not exist in type 'DropzoneInputProps'.
+  ```
+- **Root Cause**:
+  In React 19 (`@types/react` v19), `ref` was removed from generic HTML attribute interfaces (`React.InputHTMLAttributes`). `react-dropzone`'s `DropzoneInputProps` extends `React.InputHTMLAttributes<HTMLInputElement>` without `ref`. Passing `{ ref: ... }` to `getInputProps({ ref })` triggers TS2353 excess property checking, and mutating refs during render violates React Compiler rules.
+- **Fix**:
+  Destructure `inputRef` from `useDropzone(...)`, link the forwarded `ref` via `React.useImperativeHandle`, and invoke `getInputProps()` cleanly without arguments:
+  ```tsx
+  const { getInputProps, inputRef } = useDropzone({ ... });
+  React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
+
+  return <input {...getInputProps()} />;
+  ```
+
+---
+
+### 34. Sandbox & Read-Only Filesystem Errors on Editor Metadata (`os error 30`)
+
+- **Error**:
+  ```text
+  internalError/io INTERNAL: Read-only file system (os error 30)
+  ```
+- **Root Cause**:
+  Biome formats all JSON files by default. In sandboxed environments or container runners where `.vscode` or system metadata is mounted read-only, Biome crashes when attempting to format editor files (e.g. `.vscode/launch.json`).
+- **Fix**:
+  Exclude editor and non-source metadata folders in `files.includes`:
+  ```json
+  "files": {
+    "includes": ["**", "!node_modules", "!.vscode", "!wiki"]
+  }
+  ```
+
+---
+
+### 35. Git Index Corruption After Rapid Batch Formatting (`index file smaller than expected`)
+
+- **Error**:
+  ```text
+  fatal: .git/index: index file smaller than expected
+  ```
+- **Root Cause**:
+  Rapidly writing and modifying dozens to hundreds of files during batch `biome check --write .` passes while background lockfile or file watchers interact with `.git` can truncate `.git/index` to 0 bytes.
+- **Fix**:
+  Rebuild the index from HEAD without discarding working directory changes:
+  ```bash
+  rm .git/index && git reset
+  ```
+
+
+
 
 

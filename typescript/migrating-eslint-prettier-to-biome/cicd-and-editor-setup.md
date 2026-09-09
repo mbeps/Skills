@@ -165,12 +165,12 @@ jobs:
 
 ### CI/CD Flags & Performance Optimizations
 
-| Flag / Option | Purpose |
-| :--- | :--- |
-| `--reporter=github` | Outputs annotations directly into GitHub Pull Request files/diff view with line-level squiggles. |
-| `--changed --since=main` | In large monorepos, checks only files modified in the PR against the base branch for sub-100ms runs. |
-| `--diagnostic-level=warn` | Controls exit code behavior (fails on warnings or errors only). |
-| `--max-diagnostics=50` | Prevents overwhelming CI log output when running on large migrations. |
+| Flag / Option             | Purpose                                                                                              |
+| :------------------------ | :--------------------------------------------------------------------------------------------------- |
+| `--reporter=github`       | Outputs annotations directly into GitHub Pull Request files/diff view with line-level squiggles.     |
+| `--changed --since=main`  | In large monorepos, checks only files modified in the PR against the base branch for sub-100ms runs. |
+| `--diagnostic-level=warn` | Controls exit code behavior (fails on warnings or errors only).                                      |
+| `--max-diagnostics=50`    | Prevents overwhelming CI log output when running on large migrations.                                |
 
 ---
 
@@ -215,9 +215,9 @@ Configure the official Biome extension (`biomejs.biome`) for format-on-save, org
 }
 ```
 
-### 2.2 Extension Recommendations (`.vscode/extensions.json`)
+### 2.2 Extension Recommendations (`.vscode/extensions.json`, Optional)
 
-Prompt developers and contributors to install the Biome extension and avoid conflicting legacy formatters:
+Prompt developers and contributors to install the Biome extension if the workspace already tracks extension recommendations. Do not create `.vscode/extensions.json` unless the repository already uses it or the user requests it:
 
 ```json
 {
