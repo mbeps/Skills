@@ -51,6 +51,15 @@ This reference catalogs deprecated JavaScript, TypeScript, React, and Next.js AP
   import { useActionState } from "react";
   ```
 
+- **`useRef` & `RefObject` Typing**:
+  ```tsx
+  // ❌ FAILS in React 19 (@types/react@19) when ref is initialized with null
+  type Props = { selectRef: React.RefObject<HTMLInputElement> };
+
+  // ✅ MODERN (React 19)
+  type Props = { selectRef: React.RefObject<HTMLInputElement | null> };
+  ```
+
 ### Next.js Patterns
 - **Synchronous Dynamic Route Params (Next.js 15+)**:
   ```tsx
