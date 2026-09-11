@@ -7,13 +7,13 @@ description: Use when designing or refactoring Next.js route definitions, route 
 
 ## Overview
 
-Centralise route paths in one small typed registry. The route file should be the source of truth for path strings and dynamic URL helpers only; keep redirects, auth guards, protected-route checks, and navigation effects elsewhere.
+Centralise route paths in one small typed registry under `./config` (e.g., `config/routes.ts`). The route file should be the source of truth for path strings and dynamic URL helpers only; keep redirects, auth guards, protected-route checks, and navigation effects elsewhere.
 
 ## When to Use
 
 Use this when you are:
 
-- Refactoring hardcoded path strings into a central route module.
+- Refactoring hardcoded path strings into a central route module under `./config/routes.ts`.
 - Adding or renaming Next.js App Router pages.
 - Creating typed helpers for dynamic routes such as `/settings/[id]` or `/inventory/[slug]`.
 - Splitting duplicated route construction across server actions, client components, and redirects.
@@ -21,7 +21,7 @@ Use this when you are:
 
 ## Core Pattern
 
-Use the smallest useful abstraction:
+Place the route registry in `./config` (e.g., `config/routes.ts`). Use the smallest useful abstraction:
 
 1. Define base path constants.
 2. Group routes by domain.
@@ -109,7 +109,7 @@ Cover the invariants that catch route drift. In test files, use `ROUTES` in rout
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES } from "@/config/routes";
 
 describe("ROUTES", () => {
   it("returns the static route", () => {
@@ -130,6 +130,7 @@ describe("ROUTES", () => {
 
 | Mistake | Better approach |
 |---|---|
+| Placing route definitions in `lib/`, `constants/`, or root files | Centralise under `./config` (e.g. `config/routes.ts`) |
 | Moving strings into one file but still interpolating at every call site | Use typed helper functions for dynamic routes |
 | Mixing route paths with protected-route logic | Keep route definitions and route protection separate |
 | Adding classes, factories, or generated-code complexity | Start with constants, groups, and helper functions |
@@ -141,6 +142,7 @@ describe("ROUTES", () => {
 
 ## Quality Checklist
 
+- Route registry is located under `./config` (e.g. `config/routes.ts`), not in `lib/` or `constants/`.
 - Hardcoded app path strings are centralised where practical.
 - Dynamic routes are built by helpers, not call-site template strings.
 - Static asset paths (in `public/`) are not confused with application routes.
