@@ -611,6 +611,8 @@ Testing the complete comments feature.
 
 ### Test Files
 
+Located at the project root (`__tests__/`, never nested within subdirectories):
+
 ```
 __tests__/
 ├── actions/

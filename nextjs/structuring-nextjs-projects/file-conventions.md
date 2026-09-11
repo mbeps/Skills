@@ -21,6 +21,7 @@ export const CommentForm = () => { ... };
 - File: `comment-form.tsx`, `song-list.tsx`, `play-button.tsx`
 - Export: `CommentForm`, `SongList`, `PlayButton`
 - Never: `CommentForm.tsx` (PascalCase file name)
+- Placement: Centralise components in `./components/[domain]/` (or `./components/ui/`, `./components/header.tsx`). Pages can only include their own local `_components/` folder if the components are strictly specific to that page.
 
 ---
 
@@ -129,7 +130,8 @@ export default function useFavourite(songId: string) { ... }
 ```
 
 **Rules:**
-- Mirror source structure
+- `__tests__/` is ALWAYS located at the project root (never nested inside feature folders, `app/`, `components/`, etc.)
+- Mirror source structure inside `__tests__/`
 - camelCase (EXCEPTION to kebab-case rule)
 - Matches function/component name, not file name
 
@@ -143,35 +145,54 @@ export default function useFavourite(songId: string) { ... }
 
 ### One Export Per File
 
-**Rule:** Each file exports ONE primary thing.
+**Rule:** Each file for **actions, types, interfaces, components, pages, and hooks** must only have **one export**.
+
+- **Internal helpers allowed:** Multiple functions, types, interfaces, or sub-components can reside in the same file as long as they are **not exported** (i.e. strictly private/internal helpers).
+- **Exceptions:** Select infrastructure or utility files (e.g. `lib/logger.ts`, client initializers, or configuration registries) are allowed to have multiple exports.
 
 ```typescript
 // ✅ types/comment/comment.ts
-export interface Comment { ... }
+// Unexported internal helper type is allowed
+type CommentId = string;
 
-// ✅ types/comment/comment-with-author.ts
-export interface CommentWithAuthor { ... }
+export interface Comment {
+  id: CommentId;
+  content: string;
+}
 
-// ❌ NEVER combine in one file
+// ✅ actions/comment/get-comments.ts
+// Unexported internal helper function & type are allowed
+interface QueryFilter {
+  songId: string;
+}
+
+function sanitizeFilter(filter: QueryFilter): QueryFilter {
+  return { songId: filter.songId.trim() };
+}
+
+export default async function getComments(filter: QueryFilter) { ... }
+
+// ❌ NEVER export multiple items from one file
 export interface Comment { ... }
 export interface CommentWithAuthor { ... }
 export interface CommentReply { ... }
 ```
 
-**Why:** Clear ownership, easier refactoring, better tree-shaking.
+**Why:** Clear ownership, easier refactoring, predictable imports, and better tree-shaking.
 
 ---
 
 ### Export Syntax by File Type
 
-| File Type         | Export Pattern               | Example                                                                 |
-| ----------------- | ---------------------------- | ----------------------------------------------------------------------- |
-| **Server Action** | Default export               | `export default async function getComments()`                           |
-| **Component**     | Default or named             | `export default CommentForm` or `export const CommentForm`              |
-| **Type**          | Named export                 | `export interface Comment` or `export type AlbumType`                   |
-| **Schema**        | Named export (schema + type) | `export const schema = z.object(...); export type Input = z.infer<...>` |
-| **Hook**          | Default export               | `export default function usePlayer()`                                   |
-| **Utility**       | Named export                 | `export function formatDuration()`                                      |
+| File Type            | Export Pattern                      | Example                                                                 |
+| -------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
+| **Server Action**    | Single default export               | `export default async function getComments()`                           |
+| **Component**        | Single default or named             | `export default CommentForm` or `export const CommentForm`              |
+| **Page**             | Single default export               | `export default function Page()`                                        |
+| **Type / Interface** | Single named export                 | `export interface Comment` or `export type AlbumType`                   |
+| **Schema**           | Named export (schema + type)        | `export const schema = z.object(...); export type Input = z.infer<...>` |
+| **Hook**             | Single default export               | `export default function usePlayer()`                                   |
+| **Utility / Logger** | Named export(s) (allowed exception) | `export function formatDuration()`, `export function getLogger()`       |
 
 ---
 
@@ -479,7 +500,30 @@ export const SONG_WITH_ALBUM_SELECT = `
   )
 `;
 
-// ✅ Business logic constants in lib/
+// ✅ Application-wide configuration and asset constants in config/
+// config/constants.ts
+export const APP_CONFIG = {
+  DEFAULT_PAGINATION_LIMIT: 20,
+  SUPPORT_EMAIL: 'support@example.com',
+} as const;
+
+// config/assets.ts (mirrors ROUTES pattern with grouped object fields)
+const IMAGES_BASE = '/images';
+
+export const ASSETS = {
+  LOGO: {
+    DARK: { path: `${IMAGES_BASE}/logo-dark.svg`, alt: 'App logo (dark mode)' },
+    LIGHT: { path: `${IMAGES_BASE}/logo-light.svg`, alt: 'App logo (light mode)' },
+  },
+  AVATARS: {
+    DEFAULT: { path: `${IMAGES_BASE}/default-avatar.png` },
+    FALLBACK: { path: `${IMAGES_BASE}/fallback-cover.jpg` },
+  },
+} as const;
+
+export type Assets = typeof ASSETS;
+
+// ✅ Component/styling utilities in lib/
 // lib/utils.ts
 export const GRID_CLASSES = {
   default: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",

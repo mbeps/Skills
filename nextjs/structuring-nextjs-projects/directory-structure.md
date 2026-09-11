@@ -7,7 +7,7 @@ Complete guide to folder organization in Next.js App Router projects with domain
 ### `actions/`
 **Purpose:** All server-side mutations and data fetching  
 **Structure:** `actions/[domain]/[action-name].ts`  
-**Rule:** ALL server actions here, even if used once
+**Rule:** ALL server actions here, even if used once; single default export per file (unexported internal helpers allowed)
 
 ```
 actions/
@@ -32,7 +32,7 @@ actions/
 ### `types/`
 **Purpose:** All TypeScript types and interfaces  
 **Structure:** `types/[domain]/[type-name].ts`  
-**Rule:** No barrel exports; one type per file
+**Rule:** No barrel exports; one exported type/interface per file (unexported internal helpers allowed)
 
 ```
 types/
@@ -57,9 +57,9 @@ types/
 ---
 
 ### `components/`
-**Purpose:** All React components  
+**Purpose:** All shared and reusable React components  
 **Structure:** `components/[domain]/[component-name].tsx`  
-**Rule:** One component per file; no co-located sub-components
+**Rule:** One component per file; no co-located sub-components. All reusable components must be centralised in `./components`. Pages may include their own local `_components/` folder if and only if the component is strictly specific to that page.
 
 ```
 components/
@@ -113,7 +113,7 @@ schemas/
 ### `hooks/`
 **Purpose:** Custom React hooks  
 **Structure:** `hooks/use-[name].ts` (FLAT, no subfolders)  
-**Rule:** `use-` prefix; hooks are inherently cross-domain
+**Rule:** `use-` prefix; single default export per file (unexported internal helpers allowed)
 
 ```
 hooks/
@@ -129,13 +129,12 @@ hooks/
 ---
 
 ### `lib/`
-**Purpose:** Business logic, utilities, shared helpers  
+**Purpose:** Business logic, utilities, shared helpers, and structured logging  
 **Structure:** Domain-organized when specific, flat when generic
 
 ```
 lib/
-├── env.ts                          # Environment variable validation (Zod)
-├── logger.ts
+├── logger.ts                       # Structured logging configuration (see logtape-nextjs skill)
 ├── utils.ts                        # Generic utilities (cn(), formatArtists())
 ├── mappers/                        # DB row → UI type transformations
 │   ├── comment.ts                  # mapCommentWithAuthorRow()
@@ -148,6 +147,8 @@ lib/
 ```
 
 **Mappers pattern:** All database row transformations in `lib/mappers/[domain].ts`. Keeps DB concerns separate from UI types.
+
+**Logging pattern:** Structured logging belongs in `lib/logger.ts`. Use LogTape for columnar formatting, non-blocking sinks, and level control via `LOG_LEVEL`. Server actions log mutations at `info` and queries at `debug`; avoid raw `console.log` statements. Refer to the `logtape-nextjs` skill for full details.
 
 ---
 
@@ -162,6 +163,8 @@ utils/
     ├── server.ts                   # Server client
     └── middleware.ts               # Middleware client (if using middleware)
 ```
+
+**Rule:** Third-party client initialization only. No business logic.
 
 **vs lib/:** `utils/` = infrastructure; `lib/` = business logic.
 
@@ -180,6 +183,50 @@ providers/
 ```
 
 **Pattern:** Providers wrap `app/layout.tsx`, providing global context.
+
+---
+
+### `config/`
+**Purpose:** Centralised application configuration, routes, environment variables, asset locations, and global constants  
+**Structure:** `config/[name].ts`  
+**Rules:**
+- Application routes must be centralised under `./config` (e.g. `config/routes.ts`). Keep path definitions and dynamic route helpers here without mixing in auth or navigation logic. For detailed implementation patterns, refer to the `centralised-routes` skill.
+- Environment variable validation (`env.ts`) must be centralised in `./config` (e.g. `config/env.ts`), validating client and server environment variables via Zod. Refer to the `typescript-environment-variables` skill for full details.
+- Centralise static asset locations and paths (e.g. `config/assets.ts`) following a pattern similar to `ROUTES` in `centralised-routes`: define base path constants, group assets by entity/domain with object fields (e.g. `LOGO.DARK.path`, `LOGO.LIGHT.path`), and export as `as const`.
+- Centralise global site metadata, navigation structure, and app-wide constants (e.g. `config/site.ts`, `config/constants.ts`) in `./config` rather than scattering them in `lib/` or root files.
+
+```
+config/
+├── routes.ts                       # Centralized route definitions (see centralised-routes skill)
+├── env.ts                          # Environment variable validation (see typescript-environment-variables skill)
+├── assets.ts                       # Structured asset registry (e.g. ASSETS.LOGO.DARK.path)
+├── site.ts                         # Site metadata, navigation links, branding info
+└── constants.ts                    # Global application-wide constants
+```
+
+#### Assets Registry Pattern (`config/assets.ts`)
+
+```typescript
+const IMAGES_BASE = '/images';
+const ICONS_BASE = '/icons';
+
+export const ASSETS = {
+  LOGO: {
+    DARK: { path: `${IMAGES_BASE}/logo-dark.svg`, alt: 'App logo dark' },
+    LIGHT: { path: `${IMAGES_BASE}/logo-light.svg`, alt: 'App logo light' },
+  },
+  AVATARS: {
+    DEFAULT: { path: `${IMAGES_BASE}/default-avatar.png` },
+    FALLBACK: { path: `${IMAGES_BASE}/fallback-cover.jpg` },
+  },
+  ICONS: {
+    PLAY: { path: `${ICONS_BASE}/play.svg` },
+    PAUSE: { path: `${ICONS_BASE}/pause.svg` },
+  },
+} as const;
+
+export type Assets = typeof ASSETS;
+```
 
 ---
 
@@ -210,7 +257,7 @@ app/
 
 **Colocation rule:** Business logic stays OUT of `app/`. Routing concerns ONLY.
 
-**Page-specific components:** Use `_components/` subfolder with underscore prefix (Next.js convention for non-routable folders).
+**Page-specific components:** Pages can include their own `_components/` subfolder (with underscore prefix, Next.js convention for non-routable folders) ONLY if the components are strictly specific to that page. Otherwise, components must be centralised in `./components`.
 
 #### Route Groups Pattern
 - Purpose: Organize routes without affecting URLs
@@ -234,9 +281,10 @@ app/api/
 ---
 
 ### `__tests__/`
+**Location:** ALWAYS at the root of the project (never in nested directories or subfolders)  
 **Purpose:** Unit and integration tests  
 **Structure:** MIRRORS source structure  
-**Rule:** Tests for `X/Y/file.ts` go in `__tests__/X/file.test.ts`
+**Rule:** Tests for `X/Y/file.ts` go in `__tests__/X/file.test.ts` (at project root)
 
 ```
 __tests__/
@@ -260,7 +308,7 @@ __tests__/
 
 ```
 .
-├── routes.ts                       # Centralized route definitions (see centralised-routes skill)
+├── biome.json                      # Default linting & formatting configuration (see migrating-eslint-prettier-to-biome)
 ├── proxy.ts                        # Next.js 16 request proxy (replaces middleware.ts)
 ├── instrumentation.ts              # Monitoring/observability hooks
 ├── next.config.js
@@ -271,8 +319,10 @@ __tests__/
 ```
 
 **Key patterns:**
-- `routes.ts` - Single source of truth for all URLs (see `centralised-routes` skill)
-- `lib/env.ts` - Validates all env vars with Zod (see `typescript-environment-variables` skill)
+- `biome.json` - By default, Biome is used for linting and formatting (replaces ESLint/Prettier; see `migrating-eslint-prettier-to-biome` skill)
+- `config/routes.ts` - Single source of truth for all URLs (see `centralised-routes` skill)
+- `config/env.ts` - Validates all env vars with Zod (see `typescript-environment-variables` skill)
+- `lib/logger.ts` - Structured, non-blocking telemetry setup (see `logtape-nextjs` skill)
 - `proxy.ts` - Next.js 16 uses this instead of `middleware.ts`
 
 ---
@@ -321,11 +371,16 @@ project/
 │   ├── song/
 │   ├── ui/
 │   └── header.tsx
+├── config/
+│   ├── routes.ts
+│   ├── env.ts
+│   ├── assets.ts
+│   └── constants.ts
 ├── hooks/
 │   ├── use-player.ts
 │   └── use-favourite.ts
 ├── lib/
-│   ├── env.ts
+│   ├── logger.ts
 │   ├── utils.ts
 │   ├── mappers/
 │   └── music/
@@ -346,7 +401,7 @@ project/
 │   ├── actions/
 │   ├── components/
 │   └── helpers/
-├── routes.ts
+├── biome.json
 ├── proxy.ts
 └── instrumentation.ts
 ```

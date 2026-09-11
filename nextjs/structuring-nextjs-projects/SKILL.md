@@ -21,11 +21,13 @@ Use this skill when:
 - Setting up test structure
 - Migrating from Pages Router or unstructured projects
 
-**Prerequisites:** Project uses Next.js App Router (not Pages Router), TypeScript with strict mode enabled (`"strict": true` in tsconfig.json), and has `@/*` path alias configured.
+**Prerequisites:** Project uses Next.js App Router (not Pages Router), TypeScript with strict mode enabled (`"strict": true` in tsconfig.json), Biome by default for linting and formatting (`biome.json`), and has `@/*` path alias configured.
 
 **Related skills:**
-- `centralised-routes` - Route management (referenced, not duplicated here)
-- `typescript-environment-variables` - Env var validation (referenced, not duplicated here)
+- `centralised-routes` - Routes must be centralised under a `./config` folder (e.g., `config/routes.ts`). See `centralised-routes` skill for full details.
+- `typescript-environment-variables` - Environment variables and validation must be centralised under `./config` (e.g., `config/env.ts`). See `typescript-environment-variables` skill for full details.
+- `logtape-nextjs` - Structured telemetry and logging setup (`lib/logger.ts`). See `logtape-nextjs` skill for full details.
+- `migrating-eslint-prettier-to-biome` - Biome is used by default for linting and formatting (replaces ESLint/Prettier). See `migrating-eslint-prettier-to-biome` skill for full details.
 
 ## Critical Rules
 
@@ -97,13 +99,34 @@ export function processData(data: unknown): ProcessedData { ... }
 
 **Why:** Type safety, catch errors at compile time, better IDE support. Project MUST have `"strict": true` in tsconfig.json.
 
+### ONE EXPORT PER FILE
+
+Each file for **actions, types, interfaces, components, pages, and hooks** must only have **one export**.
+- **Internal helpers allowed:** Multiple functions, types, interfaces, or constants can live in the same file as long as they are NOT exported.
+- **Allowed exceptions:** Infrastructure or utility files (e.g., `lib/logger.ts`, client initializers, or configuration registries) are allowed to have multiple exports.
+
+```typescript
+// ❌ NEVER export multiple items from one file
+// types/comment/comment.ts
+export interface Comment { ... }
+export interface CommentWithAuthor { ... }
+
+// ✅ Multiple internal functions/types are allowed as long as they are NOT exported
+// actions/comment/get-comments.ts
+type QueryFilter = { songId: string };      // Internal helper type (unexported)
+function validateFilter(f: unknown) { ... } // Internal helper function (unexported)
+
+export default async function getComments() { ... } // Single export
+```
+
 ## File Placement Decision Tree
 
 ```mermaid
 graph TD
     A[New Code] --> B{What type?}
-    B -->|React component| C{Display logic?}
-    C -->|Yes| D[components/domain/name.tsx]
+    B -->|React component| C{Page-specific?}
+    C -->|Yes| D1[app/path/_components/name.tsx]
+    C -->|No - Centralised| D[components/domain/name.tsx]
     B -->|Data operation| E{Server or client?}
     E -->|Server| F[actions/domain/verb-noun.ts]
     E -->|Client hook| G[hooks/use-name.ts]
@@ -116,6 +139,10 @@ graph TD
     L -->|Tech helper| N[utils/tech/name.ts]
     B -->|Route/page| O[app/path/page.tsx]
     B -->|API endpoint| P[app/api/resource/route.ts]
+    B -->|Route definitions| Q[config/routes.ts]
+    B -->|Environment validation| R[config/env.ts]
+    B -->|App config/assets/constants| S[config/name.ts]
+    B -->|Structured logger| T[lib/logger.ts]
 ```
 
 ## Quick Reference
@@ -123,7 +150,9 @@ graph TD
 ```mermaid
 graph TD
     A[New Code] --> B{What type?}
-    B -->|React component| D[components/domain/name.tsx]
+    B -->|React component| C{Page-specific?}
+    C -->|Yes| D1[app/path/_components/name.tsx]
+    C -->|No - Centralised| D[components/domain/name.tsx]
     B -->|Data operation| E{Server Action?}
     E -->|Yes| F[actions/domain/verb-noun.ts]
     E -->|No - Client hook| G[hooks/use-name.ts]
@@ -136,6 +165,10 @@ graph TD
     L -->|No - Tech helper| N[utils/tech/name.ts]
     B -->|Route/page| O[app/path/page.tsx]
     B -->|API endpoint| P[app/api/resource/route.ts]
+    B -->|Route definitions| Q[config/routes.ts]
+    B -->|Environment validation| R[config/env.ts]
+    B -->|App config/assets/constants| S[config/name.ts]
+    B -->|Structured logger| T[lib/logger.ts]
 ```
 
 ### Directory Structure
@@ -144,14 +177,16 @@ graph TD
 |--------|---------|---------|
 | `actions/[domain]/` | Server Actions only | `actions/comment/get-comments.ts` |
 | `types/[domain]/` | TypeScript types/interfaces | `types/comment/comment-with-author.ts` |
-| `components/[domain]/` | React components | `components/comment/comment-list.tsx` |
+| `components/[domain]/` | Shared React components (centralised) | `components/comment/comment-list.tsx` |
+| `app/path/_components/` | Page-specific components ONLY | `app/songs/[id]/_components/song-details.tsx` |
 | `schemas/[domain]/` | Zod validation schemas | `schemas/comment/create-comment.schema.ts` |
+| `config/` | Centralised routes, env, assets, constants & config | `config/routes.ts`, `config/env.ts`, `config/assets.ts` |
 | `hooks/` | Custom React hooks (flat) | `hooks/use-player.ts` |
-| `lib/` | Business logic, utilities | `lib/mappers/comment.ts` |
+| `lib/` | Business logic, utilities, logging | `lib/mappers/comment.ts`, `lib/logger.ts` |
 | `utils/` | Infrastructure clients | `utils/supabase/server.ts` |
 | `providers/` | React Context providers | `providers/modal-provider.tsx` |
 | `app/` | Routing + special files ONLY | `app/songs/[id]/page.tsx` |
-| `__tests__/[category]/` | Tests (mirror structure) | `__tests__/actions/getComments.test.ts` |
+| `__tests__/[category]/` | Tests (always at project root, mirrors structure) | `__tests__/actions/getComments.test.ts` |
 
 ### File Naming
 
@@ -170,9 +205,13 @@ graph TD
 |-----------|----------------|---------|
 | Server Action | Single default export | `export default getComments;` |
 | Component | Single default or named export | `export default CommentList;` or `export const CommentList` |
-| Type | Single named export | `export type Comment = {...}` |
-| Schema | Single named export | `export const createCommentSchema = z.object(...)` |
+| Page | Single default export | `export default function SongPage()` |
+| Type / Interface | Single named export | `export type Comment = {...}` or `export interface Comment {...}` |
+| Schema | Named export (schema + type) | `export const createCommentSchema = z.object(...)` |
 | Hook | Single default export | `export default usePlayer;` |
+| Utility / Logger | Named export(s) (allowed exception) | `export function formatDuration()`, `export function getLogger()` |
+
+> **Rule:** Each file for actions, types, interfaces, components, pages, and hooks must only have **one export**. Multiple internal functions, types, or helpers can exist in the file as long as they are NOT exported. Infrastructure/utility files (like loggers) are allowed to have multiple exports.
 
 ### Import Order
 
@@ -260,7 +299,13 @@ See these files for comprehensive details:
 | Multiple exports per file | Unclear ownership | One export per file |
 | PascalCase file names | Convention mismatch | Use kebab-case |
 | Business logic in `app/` folder | Routing folder, not logic | Move to `lib/` or `utils/` |
+| Shared components in `app/` | Violates separation, hard to reuse | Only page-specific in `_components/`; centralise shared in `./components` |
 | Wrong test naming (kebab-case) | Convention violation | Use camelCase: `getComments.test.ts` |
+| Nesting `__tests__/` in subdirectories | Inconsistent test discovery and structure | Always place `__tests__/` at project root |
+| Hardcoding/scattering raw route strings | Hard to maintain and refactor | Centralise routes under `./config` (e.g. `config/routes.ts`) |
+| Scattering env vars or putting `env.ts` in `lib/` | Inconsistent validation and configuration | Centralise in `./config` (e.g. `config/env.ts`) |
+| Hardcoding asset paths or scattering app constants | Difficult maintenance and asset updates | Centralise in `./config` (e.g. `config/assets.ts`, `config/constants.ts`) |
+| Scattering raw `console.log` calls | Unstructured, noisy terminal output | Use structured logger in `lib/logger.ts` (see `logtape-nextjs`) |
 | Forgetting `"use client"` | Server component can't use hooks | Add directive at top |
 | Absolute imports without alias | Breaks on path changes | Always use `@/*` |
 
@@ -272,6 +317,7 @@ digraph file_location {
     
     "What are you creating?" [shape=diamond];
     "React component?" [shape=diamond];
+    "Specific to single page?" [shape=diamond];
     "Data transformation?" [shape=diamond];
     "Validation schema?" [shape=diamond];
     "Server action?" [shape=diamond];
@@ -279,6 +325,7 @@ digraph file_location {
     "React Context provider?" [shape=diamond];
     
     "components/[domain]/[name].tsx" [shape=box];
+    "app/[path]/_components/[name].tsx" [shape=box];
     "types/[domain]/[name].ts" [shape=box];
     "lib/mappers/[domain].ts" [shape=box];
     "lib/[name].ts" [shape=box];
@@ -290,7 +337,9 @@ digraph file_location {
     "What are you creating?" -> "React component?" [label="yes"];
     "React component?" -> "React Context provider?" [label="yes"];
     "React Context provider?" -> "providers/[name]-provider.tsx" [label="yes"];
-    "React Context provider?" -> "components/[domain]/[name].tsx" [label="no"];
+    "React Context provider?" -> "Specific to single page?" [label="no"];
+    "Specific to single page?" -> "app/[path]/_components/[name].tsx" [label="yes"];
+    "Specific to single page?" -> "components/[domain]/[name].tsx" [label="no (shared)"];
     
     "What are you creating?" -> "Server action?" [label="server action"];
     "Server action?" -> "actions/[domain]/[name].ts" [label="yes"];
