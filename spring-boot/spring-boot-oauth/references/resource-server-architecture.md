@@ -125,6 +125,15 @@ public class JwksKeyLoader {
         }
     }
 }
+
+@Configuration
+@ConfigurationProperties(prefix = "auth.service")
+@Data
+public class AuthServiceProperties {
+    private String jwksUrl = "http://localhost:8081";
+    private String expectedIssuer = "https://auth.example.com";
+    private String serviceAudience = "api://resource-server";
+}
 ```
 
 ---
@@ -170,6 +179,7 @@ import java.util.Map;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwksKeyLoader jwksKeyLoader;
+    private final AuthServiceProperties authServiceProperties;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -180,9 +190,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (jwt != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                // 1. Verify signature with cached public key & parse claims
+                // 1. Verify signature with cached public key & enforce issuer/audience (RFC 7519)
+                // Prevents Confused Deputy attacks across shared microservices
                 Claims claims = Jwts.parser()
                         .verifyWith(jwksKeyLoader.getPublicKey())
+                        .requireIssuer(authServiceProperties.getExpectedIssuer())
+                        .requireAudience(authServiceProperties.getServiceAudience())
                         .build()
                         .parseSignedClaims(jwt)
                         .getPayload();

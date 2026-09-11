@@ -59,6 +59,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
+  forward-headers-strategy: framework # Ensures {baseUrl} resolves external scheme/host/port behind reverse proxies
 
 jwt:
   private-key-path: ${JWT_PRIVATE_KEY_PATH:keys/auth-private.pem}
@@ -80,6 +81,16 @@ cookie:
   same-site: ${COOKIE_SAME_SITE:Lax}
 
 app:
+  egress-proxy:
+    enabled: ${EGRESS_PROXY_ENABLED:false}
+    host: ${EGRESS_PROXY_HOST:proxy.internal.corp}
+    port: ${EGRESS_PROXY_PORT:8080}
+    username: ${EGRESS_PROXY_USER:}
+    password: ${EGRESS_PROXY_PASS:}
+    ssl:
+      trust-store-path: ${PROXY_TRUSTSTORE_PATH:}
+      trust-store-password: ${PROXY_TRUSTSTORE_PASSWORD:}
+      skip-verification: false
   security:
     refresh-token:
       hashing-enabled: ${REFRESH_TOKEN_HASHING:true}
@@ -108,6 +119,8 @@ frontend:
 auth:
   service:
     jwks-url: ${AUTH_SERVICE_JWKS_URL:http://localhost:8081}
+    expected-issuer: ${AUTH_SERVICE_ISSUER:https://auth.example.com}
+    service-audience: ${AUTH_SERVICE_AUDIENCE:api://resource-server}
 ```
 
 ---
@@ -117,7 +130,7 @@ auth:
 ### Auth Service Properties
 
 ```java
-package com.maruf.auth.config;
+package com.example.auth.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -151,6 +164,26 @@ public class JwtSecurityProperties {
 }
 
 @Configuration
+@ConfigurationProperties(prefix = "app.egress-proxy")
+@Data
+public class ProxyProperties {
+    private boolean enabled = false;
+    private String host;
+    private int port = 8080;
+    private String username;
+    private String password;
+    private List<String> nonProxyHosts = new ArrayList<>();
+    private SslProperties ssl = new SslProperties();
+
+    @Data
+    public static class SslProperties {
+        private String trustStorePath;
+        private String trustStorePassword;
+        private boolean skipVerification = false;
+    }
+}
+
+@Configuration
 @ConfigurationProperties(prefix = "app.security.refresh-token")
 @Data
 public class RefreshTokenSecurityProperties {
@@ -162,11 +195,21 @@ public class RefreshTokenSecurityProperties {
 ### Resource Server Properties
 
 ```java
-package com.maruf.oauth.config;
+package com.example.resource.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@ConfigurationProperties(prefix = "auth.service")
+@Data
+public class AuthServiceProperties {
+    private String jwksUrl = "http://localhost:8081";
+    private String expectedIssuer = "https://auth.example.com";
+    private String serviceAudience = "api://resource-server";
+}
+```
 
 @Configuration
 @ConfigurationProperties(prefix = "auth.service")
@@ -236,9 +279,19 @@ auth:
 
 ## 5. Production Security Checklist
 
+- [ ] **Reverse Proxy Headers**: Set `server.forward-headers-strategy=framework` behind reverse proxies to prevent `redirect_uri_mismatch`.
 - [ ] **HTTPS Enforcement**: Set `cookie.secure=true` so cookies are never transmitted over plain HTTP.
 - [ ] **Strict Key Permissions**: Store RSA PEM private keys in protected volumes with `chmod 600`.
+- [ ] **Audience & Issuer Verification**: Ensure all Resource Servers validate `iss` and `aud` claims to prevent Confused Deputy token replay.
 - [ ] **No Wildcard CORS**: Never use `allowedOrigins: ["*"]` with `allowCredentials: true` (rejected by browsers and violates CORS specification).
+- [ ] **Egress Proxy Routing**: Route outbound OAuth2 token exchange and JWKS requests through corporate egress proxy when deployed in restricted intranets.
 - [ ] **Database Indexing**: Ensure unique index on `refresh_tokens.token` and `invalidated_access_tokens.token`. Ensure index on `expiresAt` for efficient cleanup.
 - [ ] **Fail-Fast Readiness**: Ensure Resource Servers depend on Auth Service health checks in orchestration tools (Kubernetes `initContainers` or Docker Compose `depends_on: condition: service_healthy`).
+
+---
+
+## 6. Related Modular References
+
+- [proxy-and-gateway-configuration.md](proxy-and-gateway-configuration.md): Reverse proxy headers, TLS offloading, Apache HttpClient 5 corporate egress proxy, and OAuth2 client wiring.
+- [multi-application-architecture.md](multi-application-architecture.md): Multi-frontend client registration, strict redirect validation, dynamic CORS, namespaced role claims, and audience enforcement.
 

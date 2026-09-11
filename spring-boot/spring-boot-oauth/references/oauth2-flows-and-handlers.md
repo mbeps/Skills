@@ -116,8 +116,36 @@ public class CustomOAuth2AuthorizationRequestResolver implements OAuth2Authoriza
         return authorizationRequest;
     }
 
+    /**
+     * Strict origin validation against whitelist to prevent Open Redirect attacks.
+     * Rejects prefix matching (startsWith) which is vulnerable to subdomain spoofing
+     * and userinfo credential injection (e.g. https://target.com.attacker.com).
+     */
     private boolean isAllowedRedirectUrl(String url) {
-        return allowedRedirectUrls.stream().anyMatch(url::startsWith);
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try {
+            java.net.URI candidate = java.net.URI.create(url).normalize();
+            if (!candidate.isAbsolute() || candidate.getUserInfo() != null) {
+                return false;
+            }
+            String candidateOrigin = getOrigin(candidate);
+            return allowedRedirectUrls.stream()
+                    .map(allowed -> getOrigin(java.net.URI.create(allowed).normalize()))
+                    .anyMatch(candidateOrigin::equalsIgnoreCase);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String getOrigin(java.net.URI uri) {
+        int port = uri.getPort();
+        String scheme = uri.getScheme().toLowerCase();
+        if (port == -1 || (port == 80 && "http".equals(scheme)) || (port == 443 && "https".equals(scheme))) {
+            return scheme + "://" + uri.getHost().toLowerCase();
+        }
+        return scheme + "://" + uri.getHost().toLowerCase() + ":" + port;
     }
 }
 ```
