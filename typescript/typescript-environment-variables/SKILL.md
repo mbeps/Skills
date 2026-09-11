@@ -17,7 +17,7 @@ Centralised, validated environment configuration with type inference, runtime se
 
 ## Core Pattern: Zod + Contextual Validation
 
-Define all environment variables in `lib/env.ts` using **Zod schemas**. Wrap validation in an exported function for testability, and execute it immediately for startup validation.
+Define all environment variables in `config/env.ts` (under `./config`) using **Zod schemas**. Wrap validation in an exported function for testability, and execute it immediately for startup validation.
 
 ### 1. Define Schemas & Validation Function
 
@@ -85,7 +85,7 @@ export const FILE_LIMITS = {
 
 ```typescript
 // Access typed variables and constants
-import { env, FILE_LIMITS } from "@/lib/env";
+import { env, FILE_LIMITS } from "@/config/env";
 
 const apiUrl = env.NEXT_PUBLIC_API_URL; // string
 ```
@@ -94,13 +94,13 @@ For server routes or scripts where third-party SDKs read `process.env` implicitl
 
 ```typescript
 // Side-effect import ensures startup validation runs without linter pruning
-import "@/lib/env";
+import "@/config/env";
 ```
 
 ## Best Practices
 
 ### Centralisation
-- **Single reader:** `lib/env.ts` is the only file that accesses `process.env`.
+- **Single reader:** `config/env.ts` (under `./config`) is the only file that accesses `process.env`.
 - **Explicit object mapping:** Never pass `process.env` wholesale (`schema.safeParse(process.env)`). Next.js Webpack/Turbopack only inlines client variables when referenced as exact literals (`process.env.NEXT_PUBLIC_*`).
 - **Eliminate assertions:** Never use non-null assertions (`process.env.VAR!`). Use `env.VAR`.
 
@@ -122,16 +122,17 @@ import "@/lib/env";
 
 | Mistake | Consequence | Fix |
 |---|---|---|
+| Placing `env.ts` in `lib/` or root | Inconsistent directory structure and discovery | Centralise in `./config/env.ts` |
 | `safeParse(process.env)` | Client bundle has undefined `NEXT_PUBLIC_*` values | Map explicit keys: `{ KEY: process.env.KEY }` |
 | Top-level validation only without export | Untestable in Vitest/Jest; fails coverage thresholds | Wrap in `validateEnv()` and export both function and `env` singleton |
 | Missing fallback in test setup | CI tests crash on startup with "Invalid environment variables" | Add `process.env.VAR ||= "mock"` in test setup file |
-| `import { env }` unused in SDK routes | Linter (Biome/ESLint) strips import; validation skipped | Use side-effect import `import "@/lib/env";` |
+| `import { env }` unused in SDK routes | Linter (Biome/ESLint) strips import; validation skipped | Use side-effect import `import "@/config/env";` |
 | Inferred union type without `as Env` | Accessing server secrets in TS throws property missing errors | Type assertion `return parsed.data as Env;` |
 
 ## Migration Path
 
 1. Audit existing `process.env` usage across codebase.
-2. Create `lib/env.ts` with client and server Zod schemas and `validateEnv()`.
+2. Create `config/env.ts` (under `./config`) with client and server Zod schemas and `validateEnv()`.
 3. Add fallback defaults to test harness (`setup.ts`).
-4. Replace direct `process.env` references with `env` imports.
+4. Replace direct `process.env` references with `env` imports from `@/config/env`.
 5. Add unit tests for `validateEnv` covering client, server, and failure branches.
