@@ -7,7 +7,7 @@ description: Use when creating files, organizing code, or structuring Next.js Ap
 
 ## Overview
 
-**Domain-first organization with strict conventions:** One export per file, absolute imports only, no barrel exports, kebab-case naming. Each concern (types, actions, components, schemas) lives in its own top-level folder with domain subfolders.
+**Domain-first organization with strict conventions:** One export per file, absolute imports only, no barrel exports, kebab-case naming. Each concern (types, actions, components, schemas) lives in its own top-level folder with domain subfolders. Folders like `enums/` or `enum/` are also permitted for enums.
 
 **Core principle:** Predictable structure beats convenience. Explicit imports beat clever re-exports.
 
@@ -101,7 +101,7 @@ export function processData(data: unknown): ProcessedData { ... }
 
 ### ONE EXPORT PER FILE
 
-Each file for **actions, types, interfaces, components, pages, and hooks** must only have **one export**.
+Each file for **actions, types, interfaces, enums, components, pages, and hooks** must only have **one export**.
 - **Internal helpers allowed:** Multiple functions, types, interfaces, or constants can live in the same file as long as they are NOT exported.
 - **Allowed exceptions:** Infrastructure or utility files (e.g., `lib/logger.ts`, client initializers, or configuration registries) are allowed to have multiple exports.
 
@@ -177,6 +177,7 @@ graph TD
 |--------|---------|---------|
 | `actions/[domain]/` | Server Actions only | `actions/comment/get-comments.ts` |
 | `types/[domain]/` | TypeScript types/interfaces | `types/comment/comment-with-author.ts` |
+| `enums/` or `enum/` | TypeScript enums (allowed folder) | `enums/car/car-status.ts`, `enum/role.ts` |
 | `components/[domain]/` | Shared React components (centralised) | `components/comment/comment-list.tsx` |
 | `app/path/_components/` | Page-specific components ONLY | `app/songs/[id]/_components/song-details.tsx` |
 | `schemas/[domain]/` | Zod validation schemas | `schemas/comment/create-comment.schema.ts` |
@@ -195,6 +196,7 @@ graph TD
 | Components | kebab-case → PascalCase export | `comment-form.tsx` → `CommentForm` |
 | Actions | kebab-case, verb-noun | `get-comments.ts`, `delete-comment.ts` |
 | Types | kebab-case, descriptive | `comment-with-author.ts`, `song.ts` |
+| Enums | kebab-case, descriptive | `car-status.ts`, `role.ts` |
 | Schemas | kebab-case + `.schema.ts` | `create-comment.schema.ts` |
 | Hooks | kebab-case, `use-` prefix | `use-favourite.ts` |
 | Tests | camelCase + `.test.ts` | `getComments.test.ts` |
@@ -207,11 +209,12 @@ graph TD
 | Component | Single default or named export | `export default CommentList;` or `export const CommentList` |
 | Page | Single default export | `export default function SongPage()` |
 | Type / Interface | Single named export | `export type Comment = {...}` or `export interface Comment {...}` |
+| Enum | Single named export | `export enum CarStatus { ... }` |
 | Schema | Named export (schema + type) | `export const createCommentSchema = z.object(...)` |
 | Hook | Single default export | `export default usePlayer;` |
 | Utility / Logger | Named export(s) (allowed exception) | `export function formatDuration()`, `export function getLogger()` |
 
-> **Rule:** Each file for actions, types, interfaces, components, pages, and hooks must only have **one export**. Multiple internal functions, types, or helpers can exist in the file as long as they are NOT exported. Infrastructure/utility files (like loggers) are allowed to have multiple exports.
+> **Rule:** Each file for actions, types, interfaces, enums, components, pages, and hooks must only have **one export**. Multiple internal functions, types, or helpers can exist in the file as long as they are NOT exported. Infrastructure/utility files (like loggers) are allowed to have multiple exports.
 
 ### Import Order
 

@@ -56,6 +56,21 @@ types/
 
 ---
 
+### `enums/` (or `enum/`)
+**Purpose:** TypeScript enums and enum-like mappings (allowed as top-level folder or under `types/[domain]/`)  
+**Structure:** `enums/[domain]/[name].ts` or `enums/[name].ts` (or `enum/`)  
+**Rule:** One exported enum per file; no barrel exports; kebab-case file naming
+
+```
+enums/
+├── car/
+│   └── car-status.ts
+└── auth/
+    └── user-role.ts
+```
+
+---
+
 ### `components/`
 **Purpose:** All shared and reusable React components  
 **Structure:** `components/[domain]/[component-name].tsx`  

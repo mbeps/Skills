@@ -77,6 +77,24 @@ export type AlbumType = "album" | "single" | "ep";
 
 ---
 
+### Enums
+
+**Pattern:** kebab-case file, PascalCase export
+
+```typescript
+// ✅ enums/car/car-status.ts or enum/car-status.ts
+export enum CarStatus {
+  AVAILABLE = "available",
+  SOLD = "sold",
+}
+```
+
+**Rules:**
+- Folders like `enums/` or `enum/` are explicitly allowed for TypeScript enums (alternatively placed under `types/[domain]/`).
+- Single named export per file.
+
+---
+
 ### Schemas
 
 **Pattern:** kebab-case + `.schema.ts` suffix
