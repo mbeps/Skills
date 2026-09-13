@@ -286,6 +286,26 @@ vi.mock("next-cloudinary", () => ({
 
 Libraries like `react-spinners` (`ClipLoader`, `PulseLoader`) render `<span>` elements styled with CSS borders and keyframes, NOT `<svg>` icons. Asserting `expect(container.querySelector("svg")).toBeInTheDocument()` fails; assert on container class, role, or `span` presence instead.
 
+### Radix UI / Base UI / Dialog Portal act(...) warnings
+
+When interacting with components containing Dialogs, Popovers, Dropdowns, or dropzones (e.g. Radix UI, Base UI), clicking triggers or dropping files initiates asynchronous state transitions and portal mounting effects. Synchronous `fireEvent` calls queue microtasks that update React state after the event finishes, causing:
+`stderr | An update to DialogPortal / MenuTrigger inside a test was not wrapped in act(...)`
+
+To eliminate these warnings:
+1. Wrap interactions that open/close portals or trigger file readers in `await act(async () => ...)`:
+```typescript
+await act(async () => {
+  fireEvent.click(screen.getByRole("button", { name: /settings/i }));
+});
+```
+2. Or use `@testing-library/user-event` (`const user = userEvent.setup(); await user.click(button);`), which handles `act` flushing automatically.
+3. Always wait for dialog visibility or state changes to settle using `await waitFor(...)`:
+```typescript
+await waitFor(() => {
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
+```
+
 ## Red Flags
 
 - Using `container.querySelector` instead of `screen.getBy*` — breaks multi-root queries

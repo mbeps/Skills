@@ -21,6 +21,10 @@ Rules:
 - Everything shared between a mock factory and test assertions goes in `vi.hoisted`.
 - Because mocking is hoisted, "mock before imports" ordering is automatic — you can write `vi.mock` after the imports and it still runs first.
 - `vi.doMock`/`vi.doUnmock` are **not** hoisted — only for dynamic-import tests.
+- **Import refactoring & transform phase gotchas (Vite/OXC)**: When updating imports to `@/*` aliases or renamed modules in test files, ensure old imports are completely replaced, not appended. Vite/OXC parses module ASTs prior to test execution:
+  - Duplicate declarations (`import { x } from "old"; import { x } from "@/new";`) trigger `[PARSE_ERROR] Identifier 'x' has already been declared`.
+  - Incomplete multi-line block replacements leaving dangling closing delimiters (`} from "old"; } from "@/new";`) trigger `[PARSE_ERROR] Unexpected token`.
+  Both halt the test runner at the transform stage before any `describe` or `it` block can execute.
 
 ## 2. Return/reject APIs + typed assertions
 

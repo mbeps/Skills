@@ -56,10 +56,14 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "Next.js build should type-check all test files" | Tests are transformed by Vitest; exclude `__tests__` in `tsconfig.json` so test mock types don't break `next build` |
 | "vite-tsconfig-paths will always resolve @ aliases" | When tests are excluded in tsconfig.json, vite-tsconfig-paths ignores them — always configure resolve.alias in vitest.config.ts |
 | "Closing a Headless UI modal can be tested by synchronous rerender" | Headless UI Transition exit animations keep elements in jsdom DOM; test closed state on separate initial mount or wait for animation |
+| "Vitest suite failed to run with parse error, it's a test runner bug" | Vite/OXC transforms tests before execution and fails fast on duplicate import identifiers or dangling closing braces from incomplete refactoring |
+| "tsc failed after moving route files, my code must have a broken import" | Next.js generated route validators in `.next/types/validator.ts` point to deleted paths — delete `.next` build cache (`rm -rf .next`) |
+| "The test passes so act(...) warnings in stderr can be ignored" | Radix / Base UI trigger clicks trigger async portal mounts; wrap in `await act(async () => ...)` or `await waitFor()` |
 
 ## Red Flags
 
 - Import-time crash on the unit's transitive graph (env, db, auth)
+- Vite/OXC transform failure aborting test suites before execution due to duplicate import identifiers
 - No vi.mock for env/db/auth although the unit touches them
 - Chainable mock returning undefined mid-chain in a failing test
 - Tests passing only with real env vars, a live Postgres, or network access

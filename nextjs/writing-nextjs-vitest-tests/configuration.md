@@ -202,6 +202,13 @@ To prevent VS Code from background-scanning excluded or non-project test files i
 ```
 *(Note: `typescript.tsserver.experimental.enableProjectDiagnostics` is deprecated; use `js/ts.tsserver.experimental.enableProjectDiagnostics`)*.
 
+### 4. Stale Next.js Route Cache Invalidation (`.next/types/validator.ts`)
+When restructuring route files (e.g., removing route groups like `(routes)`, moving page routes, or updating route folders), Next.js's generated `.next/types/validator.ts` holds onto deleted file paths. Running `tsc --noEmit` will fail with:
+```
+.next/types/validator.ts: error TS2307: Cannot find module '../../app/(routes)/.../page.js'
+```
+Even if all tests and code are correct, stale cached validators fail TypeScript checks. **Action**: run `rm -rf .next` before running `tsc --noEmit` or `next build` after any route directory structure changes.
+
 ## Vitest 5 (upcoming — note only)
 
 - `vi.mock` calls must sit at file top level, not inside `describe` (opt-in in v4, enforced in v5).

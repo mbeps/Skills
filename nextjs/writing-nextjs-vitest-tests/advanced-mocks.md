@@ -285,6 +285,7 @@ Rules:
 - Capture log calls in `vi.hoisted` objects — assert `mockLogger.error` was called with expected args.
 - Logger mocks should NOT throw — they're defensive, tests shouldn't fail because of them.
 - Test both that errors were logged AND that the code continued gracefully.
+- **Import hygiene**: When testing local logger wrappers (e.g. `@/lib/logger`), do not import unused aliases from the underlying vendor library (e.g. `import { getLogger as getLogTapeLogger } from "@logtape/logtape"`) unless verifying partial mock exports. Unused aliases trigger linter errors and confuse test scopes.
 
 ## 7. Env/Constants Mocking
 
