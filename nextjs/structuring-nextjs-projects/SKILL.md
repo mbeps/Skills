@@ -119,6 +119,13 @@ function validateFilter(f: unknown) { ... } // Internal helper function (unexpor
 export default async function getComments() { ... } // Single export
 ```
 
+### REQUIRED ROOT APP FILES & DYNAMIC ROUTE NOT-FOUND
+
+`not-found.tsx`, `loading.tsx`, and `error.tsx` **must exist** in the root of the `./app` directory.
+
+- **Root requirements:** Every project must include `app/not-found.tsx`, `app/loading.tsx`, and `app/error.tsx` alongside `app/layout.tsx` and `app/page.tsx` for consistent global error boundaries, suspense loading, and 404 handling.
+- **Dynamic routes:** For dynamic routes (e.g., `app/songs/[id]/`), include a route-level `not-found.tsx` to handle when the specific entity or record does not exist (triggered via `notFound()` from `next/navigation`). This provides clear contextual feedback that the specific item was not found.
+
 ## File Placement Decision Tree
 
 ```mermaid
@@ -186,7 +193,7 @@ graph TD
 | `lib/` | Business logic, utilities, logging | `lib/mappers/comment.ts`, `lib/logger.ts` |
 | `utils/` | Infrastructure clients | `utils/supabase/server.ts` |
 | `providers/` | React Context providers | `providers/modal-provider.tsx` |
-| `app/` | Routing + special files ONLY | `app/songs/[id]/page.tsx` |
+| `app/` | Routing + special files ONLY (must include root `not-found.tsx`, `loading.tsx`, `error.tsx`) | `app/songs/[id]/page.tsx`, `app/not-found.tsx` |
 | `__tests__/[category]/` | Tests (always at project root, mirrors structure) | `__tests__/actions/getComments.test.ts` |
 
 ### File Naming
@@ -311,6 +318,8 @@ See these files for comprehensive details:
 | Scattering raw `console.log` calls | Unstructured, noisy terminal output | Use structured logger in `lib/logger.ts` (see `logtape-nextjs`) |
 | Forgetting `"use client"` | Server component can't use hooks | Add directive at top |
 | Absolute imports without alias | Breaks on path changes | Always use `@/*` |
+| Missing root `not-found.tsx`, `loading.tsx`, or `error.tsx` | Inconsistent fallback UI, uncaught errors, or missing loading states | Root of `./app` MUST contain `not-found.tsx`, `loading.tsx`, and `error.tsx` |
+| Omitting `not-found.tsx` in dynamic routes | Generic or unhelpful 404 when specific resource is not found | Add route-level `not-found.tsx` in dynamic route (e.g. `app/songs/[id]/not-found.tsx`) |
 
 ## Decision Flowchart
 

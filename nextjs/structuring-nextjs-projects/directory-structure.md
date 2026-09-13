@@ -250,18 +250,28 @@ export type Assets = typeof ASSETS;
 **Structure:** File-based routing per Next.js conventions  
 **Rule:** NO business logic here
 
+**Root Special Files Requirement:**  
+`not-found.tsx`, `loading.tsx`, and `error.tsx` **must exist** in the root of the `./app` directory:
+- `error.tsx`: Root client-side error boundary catching uncaught runtime exceptions
+- `loading.tsx`: Root Suspense fallback during page transitions and initial loads
+- `not-found.tsx`: Global 404 page for unmatched URL paths
+
+**Dynamic Route Not-Found:**  
+For dynamic routes (e.g., `app/songs/[id]/`), include a route-level `not-found.tsx`. When a queried resource does not exist (handled via `notFound()` from `next/navigation`), Next.js renders this route-level `not-found.tsx` to explicitly notify the user that the specific entity in the dynamic route does not exist (e.g., "Song not found") instead of presenting a vague global 404.
+
 ```
 app/
 ├── layout.tsx                      # Root layout
 ├── page.tsx                        # Home page
-├── error.tsx
-├── loading.tsx
-├── not-found.tsx
+├── error.tsx                       # Root error boundary (REQUIRED in root ./app)
+├── loading.tsx                     # Root loading UI (REQUIRED in root ./app)
+├── not-found.tsx                   # Root 404 page (REQUIRED in root ./app)
 ├── globals.css
 ├── songs/
 │   ├── page.tsx
 │   ├── [id]/
 │   │   ├── page.tsx
+│   │   ├── not-found.tsx           # Dynamic route 404 (specific resource does not exist)
 │   │   └── _components/            # Page-specific components (underscore prefix)
 │   │       └── song-details.tsx
 │   └── loading.tsx

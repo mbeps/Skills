@@ -206,11 +206,24 @@ export interface CommentReply { ... }
 | -------------------- | ----------------------------------- | ----------------------------------------------------------------------- |
 | **Server Action**    | Single default export               | `export default async function getComments()`                           |
 | **Component**        | Single default or named             | `export default CommentForm` or `export const CommentForm`              |
-| **Page**             | Single default export               | `export default function Page()`                                        |
+| **Page / Special**   | Single default export               | `export default function Page()`, `export default function NotFound()`  |
 | **Type / Interface** | Single named export                 | `export interface Comment` or `export type AlbumType`                   |
 | **Schema**           | Named export (schema + type)        | `export const schema = z.object(...); export type Input = z.infer<...>` |
 | **Hook**             | Single default export               | `export default function usePlayer()`                                   |
 | **Utility / Logger** | Named export(s) (allowed exception) | `export function formatDuration()`, `export function getLogger()`       |
+
+---
+
+### Special Route Files (`app/`)
+
+**Root Special Files Requirement:**  
+The root of the `./app` directory **must contain**:
+- `not-found.tsx` — Global 404 page
+- `loading.tsx` — Root suspense loading UI
+- `error.tsx` — Root error boundary (`'use client'` required)
+
+**Dynamic Route Not-Found:**  
+For dynamic routes (e.g., `app/songs/[id]/`), include a route-level `not-found.tsx`. When `notFound()` from `next/navigation` is called (such as when an entity ID is missing in the database), this route-level component renders to clearly communicate that the specific item does not exist, rather than falling back to an unspecific global 404.
 
 ---
 
