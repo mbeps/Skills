@@ -1,6 +1,6 @@
 ---
-name: prompt-generation
-description: A skill for generating high-quality optimised prompts for various tasks and applications. Especially useful when main orchastration agent is coordinating subagents. Use whenver creating prompts for subagents or when user requests prompt generation.
+name: writing-prompts
+description: A skill for generating high-quality optimised prompts for various tasks and applications. Especially useful when main orchastration agent is coordinating subagents. Use whenever creating prompts for subagents or when user requests prompt generation.
 ---
 # Role & Directive
 
