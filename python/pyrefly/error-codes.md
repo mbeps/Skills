@@ -17,6 +17,7 @@ Pyrefly groups diagnostics into named **error kinds** (e.g. `bad-return`, `bad-a
 - A file-level `ignore-errors` placed **after the first line of code is silently inert** (suppresses nothing) and Pyrefly reports a **`misplaced-ignore`** warning pointing at it. Use line-level `# pyrefly: ignore[code]` for errors below the top of a file.
 - `permissive-ignores` (default off) additionally respects `# pyright: ignore` and `# ty: ignore`; `enabled-ignores` (default `["type","pyrefly"]`) controls which tools' directives are honored.
 - `unused-ignore` fires when an ignore comment no longer matches an error — the `strict`/`all` presets enable it. Clean these up with `pyrefly suppress --remove-unused`.
+- Suppressed diagnostics are invisible in normal runs; `pyrefly check --min-severity ignore` shows them. Use it to locate lines carrying stale mypy-era `# type: ignore`s during a migration, then remove them and fix the real errors beneath.
 
 ## `pyrefly suppress`
 Auto-suppresses all current errors by inserting `# pyrefly: ignore` comments. See `cli.md`. Recommended adoption loop: suppress → format → `suppress --remove-unused`, repeat.
@@ -43,6 +44,5 @@ pyrefly check --baseline=baseline.json                     # check against it
 | `misplaced-ignore`                     | file-level ignore too late           | move to top or use line-level ignore                                                                                                 |
 | `invalid-annotation`                   | malformed type annotation            | fix the annotation syntax                                                                                                            |
 | `bad-argument` / `unexpected-keyword`  | wrong call args                      | align with the callee signature                                                                                                      |
-| `potential-bad-keyword-argument`       | keyword arg may not exist            | check the target signature                                                                                                           |
-
+| `potential-bad-keyword-argument`       | keyword arg may not exist            | check the target signature                                                                                                           |  | `unnecessary-type-conversion` | `str()`/`int()` called on a value already of that type | drop the conversion |
 For the complete, current list of error kinds, run `pyrefly check` on a file that triggers them (use `--summarize-errors` to group diagnostics by directory) and see the official error-code pages linked in `references.md`.

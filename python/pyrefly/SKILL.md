@@ -16,7 +16,7 @@ Pyrefly is Meta's open-source **all-in-one Python type checker + language server
 - Using `# pyrefly: ignore` / `pyrefly suppress` / baselines correctly.
 - Migrating an existing mypy/Pyright/Pylance setup.
 
-**When NOT to use:** trivial one-liners, or repos that don't run Pyrefly. This repo runs mypy **and** pyrefly in CI (`uv run pyrefly check`); the `meta.pyrefly` extension would power IDE checking. The mypy skill covers `[tool.mypy]`-only concerns (e.g. the `pydantic.mypy` plugin, which Pyrefly does **not** need).
+**When NOT to use:** trivial one-liners, or repos that don't run Pyrefly. This repo runs pyrefly in CI (`uv run pyrefly check`); the `meta.pyrefly` extension would power IDE checking. The mypy skill covers `[tool.mypy]`-only concerns (e.g. the `pydantic.mypy` plugin, which Pyrefly does **not** need).
 
 ## House Style (this repo — replicate these)
 1. Pydantic `BaseModel` + `Field(..., description=...)`; required = `Field(..., ...)`, optional = `Field(None, ...)`, mutable container = `Field(default_factory=..., ...)`.
@@ -33,6 +33,11 @@ Pyrefly is Meta's open-source **all-in-one Python type checker + language server
 [tool.pyrefly]
 # root as search path so 'src.' prefixed imports resolve
 search-path = ["."]
+python-version = "3.12"
+project-includes = ["src/mcp_server"]
+project-excludes = ["tests/"]
+# untyped third-party libs → Any (replace-imports-with-any — see config.md gotcha)
+replace-imports-with-any = ["openpyxl.*", "pandas.*", "numpy.*", "scipy.*", "statsmodels.*", "calamine.*", "numpy_financial.*", "dateutil.*"]
 ```
 Pyrefly reads `pyrefly.toml` or `[tool.pyrefly]` in `pyproject.toml`. Run: `pyrefly check` (this repo runs `uv run pyrefly check` in CI). Full options, presets, precedence: `config.md`.
 

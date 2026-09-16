@@ -41,11 +41,13 @@ Incremental adoption — install beside your current checker, keep both in CI, d
 2. **Convert config**: `pyrefly init`. It writes `[tool.pyrefly]`/`pyrefly.toml` and migrates `mypy.ini`/`setup.cfg`/`[tool.mypy]`/`pyrightconfig.json`/`[tool.pyright]`. **Not every setting maps exactly — unrecognized ones are skipped silently**, so read the generated config before committing.
 3. **Type check**: `pyrefly check`. Your existing mypy/pyright config stays in place, so both checkers keep working.
 4. **Handle new errors**: `# pyrefly: ignore` comments, `pyrefly suppress`, or an experimental baseline file so CI reports only new errors.
-5. **Remove** the old checker and any unused ignore comments.
+5. **Remove** the old checker and any unused ignore comments. Stale mypy `# type: ignore`s silently suppress pyrefly diagnostics — drop them and fix the real errors beneath rather than re-ignoring (see `error-codes.md` for `--min-severity ignore`).
 
 ### Behavioral differences vs mypy/Pyright
 - Pyrefly is **not** a reimplementation — diagnostics won't be identical. A successful migration ends in understood, accepted differences.
 - Empty containers: Pyrefly/mypy infer element type from first use (`infer-with-first-use`); Pyright infers `list[Any]`.
+- Third-party stubs: Pyrefly bundles compiled-in stubs for common libraries (openpyxl, pandas, numpy, …) that mypy saw as untyped via `ignore_missing_imports`, so migrations surface many new stub-driven diagnostics (e.g. `cell.row: int | None`, `wb.active: Worksheet | None`). For parity, treat those libraries as `Any` with `replace-imports-with-any`, not `ignore-missing-imports`.
+- Attribute re-inference: after `obj.attr = <plain value>`, Pyrefly narrows `obj.attr` to that value's type, so a later sub-attribute access fails `missing-attribute` — e.g. `cell.hyperlink = url` then `cell.hyperlink.tooltip`. Route through `Any` first: `link: Any = cell.hyperlink`.
 - `# type: ignore` → Pyrefly's own form is `# pyrefly: ignore` (both are respected; the former is the spec form).
 - **Strict modes differ across tools** — compare specific policies (implicit `Any`, missing annotations, override decorators, unused ignores), not the "strict" setting.
 

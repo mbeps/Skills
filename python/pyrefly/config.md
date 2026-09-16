@@ -53,5 +53,6 @@ Unless `skip-interpreter-query`, Pyrefly queries an interpreter for platform/ver
 
 ## Gotchas
 - `search-path` vs `site-package-path`: search-path is user import roots; site-package-path is where the interpreter's installed packages live.
+- `ignore-missing-imports` only replaces modules that **fail to resolve**. Pyrefly ships compiled-in stubs for common libraries (openpyxl, pandas, numpy, …), so those always resolve and are checked against real stubs — a mypy-era `ignore_missing_imports` entry does **not** silence them. Use `replace-imports-with-any` (unconditional module→`Any`) for mypy parity.
 - Changing `project-includes`/`project-excludes` with explicit `FILES...` is ignored unless the same flag is also passed.
 - Deprecated: `untyped-def-behavior` (→ `check-unannotated-defs` + `infer-return-types`), `pytorch-efficiency-lints` (→ `--warn=pytorch-efficiency-lints`).
