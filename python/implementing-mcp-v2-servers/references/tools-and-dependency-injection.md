@@ -107,9 +107,85 @@ async def fetch_user(
 
 ---
 
-## 4. Error Handling with `MCPError`
+## 4. Tool Annotations (`ToolAnnotations`)
 
-To communicate errors to the client as formal JSON-RPC protocol errors (rather than text replies):
+MCP v2 allows providing behavioral and security hints to clients and models via `ToolAnnotations` when decorating or registering tools:
+- `read_only_hint` (`bool | None`): Informs the client/model that the tool does not mutate server or external state.
+- `destructive_hint` (`bool | None`): Warns the client/model that the tool performs irreversible mutations (e.g. deleting or clearing data).
+
+```python
+from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
+
+mcp = MCPServer(name="ToolServer")
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def inspect_system() -> dict:
+    """Inspect system status without making any changes."""
+    return {"status": "ok"}
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
+def purge_cache(confirm: bool) -> str:
+    """Permanently delete all cached files."""
+    return "Cache cleared"
+```
+
+---
+
+## 5. Error Handling: `ToolError` vs `MCPError`
+
+In MCP v2, error handling distinguishes between tool-level execution failures and protocol-level RPC errors:
+
+### Tool Execution Errors & Error Masking (`ToolError`)
+In MCP SDK v2.1+, **unhandled generic exceptions** (e.g. `ValueError`, `FileNotFoundError`) raised inside tool handlers are masked by default to prevent leaking internal stack traces:
+```text
+Error executing tool <tool_name>
+```
+To ensure human- and model-readable error messages reach the LLM, raise `ToolError` from `mcp.server.mcpserver.exceptions`:
+
+```python
+from mcp.server.mcpserver.exceptions import ToolError
+
+@mcp.tool()
+def read_record(record_id: str) -> dict:
+    """Read a database record by ID."""
+    if not record_id.isalnum():
+        # Preserved in client response: "Invalid record ID: contains special characters"
+        raise ToolError(f"Invalid record ID '{record_id}': must be alphanumeric")
+    return {"id": record_id}
+```
+
+#### Central Route Wrapper Choke Point
+When managing many domain tools that raise standard Python exceptions (`ValueError`, `FileNotFoundError`, `KeyError`), wrap tool registration centrally to convert domain exceptions into `ToolError`:
+
+```python
+import functools
+import inspect
+from typing import Any, Callable
+from mcp.server.mcpserver.exceptions import ToolError
+
+def wrap_tool_fn(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap tool handler so domain exceptions surface as ToolError in MCP v2."""
+    if inspect.iscoroutinefunction(fn):
+        @functools.wraps(fn)
+        async def async_wrapped(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await fn(*args, **kwargs)
+            except (ValueError, FileNotFoundError, PermissionError, KeyError) as e:
+                raise ToolError(str(e)) from e
+        return async_wrapped
+
+    @functools.wraps(fn)
+    def sync_wrapped(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return fn(*args, **kwargs)
+        except (ValueError, FileNotFoundError, PermissionError, KeyError) as e:
+            raise ToolError(str(e)) from e
+    return sync_wrapped
+```
+
+### Protocol-Level RPC Errors (`MCPError`)
+To return formal JSON-RPC protocol error codes (e.g. invalid JSON-RPC payload structure):
 
 ```python
 from mcp.types import MCPError, ErrorCode

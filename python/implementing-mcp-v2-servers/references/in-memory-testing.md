@@ -25,7 +25,38 @@ async def client() -> AsyncIterator[Client]:
 
 ---
 
-## 2. Testing Tool Discovery & Schema Integrity
+## 2. Test Stubbing & Disabling Real Tool Registration
+
+When running isolated unit tests on underlying domain logic without initializing the full MCP server or registering dozens of routes, introduce a no-op server stub controlled via an environment variable (e.g. `MCP_SERVER_DISABLE_TOOL_REGISTRATION=1`):
+
+```python
+# main.py
+import os
+from typing import Any, Callable
+
+class _NoopMCP:
+    """Stub used when tool registration is disabled during unit tests."""
+    def resource(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+        return lambda fn: fn
+    def tool(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+        return lambda fn: fn
+    def prompt(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+        return lambda fn: fn
+    def run(self, *args: Any, **kwargs: Any) -> None:
+        pass
+    def streamable_http_app(self, *args: Any, **kwargs: Any) -> Any:
+        return None
+
+if os.environ.get("MCP_SERVER_DISABLE_TOOL_REGISTRATION") == "1":
+    mcp = _NoopMCP()
+else:
+    from mcp.server.mcpserver import MCPServer
+    mcp = MCPServer(name="ProductionServer", version="1.0.0")
+```
+
+---
+
+## 3. Testing Tool Discovery & Schema Integrity
 
 Validate that registered tools have descriptive names, complete docstrings, and well-formed input/output schemas:
 
@@ -49,7 +80,7 @@ async def test_tool_schemas(client: Client) -> None:
 
 ---
 
-## 3. Testing Tool Invocations
+## 4. Testing Tool Invocations
 
 Test happy paths, boundary inputs, and structured output returns:
 
@@ -78,7 +109,7 @@ async def test_call_tool_invalid_params(client: Client) -> None:
 
 ---
 
-## 4. Testing Resources & Prompts
+## 5. Testing Resources & Prompts
 
 ```python
 import json
@@ -98,7 +129,7 @@ async def test_prompts(client: Client) -> None:
 
 ---
 
-## 5. Verification Pipeline
+## 6. Verification Pipeline
 
 Run the standard three-tier verification before deploying any MCP v2 server:
 

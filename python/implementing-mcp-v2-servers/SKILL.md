@@ -38,18 +38,20 @@ Use when:
 
 | Topic | Reference File |
 | :--- | :--- |
-| `MCPServer` setup, constructor options, stateless protocol, explicit handles | [core-server-and-architecture.md](references/core-server-and-architecture.md) |
-| `@mcp.tool()`, Pydantic models, structured output, `Resolve()` DI, `MCPError` | [tools-and-dependency-injection.md](references/tools-and-dependency-injection.md) |
-| Static resources, URI templates (`{id}`), MIME types, `ResourceSecurity` | [resources-and-templates.md](references/resources-and-templates.md) |
+| `MCPServer` setup, constructor options, stateless protocol, explicit handles, modular routes | [core-server-and-architecture.md](references/core-server-and-architecture.md) |
+| `@mcp.tool()`, Pydantic models, structured output, `Resolve()` DI, `ToolAnnotations`, `ToolError` | [tools-and-dependency-injection.md](references/tools-and-dependency-injection.md) |
+| Static resources, URI templates (`{id}`), MIME types, `ResourceSecurity` traversal & slashes | [resources-and-templates.md](references/resources-and-templates.md) |
 | Reusable user prompts (`@mcp.prompt()`), multi-message sequences, completions | [prompts-and-completions.md](references/prompts-and-completions.md) |
 | `ctx: Context`, real-time logging, progress tokens, user elicitation, lifespan | [context-and-lifecycle.md](references/context-and-lifecycle.md) |
 | `stdio`, `streamable-http` (stateless), ASGI mounting, DNS rebinding security | [transports-and-security.md](references/transports-and-security.md) |
-| In-memory `Client(server)` testing, AnyIO fixtures, schema assertions | [in-memory-testing.md](references/in-memory-testing.md) |
+| In-memory `Client(server)` testing, unit test stubbing, AnyIO fixtures, schema assertions | [in-memory-testing.md](references/in-memory-testing.md) |
 | Canonical specifications, SDK documentation, and GitHub repositories | [references.md](references/references.md) |
 
 ## Red Flags
 
 - **"I need sticky sessions to manage state across tool calls"** — **Wrong**. MCP v2 is stateless at the transport layer. Mint explicit opaque handles from initialization tools and pass them in subsequent tool calls; store domain state in a shared database or cache.
+- **"Generic exceptions in tool handlers still return their message to the model"** — **Wrong**. Unhandled generic exceptions in SDK v2.1+ are masked to `"Error executing tool <name>"`. Raise `ToolError` from `mcp.server.mcpserver.exceptions` or wrap handlers centrally to preserve model-visible error messages.
+- **"Resource templates match arbitrary file paths with slashes by default"** — **Wrong**. RFC 6570 templates reject unencoded slashes and `ResourceSecurity` rejects absolute paths unless parameter names are listed in `ResourceSecurity(exempt_params={...})` and values are URL-encoded by the client.
 - **"Pass host and port to `MCPServer(...)`"** — **Wrong**. In v2, transport options belong on `.run()` or `.streamable_http_app()`, not on the server constructor.
 - **"Testing requires binding to an HTTP port"** — **Wrong**. Use `async with Client(mcp) as client:` to test the server directly in-memory with sub-second execution and no port conflicts.
 - **"Sync handlers block the server event loop"** — **Wrong**. In MCP v2 Python SDK, synchronous functions decorated with `@mcp.tool()` automatically run in worker threads via AnyIO.

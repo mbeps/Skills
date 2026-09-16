@@ -53,10 +53,11 @@ When domain logic spans multiple tool calls, state is managed by minting explici
 
 ---
 
-## 3. Modular Server Composition
+## 3. Modular Server Composition & Route Delegation
 
 For large servers, avoid god files. Define tools in separate domain modules and register them on the central server instance:
 
+### Option A: Direct Function Registration (`add_tool`)
 ```python
 from mcp.server.mcpserver import MCPServer
 from my_app.tools import database, filesystem, network
@@ -72,5 +73,31 @@ for fn in [filesystem.read_file, filesystem.list_dir]:
 
 # Register with alias
 mcp.add_tool(network.ping_host, name="check_connectivity")
+```
+
+### Option B: Domain Registration Modules (`register(mcp)`)
+Group tools into domain modules (e.g. `routes/database.py`, `routes/storage.py`), each exporting a `register(mcp)` function:
+
+```python
+# routes/database.py
+from mcp.types import ToolAnnotations
+
+def query_records(table: str) -> list[dict]: ...
+
+def register(mcp: object) -> None:
+    mcp.tool(annotations=ToolAnnotations(read_only_hint=True))(query_records)
+```
+
+In the central server entrypoint, iterate across domain modules to register routes:
+
+```python
+# main.py
+from mcp.server.mcpserver import MCPServer
+from my_server.routes import database, filesystem, user_management
+
+mcp = MCPServer(name="EnterpriseServer", version="1.0.0")
+
+for module in [database, filesystem, user_management]:
+    module.register(mcp)
 ```
 

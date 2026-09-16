@@ -97,6 +97,11 @@ def read_doc(path: str) -> str:
     return f"Document content for {path}"
 ```
 
+### Handling Slashes in Template Parameters
+By default, RFC 6570 templates treat `/` as a path delimiter and do not match unencoded slashes in `{param}`. When parameters contain filesystem paths or nested identifiers:
+1. **Client-side URL encoding (standard)**: The client must percent-encode parameter values containing slashes (`urllib.parse.quote(file_path, safe="")`) when constructing the URI.
+2. **Exempt parameter policy**: Register the parameter in `ResourceSecurity(exempt_params={"file_path"})` so absolute paths (e.g. `/home/user/data.xlsx`) are not blocked once decoded.
+
 ---
 
 ## 4. Resource Change Notifications
