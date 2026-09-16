@@ -30,7 +30,7 @@ Use when:
 1. **Audit Application State & Transports**: Identify if the server relies on in-memory session dictionaries keyed by `Mcp-Session-Id`. If multi-turn state is needed, convert to explicit handles minted by tools and persisted in a shared store ([protocol-and-architecture.md](references/protocol-and-architecture.md)).
 2. **Upgrade SDK Dependencies**: Bump `mcp[cli]>=2.2.0` in `pyproject.toml` (Python) or install `@modelcontextprotocol/server` / `@modelcontextprotocol/client` (TypeScript) ([python-sdk-migration.md](references/python-sdk-migration.md), [typescript-sdk-migration.md](references/typescript-sdk-migration.md)).
 3. **Refactor Server & Tool Definitions**:
-   - Python: Replace `FastMCP` with `MCPServer`, move transport options out of constructor, update `camelCase` fields to `snake_case`, and use `ctx: Context` parameters.
+   - Python: Replace `FastMCP` with `MCPServer`, move transport options out of constructor, update `camelCase` fields (`tool.input_schema`, `read_only_hint`, `destructive_hint`) to `snake_case`, preserve model-visible errors under v2.1+ masking via `ToolError`, configure `ResourceSecurity(exempt_params={...})` for filesystem URI templates, and use `ctx: Context` parameters.
    - TypeScript: Run codemod `npx @modelcontextprotocol/codemod@latest v1-to-v2 .` and adopt Standard Schema.
 4. **Configure Stateless Transports**: Keep `stdio` for desktop clients (VS Code, Claude Desktop); configure `streamable-http` with `stateless_http=True` for network deployments ([transports-and-deployment.md](references/transports-and-deployment.md)).
 5. **Verify with In-Memory Client Tests**: Write unit tests using `mcp.Client(mcp)` to assert tool discovery, schema validity, and tool execution without network overhead ([testing-and-verification.md](references/testing-and-verification.md)).
@@ -51,6 +51,8 @@ Use when:
 
 - **"Stateless means my server cannot maintain any business state"** — **Wrong**. Stateless means the transport protocol requires no sticky sessions. Applications store state in databases/caches and reference it via explicit opaque handles minted by tools.
 - **"I can keep using `FastMCP` as a backwards-compatibility alias in v2"** — **Wrong**. `mcp.server.fastmcp` throws `ModuleNotFoundError` at import time in v2. You must rename to `MCPServer`.
+- **"Generic exceptions in tool handlers still return their message to the client in v2"** — **Wrong**. SDK v2.1+ masks generic exceptions (`ValueError`, etc.) to `"Error executing tool <name>"`. Raise `ToolError` from `mcp.server.mcpserver.exceptions` to preserve model-visible messages.
+- **"Resource templates match arbitrary file paths with slashes by default"** — **Wrong**. RFC 6570 templates reject unencoded slashes and `ResourceSecurity` rejects absolute paths/traversals unless parameter names are listed in `ResourceSecurity(exempt_params={...})`.
 - **"Passing `stateless_http=True` breaks `stdio`"** — **Wrong**. `stateless_http` applies only to the `streamable-http` transport. `stdio` is naturally point-to-point and always runs cleanly.
 - **"`mcp.run()` still takes host and port in constructor"** — **Wrong**. In v2, transport options belong on `.run()` or `.streamable_http_app()`, not `MCPServer()`.
 - **"Testing requires starting a real HTTP server on a port"** — **Wrong**. Use `from mcp import Client` to connect directly to the `MCPServer` instance in-memory with zero networking latency.

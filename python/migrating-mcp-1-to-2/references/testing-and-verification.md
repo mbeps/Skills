@@ -65,16 +65,26 @@ async def test_call_tool_success(client: Client) -> None:
     assert not res.is_error
     assert res.structured_content is not None
     assert res.structured_content["status"] == "healthy"
+
+@pytest.mark.anyio
+async def test_call_tool_error_preserves_message(client: Client) -> None:
+    # Verify domain errors carry model-visible messages rather than masked generic text
+    res = await client.call_tool("analyze_metrics", {"metrics": None})
+    assert res.is_error is True
+    assert len(res.content) > 0
+    # Must contain specific domain reason, not generic "Error executing tool"
+    assert "metrics required" in res.content[0].text
 ```
 
 ---
 
-## 4. Resource Testing
+## 4. Resource & Template Testing
 
-Verify resource listing and reading:
+Verify resource listing, URI template discovery, and reading (including URL-encoded paths):
 
 ```python
 import json
+import urllib.parse
 
 @pytest.mark.anyio
 async def test_read_resource(client: Client) -> None:
@@ -85,6 +95,18 @@ async def test_read_resource(client: Client) -> None:
     result = await client.read_resource("config://app/defaults")
     payload = json.loads(result.contents[0].text)
     assert payload["poll_interval_seconds"] == 60
+
+@pytest.mark.anyio
+async def test_resource_templates(client: Client) -> None:
+    # Discover registered RFC 6570 templates
+    tpl_res = await client.list_resource_templates()
+    templates = [t.uri_template for t in tpl_res.resource_templates]
+    assert "data://items/{id}" in templates
+
+    # Read template with encoded path value
+    item_id = urllib.parse.quote("my/nested/item", safe="")
+    result = await client.read_resource(f"data://items/{item_id}")
+    assert len(result.contents) > 0
 ```
 
 ---

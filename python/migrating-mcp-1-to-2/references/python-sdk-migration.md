@@ -116,20 +116,72 @@ In SDK v2, synchronous tool functions are automatically dispatched to AnyIO work
 
 SDK attributes and models transitioned from `camelCase` to standard Python `snake_case`:
 
-| v1 (Legacy)         | v2 (Modern)          | Notes                           |
-| :------------------ | :------------------- | :------------------------------ |
-| `tool.inputSchema`  | `tool.input_schema`  | Dict describing JSON Schema     |
-| `tool.outputSchema` | `tool.output_schema` | Output schema if structured     |
-| `McpError`          | `MCPError`           | Base protocol exception         |
-| `FastMCPError`      | `MCPServerError`     | Base server framework exception |
-| `ctx.fastmcp`       | `ctx.mcp_server`     | Context backreference           |
-| `mcp.types.AnyUrl`  | `str`                | Resource URIs are plain strings |
-| `RootModel` unions  | Plain `Union` types  | E.g. `ServerNotification`       |
+| v1 (Legacy)         | v2 (Modern)                          | Notes                                                    |
+| :------------------ | :----------------------------------- | :------------------------------------------------------- |
+| `tool.inputSchema`  | `tool.input_schema`                  | Dict describing JSON Schema                              |
+| `tool.outputSchema` | `tool.output_schema`                 | Output schema if structured                              |
+| `ToolAnnotations`   | `read_only_hint`, `destructive_hint` | Attributes now snake_case (`readOnlyHint` still aliases) |
+| `McpError`          | `MCPError`                           | Base protocol exception                                  |
+| `FastMCPError`      | `MCPServerError`                     | Base server framework exception                          |
+| `ctx.fastmcp`       | `ctx.mcp_server`                     | Context backreference                                    |
+| `mcp.types.AnyUrl`  | `str`                                | Resource URIs are plain strings                          |
+| `RootModel` unions  | Plain `Union` types                  | E.g. `ServerNotification`                                |
 
 ---
 
-## 6. Exceptions
+## 6. Exceptions & Tool Error Masking
 
+### Tool Error Masking in v2.1+
+In SDK v1, any generic exception (e.g. `ValueError("Sheet not found")`) raised in a `@mcp.tool()` handler was automatically serialized into an `is_error=True` result preserving the exception message.
+
+In SDK v2.1+, **unhandled generic exceptions are masked** to prevent leaking internal stack traces:
+```text
+Error executing tool <tool_name>
+```
+To expose model-visible error messages in tool failure responses, raise `ToolError` from `mcp.server.mcpserver.exceptions`:
+
+```python
+# ❌ v1 style in v2 (client only sees "Error executing tool find_sheet")
+@mcp.tool()
+def find_sheet(name: str) -> str:
+    raise ValueError(f"Sheet '{name}' not found")
+
+# ✅ v2 (client sees "Error executing tool find_sheet: Sheet 'X' not found")
+from mcp.server.mcpserver.exceptions import ToolError
+
+@mcp.tool()
+def find_sheet(name: str) -> str:
+    raise ToolError(f"Sheet '{name}' not found")
+```
+
+### Route Adapter Choke Point Pattern
+If migrating an existing codebase with dozens of tools raising `ValueError` or standard domain exceptions, wrap the tool registration or handler execution at a central choke point to catch domain exceptions and re-raise `ToolError(str(e))` without altering internal domain logic:
+
+```python
+import functools
+import inspect
+from mcp.server.mcpserver.exceptions import ToolError
+
+def wrap_tool_fn(fn):
+    if inspect.iscoroutinefunction(fn):
+        @functools.wraps(fn)
+        async def async_wrapped(*args, **kwargs):
+            try:
+                return await fn(*args, **kwargs)
+            except (ValueError, FileNotFoundError, KeyError) as e:
+                raise ToolError(str(e)) from e
+        return async_wrapped
+
+    @functools.wraps(fn)
+    def sync_wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except (ValueError, FileNotFoundError, KeyError) as e:
+            raise ToolError(str(e)) from e
+    return sync_wrapped
+```
+
+### Protocol-Level MCPError
 ```python
 # ❌ v1
 from mcp.types import McpError, ErrorCode
@@ -139,5 +191,29 @@ raise McpError(ErrorCode.INVALID_PARAMS, "Invalid parameter")
 from mcp.types import MCPError, ErrorCode
 raise MCPError(ErrorCode.INVALID_PARAMS, "Invalid parameter")
 ```
-When an `MCPError` is raised within an `@mcp.tool()` handler in v2, the SDK surfaces it directly as a standard JSON-RPC protocol error to the client.
+When an `MCPError` is raised within a handler, the SDK surfaces it directly as a standard JSON-RPC protocol error to the client.
+
+---
+
+## 7. Resource Templates & Path Security (`ResourceSecurity`)
+
+In SDK v2, `@mcp.resource("uri://{param}")` templates strictly validate according to RFC 6570 and enforce `ResourceSecurity`:
+- **Default Policy**: `ResourceSecurity(reject_path_traversal=True, reject_absolute_paths=True, reject_null_bytes=True)`.
+- **Filesystem Paths**: If a template parameter receives filesystem paths (e.g. `/home/user/doc.xlsx` or `../data/file.csv`), default security rejects the match with `Unknown resource`.
+- **Exemption**: Exclude specific parameters from path checks by passing `ResourceSecurity(exempt_params={"param_name"})` to `MCPServer`:
+
+```python
+from mcp.server.mcpserver import MCPServer, ResourceSecurity
+
+mcp = MCPServer(
+    name="FileServer",
+    resource_security=ResourceSecurity(exempt_params={"file_path"}),
+)
+
+@mcp.resource("file://workbook/{file_path}/sheets")
+def get_sheets(file_path: str) -> str:
+    return "..."
+```
+
+Note: Template parameter values with slashes must be percent-encoded by the client (`urllib.parse.quote(path, safe="")`) when queried, or defined with RFC 6570 reserved expansion (`{+file_path}`).
 
