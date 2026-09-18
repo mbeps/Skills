@@ -1,31 +1,28 @@
 # Structure and Section Specifications
 
-Agent instruction files follow a strict 8-part contract. Every agent file must use the exact section headers and ordering defined below.
+Agent instruction files follow a strict contract. Every `AGENTS.md` file must use the exact section headers and ordering defined below.
 
 ---
 
-## Target File Selection & Path Resolution
+## Target File & Directory Layout
 
-### 1. Confirming the Target File
-Agent files can have different names and locations:
-- `.github/copilot-instructions.md` (GitHub Copilot standard)
-- `AGENT.md` (universal root agent instructions)
-- `GEMINI.md` (Gemini CLI / Antigravity agent instructions)
-- `CLAUDE.md` (Claude Code / Anthropic instructions)
-- `copilot-instructions.md` or other custom names specified by user
+### 1. Target File: `AGENTS.md`
+- The instruction file is **strictly `AGENTS.md`** at the project root.
+- The user does **not** need to specify the file name or location because this is the only supported agent file.
+- Agents must **never ask** the user what file name or location to use.
 
-**Rule**: If the user did not explicitly specify which file name/path to create or update, **ask the user** before proceeding.
+### 2. The `.agents/` Folder
+- **Coding Conventions**: Stored in the `.agents/` folder (e.g. `.agents/conventions.md` or `.agents/convensions.md`).
+- **Additional Agent Materials**: All other AI coding agent related materials (e.g. `learnings.md`, prompt templates, agent scratchpads) are stored in the `.agents/` folder.
+- Keeps repository root clean while centralizing all agent-specific assets.
 
-### 2. Path Relativity
-File paths in `# Resources` and `# Instructions` must resolve relative to the agent file's directory:
-- **Inside `.github/`** (e.g. `.github/copilot-instructions.md`): Use `#file:../` for project root files:
-  - `#file:../README.md`
-  - `#file:../graphify-out/`
-  - `#file:./instructions/conventions.instructions.md` (files inside `.github/`)
-- **At Project Root** (e.g. `AGENT.md`, `GEMINI.md`, `CLAUDE.md`): Use `#file:./` or relative paths:
-  - `#file:./README.md`
-  - `#file:./graphify-out/`
-  - `#file:./docs/conventions.md`
+### 3. Path Relativity
+Because `AGENTS.md` is always located at the project root, all file references resolve from the root using `#file:./`:
+- `#file:./README.md`
+- `#file:./graphify-out/`
+- `#file:./.agents/conventions.md` (or `convensions.md`)
+- `#file:./.agents/learnings.md`
+- `#file:./wiki/`
 
 ---
 
@@ -47,7 +44,7 @@ File paths in `# Resources` and `# Instructions` must resolve relative to the ag
 - **Baseline Instructions (Included in all agent files)**:
   ```markdown
   # Instructions (MUST be followed)
-  - You MUST use #file:<rel-path>/graphify-out/ to find relevant code files 
+  - You MUST use #file:./graphify-out/ to find relevant code files 
   - Whenever using subagents, you MUST read the *subagent-driven-development* and *dispatching-parallel-agents* skills FIRST using the MAIN agent right at the start of process to orchanstrate the subagents correctly and efficiently. 
   - Code MUST not be unnecessarily overcomplicated. Code MUST be simple to understand, modify and maintain.
   - You MUST plan before implementing UNLESS change is trivial.
@@ -87,23 +84,26 @@ File paths in `# Resources` and `# Instructions` must resolve relative to the ag
 - Centralizes pointers to repository documentation and indexing assets.
 - **Standard Entries**:
   1. **README** (*Mandatory*):
-     `- README #file:<rel-path>/README.md - Includes features, setup, etc.`
+     `- README #file:./README.md - Includes features, setup, etc.`
   2. **Coding Conventions** (*Optional*):
-     Include ONLY if coding convention files exist in the project (e.g., `conventions.instructions.md`, `.github/instructions/conventions.md`, `docs/conventions.md`).
-     `- Coding Convensions #file:<rel-path>/conventions... - MUST be followed when writing code`
+     Conventions are stored in the `.agents/` folder. Include if present:
+     `- Coding Convensions #file:./.agents/convensions.md - MUST be followed when writing code` (or `conventions.md`)
   3. **Graphify** (*Mandatory*):
      Always list the graphify assets:
      ```markdown
-     - Graphify #file:<rel-path>/graphify-out/ - Location of Graphify assets containing project summary report, graphs showing relationships, etc
-       - Report #file:<rel-path>/graphify-out/GRAPH_REPORT.md - Summary report
-       - Relations Graph #file:<rel-path>/graphify-out/graph.json - Graph relationships and index
+     - Graphify #file:./graphify-out/ - Location of Graphify assets containing project summary report, graphs showing relationships, etc
+       - Report #file:./graphify-out/GRAPH_REPORT.md - Summary report
+       - Relations Graph #file:./graphify-out/graph.json - Graph relationships and index
      ```
      *If `graphify-out/` does not exist in the repo, generate it using the `graphify` skill.*
-  4. **Wiki** (*Optional*):
+  4. **Learnings** (*Optional*):
+     Include if `.agents/learnings.md` exists:
+     `- Learnings #file:./.agents/learnings.md - Includes info that the agent has learnt while working on this project`
+  5. **Wiki** (*Optional*):
      Include ONLY if a `wiki/` directory or wiki documentation exists.
-     `- Wiki #file:<rel-path>/wiki/`
-  5. **Other Architecture / Spec Resources** (*Optional*):
-     Link to architecture documentation, specs, or API references if they exist.
+     `- Wiki #file:./wiki/`
+  6. **Other AI Coding Agent Related Materials & Specs** (*Optional*):
+     All additional AI coding agent related materials (agent configs, rules, prompt files) are stored in `.agents/`. Link them here or in architecture docs.
 - **STRICT PROHIBITION**: NEVER list package manager or configuration files (such as `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `pyproject.toml`, `Cargo.toml`, `tsconfig.json`, `.gitignore`).
 
 ### 5. `# Skills`
@@ -148,7 +148,18 @@ File paths in `# Resources` and `# Instructions` must resolve relative to the ag
   Type `/graphify` in Copilot Chat to build or update the graph.
   ```
 
-### 8. `# Extras`
-- **Conditional**: Only present when the user explicitly provides additional information that does not fit into sections 1–7.
+### 8. `# Learnings`
+- **Conditional**: Present when the repository maintains an agent learnings document in `.agents/learnings.md`.
+- **Standard Template**:
+  ```markdown
+  # Learnings
+  - The #file:./.agents/learnings.md file contains info that the agent has learnt while working on this project. 
+  - Read this file to avoid wasting time and tokens re-discovering information that the agent has already learnt.
+  - Update this file with new learnings that are relevant to the project such as mistakes, commmon pitfalls, info that is not obvious, etc.
+  - Prompt all subagents to also read and modify this file along with their main work.
+  ```
+
+### 9. `# Extras`
+- **Conditional**: Only present when the user explicitly provides additional information that does not fit into sections 1–8.
 - **STRICT PROHIBITION**: Do NOT include an `# Extras` section unless specifically requested and populated by the user. Never add speculative content here.
 

@@ -1,17 +1,17 @@
 # Worked Examples
 
-Below are canonical examples of agent instruction files conforming to the contract.
+Below are canonical examples of `AGENTS.md` files conforming to the contract.
 
 ---
 
-## Example 1: GitHub Copilot Instructions (`.github/copilot-instructions.md`)
+## Example 1: Full-Stack Web Application (`AGENTS.md`)
 
 ```markdown
 # Project Overview
 A music streaming app that allows users to create playlists, listen to curated tracks, and share music with friends.
 
 # Instructions (MUST be followed)
-- You MUST use #file:../graphify-out/ to find relevant code files 
+- You MUST use #file:./graphify-out/ to find relevant code files 
 - Whenever using subagents, you MUST read the *subagent-driven-development* and *dispatching-parallel-agents* skills FIRST using the MAIN agent right at the start of process to orchanstrate the subagents correctly and efficiently. 
 - Code MUST not be unnecessarily overcomplicated. Code MUST be simple to understand, modify and maintain.
 - You MUST plan before implementing UNLESS change is trivial.
@@ -34,12 +34,13 @@ A music streaming app that allows users to create playlists, listen to curated t
 - [PostgreSQL](https://www.postgresql.org/docs/17/index.html)
 
 # Resources
-- README #file:../README.md - Includes features, setup, etc. 
-- Coding Convensions #file:./instructions/conventions.instructions.md - MUST be followed when writing code
-- Graphify #file:../graphify-out/ - Location of Graphify assets containing project summary report, graphs showing relationships, etc
-  - Report #file:../graphify-out/GRAPH_REPORT.md - Summary report
-  - Relations Graph #file:../graphify-out/graph.json - Graph relationships and index
-- Wiki #file:../wiki/
+- README #file:./README.md - Includes features, setup, etc. 
+- Coding Convensions #file:./.agents/convensions.md - MUST be followed when writing code
+- Graphify #file:./graphify-out/ - Location of Graphify assets containing project summary report, graphs showing relationships, etc
+  - Report #file:./graphify-out/GRAPH_REPORT.md - Summary report
+  - Relations Graph #file:./graphify-out/graph.json - Graph relationships and index
+- Learnings #file:./.agents/learnings.md - Includes info that the agent has learnt while working on this project
+- Wiki #file:./wiki/
 
 # Skills
 List of skills that are required to work on this project:
@@ -91,11 +92,17 @@ source files when (a) modifying/debugging specific code, (b) the graph lacks the
 (c) the graph is missing or stale.
 
 Type `/graphify` in Copilot Chat to build or update the graph.
+
+# Learnings
+- The #file:./.agents/learnings.md file contains info that the agent has learnt while working on this project. 
+- Read this file to avoid wasting time and tokens re-discovering information that the agent has already learnt.
+- Update this file with new learnings that are relevant to the project such as mistakes, commmon pitfalls, info that is not obvious, etc.
+- Prompt all subagents to also read and modify this file along with their main work.
 ```
 
 ---
 
-## Example 2: Project Root Agent Instructions (`AGENT.md` or `GEMINI.md`)
+## Example 2: Backend Analytics Service (`AGENTS.md`)
 
 ```markdown
 # Project Overview
@@ -125,6 +132,7 @@ An automated financial analytics API that ingests transaction feeds, generates v
 
 # Resources
 - README #file:./README.md - Includes features, setup, etc. 
+- Coding Convensions #file:./.agents/conventions.md - MUST be followed when writing code
 - Graphify #file:./graphify-out/ - Location of Graphify assets containing project summary report, graphs showing relationships, etc
   - Report #file:./graphify-out/GRAPH_REPORT.md - Summary report
   - Relations Graph #file:./graphify-out/graph.json - Graph relationships and index
@@ -182,4 +190,3 @@ Type `/graphify` in Copilot Chat to build or update the graph.
 # Extras
 - Deployments to the staging cluster are gated behind manual approvals by team leads.
 ```
-

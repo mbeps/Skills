@@ -1,13 +1,13 @@
 ---
 name: writing-conventions-instructions
-description: Use when creating or updating a coding conventions instruction file (e.g. conventions.instructions.md) for a project, when deciding what belongs in the file versus what is already documented in skills, or when a conventions file duplicates content that lives in a skill.
+description: Use when creating or updating a coding conventions file (stored in .agents/ folder, e.g. .agents/conventions.md) for a project, when deciding what belongs in the file versus what is already documented in skills, or when a conventions file duplicates content that lives in a skill.
 ---
 
 # Writing Conventions Instructions
 
 ## Overview
 
-A conventions file is a **thin pointer, not a duplicate**. Its job is to capture what is unique to this project and to point at the skills that already document the general rules. If a convention already lives in a skill, the file references the skill instead of restating it. One source of truth, never two.
+A conventions file is a **thin pointer, not a duplicate**. Coding conventions are stored inside the `.agents/` folder (e.g. `.agents/conventions.md` or `.agents/convensions.md`). Its job is to capture what is unique to this project and to point at the skills that already document the general rules. If a convention already lives in a skill, the file references the skill instead of restating it. One source of truth, never two.
 
 **Core principle:** If a skill documents it, the conventions file links to the skill. The file only restates a rule when the project overrides the skill or the rule is project-specific.
 
@@ -15,14 +15,14 @@ A conventions file is a **thin pointer, not a duplicate**. Its job is to capture
 
 Use this skill when:
 
-- Creating a new `conventions.instructions.md` (or similar) for a project.
+- Creating a new conventions file in `.agents/` (e.g. `.agents/conventions.md` or `.agents/convensions.md`) for a project.
 - Updating an existing conventions file after a skill or project change.
 - Reviewing a conventions file that duplicates content already in skills.
 - Deciding whether a rule belongs in the file or in a skill.
 
 **Do NOT use when:**
 
-- Writing the full agent instruction file (`.github/copilot-instructions.md`, `AGENT.md`, `CLAUDE.md`). Use `writing-agent-instructions` for that.
+- Writing the full agent instruction file (`AGENTS.md`). Use `writing-agent-instructions` for that.
 - Writing a README. Use `writing-readmes`.
 
 ## Core Pattern
@@ -122,7 +122,7 @@ Always name the skill being overridden so a reader knows the source of truth and
 
 ## Related Skills
 
-- `writing-agent-instructions` — the full agent instruction file (`.github/copilot-instructions.md`, `AGENT.md`). The conventions file is one resource that file links to.
+- `writing-agent-instructions` — the full agent instruction file (`AGENTS.md`). The conventions file in `.agents/` is one resource that `AGENTS.md` links to.
 - `structuring-nextjs-projects` — directory layout, naming, imports, exports for Next.js/TypeScript.
 - `centralised-routes` — centralised route definitions.
 - `typescript-environment-variables` — centralised, validated env config.

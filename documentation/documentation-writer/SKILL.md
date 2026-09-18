@@ -26,7 +26,6 @@ Write focused, accurate code documentation blocks that follow industry standards
 - Use overall project knowledge to add context not obvious from the code alone
 - Consult online docs or Context7 to add accurate detail for third-party APIs
 - Be concise — no verbose sentences, no filler phrases
-- Always write in ASD-STE100
 
 **What not to do**
 - Never change any code logic or types — only add documentation
@@ -52,7 +51,7 @@ Write focused, accurate code documentation blocks that follow industry standards
 
 ## Context Sources
 
-- `README`, `AGENTS.md`, `copilot-instructions.md`
+- `README`, `AGENTS.md`
 - The code itself
 - Relevant online documentation (internet or Context7 MCP)
 
