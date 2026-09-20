@@ -55,22 +55,25 @@ const result = streamText({
 });
 ```
 
-## finalStep aggregation
+## Multi-step tool calls & finalStep aggregation
 
-`result.finalStep` exists on both result types and is `PromiseLike`. ai-client's chat `onEnd` aggregates the final-step-only shape for persistence:
+In AI SDK v7, `finish.toolCalls` and `finish.toolResults` aggregate across **all steps** in a multi-step turn, whereas `finish.finalStep.toolCalls` only reflects tool calls executed during the very last step. For turns where tools are called in step 1 and textual summary is generated in step 2 (`finalStep`), reading from `finalStep` discards the tool calls and results.
 
+To persist the entire turn's tools:
 ```ts
 onEnd: (finish) => {
   finishRef.current = {
     text: finish.text,
-    toolCalls: finish.finalStep.toolCalls ?? [],
-    toolResults: finish.finalStep.toolResults ?? [],
+    toolCalls: finish.toolCalls ?? [],
+    toolResults: finish.toolResults ?? [],
     finishReason: finish.finishReason,
   };
 },
 ```
 
-For run-step analysis, `generateText` then iterate `result.steps` for per-step `toolCalls`/`toolResults`, tolerating v6/v7 dual shapes: `tc.args ?? tc.input`, `tr.result ?? tr.output`.
+### Property Normalization & Historical Serialization
+- **Schema fields:** AI SDK v7 uses `input` for tool arguments and `output` for results (`tc.input`, `tr.output`), whereas legacy or database schemas often expect `args` and `result`. Map `tc.args ?? tc.input` and `tr.result ?? tr.output` when serializing.
+- **Historical tool call parts:** Provider serializers (like OpenAI) reconstruct message history by reading `part.input`. Setting only `args` on historical `ToolCallPart` objects leaves `part.input` undefined, causing providers to serialize `{}` (empty object) into the prompt. Always set `input: parsedInput` in historical tool parts.
 
 ## Error handling
 

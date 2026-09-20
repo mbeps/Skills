@@ -177,3 +177,35 @@ export const globalChannel = channel("global-updates").addTopic(
 - Keep channel definitions in separate files per domain
 - Export typed channel instances, not raw channel builders
 - Use `as const` assertion when passing topics to `useRealtime`
+
+## Client-Side Best Practices & Gotchas
+
+### 1. Memoize Token Factories (`useCallback`)
+`useRealtime` takes a `token` factory function. If passed as an inline anonymous function (`token: () => fetchToken()`), it creates a new function reference on every render, triggering repeated token minting calls and re-render loops on errors.
+```tsx
+const fetchToken = useCallback(() => getSubscriptionToken(id), [id]);
+const { messages } = useRealtime({ channel, topics: ["status"], token: fetchToken });
+```
+
+### 2. High-Frequency Streaming: `messages.all` vs `messages.delta`
+`messages.delta` is overwritten with `[message]` on each incoming event. When streaming rapid events (e.g. LLM tokens at 30-50 chunks/sec), React batches state updates across microtasks, discarding intermediate `messages.delta` chunks before `useEffect` runs.
+- Consume from `messages.all` using an index pointer (`lastProcessedIndexRef.current`).
+- Pass `historyLimit: null` to prevent clamping long streams to the default 100 messages.
+- Guard against re-processing with a `WeakSet<object>`.
+
+### 3. Development WebSocket Host Alignment (`apiBaseUrl`)
+In local development, `getClientSubscriptionToken` produces `http://127.0.0.1:8288`. If the application is accessed at `localhost:3000` or via local network IP (`192.168.x.x`), cross-origin/loopback mismatches can trigger browser Private Network Access blocks. Pass dynamic `apiBaseUrl` in dev:
+```tsx
+const apiBaseUrl = typeof window !== "undefined" && process.env.NODE_ENV !== "production"
+  ? `${window.location.protocol}//${window.location.hostname}:8288`
+  : undefined;
+```
+
+### 4. Content Security Policy (CSP)
+WebSockets require `ws:` and `wss:` in `connect-src`.
+- **W3C CSP Level 3 Duplicate Directive Rule:** If multiple `connect-src` directives exist in a CSP header, browsers enforce only the first directive and discard subsequent ones. Ensure `connect-src` appears exactly once in Next.js security headers.
+
+### 5. Ephemeral Pub/Sub & Fallback DB Recovery
+Inngest Realtime channels are ephemeral WebSockets without message retention. If a client disconnects, reloads, or errors mid-stream, past chunks are not replayed.
+- Durable background functions should persist the final result to the database upon completion.
+- Pair client `useRealtime` with a watchdog or connection error fallback: if `connectionStatus === "error"` or the stream stalls, poll the database for the completed record and update local state so the UI never stays stuck in a loading state.

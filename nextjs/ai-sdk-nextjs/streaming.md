@@ -47,6 +47,14 @@ createUIMessageStream({
 
 Returns `createUIMessageStreamResponse({ stream })`.
 
+## Background Streaming (Surviving Page Navigation & Reloads)
+
+Standard HTTP route handlers (`createUIMessageStreamResponse`) abort generation when the user navigates away or refreshes. For workflows, durable agent tasks, or generation that must survive navigation:
+1. **Durable background execution:** Dispatch a background job (e.g. via Inngest or a durable worker queue).
+2. **Server-side streaming:** The background function runs `streamText`, streams token and tool deltas over a WebSocket pub/sub channel (e.g. `inngest.realtime.publish`), and saves the final message to the database upon completion.
+3. **Client-side subscription & hydration:** The client UI subscribes to the channel via WebSocket (`useRealtime`), receiving live tokens. When the user navigates away or reloads, server components hydrate the finished message from the database.
+4. **Resilience fallback:** Pair client WebSocket subscriptions with an error & watchdog fallback: if the WebSocket drops or errors, query the database for the completed response to prevent infinite loading states.
+
 ## useChat (@ai-sdk/react)
 
 Options take `chat: Chat | ChatInit` (`id`, `messages` — NOT `initialMessages`, `generateId`, `transport`, `messageMetadataSchema`, `dataPartSchemas`, `onError`, `onToolCall`, `onFinish`, `onData`, `sendAutomaticallyWhen`, `throttle`).
@@ -77,4 +85,5 @@ A `UIMessage` is `{ id, role: 'system'|'user'|'assistant', metadata?, parts }`. 
 
 Errors extend the base `AISDKError`. Catch specific subclasses: `APICallError` (not `APIError`), `InvalidPromptError`, `JSONParseError`, `LoadAPIKeyError`, `NoContentGeneratedError`, `NoSuchModelError`, `UnsupportedFunctionalityError`. There is **no** `AbortError` class — detect aborts with `isAbortError(error)` from `@ai-sdk/provider-utils`. Format messages with `getErrorMessage(error)` from `@ai-sdk/provider`.
 
-Client: `useChat` exposes `status`, `error`, `clearError`, plus `onError`. Server: `streamText` accepts `onError` and `onEnd({ isError, isAbort, finishReason })`; guard aborts with `isAbortError`.
+- **PromiseLike Result Fields:** `result.finishReason` and `result.usage` implement `PromiseLike` rather than native `Promise`. Wrap with `Promise.resolve(result.finishReason).catch(...)` if attaching error handlers.
+- **Client & Server Callbacks:** Client `useChat` exposes `status`, `error`, `clearError`, plus `onError`. Server `streamText` accepts `onError` and `onEnd({ isError, isAbort, finishReason })`; guard aborts with `isAbortError`.

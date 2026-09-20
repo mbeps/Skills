@@ -306,6 +306,10 @@ See [deployment.md](./deployment.md) for serve vs connect models, environment se
 | Putting async effects in step callbacks | Steps must be pure functions of their inputs |
 | Assuming sequential = serial | `Promise.all` of `step.invoke` runs in parallel |
 | Skipping step IDs for deduplication | IDs are required for memoisation and deduplication |
+| Unmemoized Realtime token factory | Wrap `token` getter in `useCallback` to prevent infinite token request storms |
+| Omitting `isDev` / `baseUrl` in local dev | Set `isDev: true` and `baseUrl` on client to prevent 401 from defaulting to cloud mode |
+| Duplicate CSP directives for WebSockets | Deduplicate `connect-src`; W3C CSP Level 3 ignores duplicate directives after the first |
+| Relying on `messages.delta` for rapid streams | Read from `messages.all` with an index ref; React batches microtasks and drops intermediate deltas |
 
 ## Anti-Patterns — Violating the Letter Breaks Everything
 
