@@ -1,90 +1,123 @@
 ---
 name: writing-agent-instructions
-description: Use when creating, updating, or reviewing the AGENTS.md file for a project codebase.
+description: Use when creating, updating, or reviewing the AGENTS.md file or modular .agents/ instruction files (development.md, conventions.md, testing.md, design.md) for a project codebase.
 ---
 
 # Writing Agent Instructions
 
 ## Overview
 
-An agent instruction file is a strict contract that governs how AI agents interact with and develop within a codebase. In all repositories, this file is strictly **`AGENTS.md`** at the project root. Follow the fixed section order, standard baseline rules, and precise reference formats; do not improvise headings, inject project tree diagrams, or alter baseline instructions.
+Agent instructions govern how AI agents interact with and develop within a codebase. This follows a **tiered progressive disclosure architecture**:
+
+1. **Root Contract (`AGENTS.md`)**: The root orchestrator and entry point, loaded automatically into agent context. Contains high-level project overview, baseline operational rules, tech stack links, baseline skills, and pointers to resources.
+2. **Modular On-Demand Rules (`.agents/*.md`)**: Domain-specific rulebooks read by agents just-in-time when performing relevant tasks:
+   - `.agents/development.md`: Core dev lifecycle principles, operational constraints, and workflow skills.
+   - `.agents/conventions.md` (or `convensions.md`): Directory structure, naming conventions, architectural boundaries, and skill overrides.
+   - `.agents/testing.md`: Testing strategy, runner setup, mock overrides, coverage rules, and testing skills.
+   - `.agents/design.md`: UI architecture, component hierarchy, page container rules, styling, and design skills.
+
+**Core Principle**: A domain rulebook is a **thin pointer, not a duplicate**. If a skill documents it, reference the skill. Only state project-specific rules or explicit skill overrides.
 
 ## When to Use
 
-- Creating a new `AGENTS.md` file for a repository.
-- Updating an existing `AGENTS.md` file to match project changes.
-- Auditing `AGENTS.md` against the required standard.
+- Creating or updating the root `AGENTS.md` file.
+- Creating or updating `.agents/development.md` for project operational rules and workflow skills.
+- Creating or updating `.agents/conventions.md` (or `convensions.md`) for code style, structure, and architecture overrides.
+- Creating or updating `.agents/testing.md` for test patterns, mocking setups, and testing skills.
+- Creating or updating `.agents/design.md` for UI architecture, styling conventions, and design skills.
+- Auditing existing agent instructions against project standards.
 
 **Do NOT use when:**
-- Modifying standard project source code, configuration files, or documentation other than agent instruction files.
+- Modifying standard application source code or configuration files.
 - Authoring human-facing repository READMEs (use `writing-readmes`).
 
+---
+
+## Selective / Modular File Generation
+
+Agents MUST support both full suite initialization and targeted single-file generation:
+
+1. **Full Suite Mode**: When asked to set up or overhaul agent instructions for a project, inspect the stack and generate `AGENTS.md` alongside relevant modular files in `.agents/` (`development.md`, `conventions.md`, `testing.md`, `design.md`).
+2. **Targeted / Granular Mode**: When the user specifies a particular file (e.g. *"create only .agents/testing.md"* or *"add design conventions"*), **generate or modify ONLY the requested file**. If a newly created `.agents/*.md` file is not yet listed in `AGENTS.md` `# Resources`, add a pointer to it under `# Resources` in `AGENTS.md`. Do not rewrite other unrelated `.agents/` files unless requested.
+
+---
+
 ## The Agent File Contract
+
+### `AGENTS.md` Structure (Root Orchestrator)
 
 `AGENTS.md` files must contain these sections in order:
 
 | # | Section | Status | Specification |
 |---|---|---|---|
 | 1 | `# Project Overview` | **Required** | Exactly 1–2 sentences. Concise and direct. **Never mention tech stack or tools here**. |
-| 2 | `# Instructions (MUST be followed)` | **Required** | Standard baseline rules (see `structure.md`) followed by any user-specified additions. |
+| 2 | `# Instructions` | **Required** | Streamlined baseline operational rules (see `structure.md`) followed by any user-specified rules. |
 | 3 | `# Tech Stack` | **Required** | Categorized into `## Frontend`, `## Backend`, etc. Every technology MUST link to official docs. |
-| 4 | `# Resources` | **Required** | Pointers to `README` (always), `Coding Conventions` in `.agents/` (if present), `Graphify` assets (always), `Wiki` (if present), and architectural docs. **Never list package manager files** (`package.json`, etc.). |
+| 4 | `# Resources` | **Required** | Pointers to `./README.md`, `.agents/` modular files, `graphify-out/`, and `wiki/`. **Never list package manager files** (`package.json`, etc.). |
 | 5 | `# Skills` | **Required** | Universal core skills (always included) plus stack-detected skills. **Never include one-time/meta skills**. |
 | 6 | `# Additional Tools (and MCPs)` | **Required** | Non-obvious runtime tools and MCPs (`headroom`, `Context7`, `Web`, etc.). |
-| 7 | `# Graphify` | **Required** | Identical verbatim prompt instructions across all agent files. |
+| 7 | `# Graphify` | **Required** | Standard verbatim prompt instructions for graphify navigation. |
 | 8 | `# Learnings` | **Conditional** | Pointers and rules for `.agents/learnings.md` when project maintains an agent learnings log. |
 | 9 | `# Extras` | **Conditional** | Present **ONLY** if the user explicitly provided additional content. Never fabricate. |
 
+---
+
 ## Mandatory Operational Rules
 
-1. **Target File Name**: Always create or update strictly **`AGENTS.md`** at the repository root. The user does not need to specify this file name, and agents must **never ask** which file to target.
-2. **Strict File Isolation**: The skill **MUST NOT modify any other file** in the project repository. It can only create or update `AGENTS.md` (and run the `graphify` skill if graphify assets are missing).
-3. **Agent Materials in `.agents/`**: Coding conventions are stored in the `.agents/` folder (e.g. `.agents/conventions.md` or `.agents/convensions.md`). All additional AI coding agent related materials (such as `.agents/learnings.md`, prompt templates, or agent-specific documentation) MUST also live inside the `.agents/` directory.
-4. **No Inline Design or Structure Trees**: Do NOT inline file tree diagrams, architecture sketches, or design details. Place or link these in `# Resources`.
-5. **Path Relativity**: Since `AGENTS.md` is always at the project root, all resource links resolve from root using `#file:./` (e.g. `#file:./README.md`, `#file:./.agents/conventions.md`, `#file:./graphify-out/`).
+1. **Standard Relative Paths**: All resource links resolve from the repository root using standard markdown relative paths (`./...`, e.g. `./README.md`, `./.agents/convensions.md`, `./graphify-out/`). **NEVER use `#file:` prefixes**.
+2. **Agent Materials in `.agents/`**: All conventions, development instructions, testing guides, learnings, and prompt templates strictly live in `.agents/`. Keep the repository root clean.
+3. **Thin Pointer, Not Duplicate**:
+   - For every rule you write in `.agents/`, ask: *"Does a skill already document this?"*
+   - If yes and project follows it as-is → Reference the skill.
+   - If yes but project overrides it → Explicitly state the override and name the skill.
+   - If project-specific → Document it in the appropriate `.agents/*.md` file.
+4. **No Inline Design or Structure Trees in `AGENTS.md`**: Do NOT inline large file tree diagrams or design manuals into `AGENTS.md`. Link them in `# Resources` so they are loaded on-demand.
+5. **No Package Manager Files**: Never list `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, or similar package manager files in `# Resources`.
+6. **Standard `.agents/*.md` Format**: Every modular file in `.agents/` must start with YAML frontmatter (`description` and `applyTo`), an H1 header, `## 1. Skills` at the top, and numbered subsequent sections. Domain-specific skills (e.g. `ui-ux-pro-max`, `writing-nextjs-vitest-tests`) are delegated to these files rather than polluting `AGENTS.md` `# Skills`.
+
+---
 
 ## Quick Reference
 
 | Topic | Reference File |
 |---|---|
-| Section templates, exact baseline rules, and path resolution | `structure.md` |
-| Universal skills, stack-specific triggers, and prohibited skills | `skills-catalog.md` |
-| Fully worked canonical examples of `AGENTS.md` | `example.md` |
+| Section templates, exact baseline rules, and `.agents/*.md` specifications | `structure.md` |
+| Universal skills, stack-specific triggers, testing skills, and prohibited skills | `skills-catalog.md` |
+| Fully worked canonical examples of `AGENTS.md` and `.agents/*.md` files | `example.md` |
+
+---
 
 ## Common Mistakes
 
 | Mistake | Correction |
 |---|---|
-| Asking user for target file name or using non-`AGENTS.md` filenames | Target is always `AGENTS.md` at the project root. Never ask user. |
-| Storing conventions or agent materials outside `.agents/` | Conventions and agent materials (e.g. `learnings.md`) belong in `.agents/`. |
-| Mentioning tech stack in `# Project Overview` | Keep overview strictly to 1–2 sentences describing what the app does. Stack belongs exclusively in `# Tech Stack`. |
-| Missing official doc hyperlinks in `# Tech Stack` | Every single technology listed must have a markdown hyperlink to its official documentation. |
-| Listing `package.json`, `tsconfig.json`, or `pyproject.toml` in `# Resources` | Prohibited. Only list high-level documentation, conventions, graphify assets, and wikis. |
-| Modifying code files or configs while running this skill | Prohibited. You may only create or modify `AGENTS.md`. |
-| Adding one-time or meta skills (`writing-skills`, `refining-skills`, `migrating-*`) to `# Skills` | Only include persistent workflow and stack-specific operational skills. |
-| Altering or omitting the baseline instructions in section 2 | Baseline rules must appear in every file. User instructions are appended. |
-| Adding an empty or speculative `# Extras` section | Omit `# Extras` entirely unless the user explicitly provides additional information. |
-| Inlining file trees or system architecture diagrams | Link to external architecture documents in `# Resources`. |
+| Using `#file:` in paths | Use standard markdown relative paths (`./README.md`, `./.agents/development.md`). |
+| Restating generic testing or convention rules (e.g. hoisting, runtime module mocking covered by `writing-nextjs-vitest-tests`) | Duplicates skills and creates drift. Point to the skills; document only project-specific runners, directories, setup files, and mock overrides. |
+| Inlining testing/design manuals or domain skills directly into `AGENTS.md` | Place them in `.agents/testing.md` or `.agents/design.md` and link in `# Resources`. |
+| Rewriting all `.agents/` files when the user asked for one specific file | Respect granular generation requests; modify only the target file. |
+| Mentioning tech stack in `# Project Overview` | Keep overview strictly to 1–2 sentences. Stack belongs in `# Tech Stack`. |
+| Missing official doc hyperlinks in `# Tech Stack` | Every technology listed must have a markdown hyperlink to its official documentation. |
+| Adding one-time meta skills (`writing-skills`, `refining-skills`) to `# Skills` | Only include persistent workflow and stack-specific operational skills. |
+
+---
 
 ## Procedure
 
-1. **Target File**: Target is always `AGENTS.md` at repository root. Do NOT ask the user.
+1. **Identify Target Scope**:
+   - Determine whether the user wants a full setup or specific target file(s) (`AGENTS.md`, `.agents/development.md`, `.agents/conventions.md`, `.agents/testing.md`, `.agents/design.md`).
 2. **Inspect Repository Stack & Assets**:
-   - Identify core technologies and obtain official doc URLs.
-   - Check if `README.md`, `.agents/` folder (conventions, learnings, or other agent materials), or a `wiki/` directory exist.
-   - Check if `graphify-out/` exists; if missing, invoke the `graphify` skill to generate it.
-3. **Select Skills**:
-   - Include all universal core skills from `skills-catalog.md`.
-   - Add stack-specific skills matching the codebase (TypeScript, Next.js, database, auth, testing).
-   - Ensure zero prohibited meta skills are included.
-4. **Assemble the File**:
-   - Draft the sections following `structure.md` and resolving relative file paths from repository root (`#file:./...`).
-   - Incorporate any user-provided additional instructions, learnings, or extras.
-5. **Review Against Contract**:
-   - Verify overview length (1–2 sentences, no stack mention).
-   - Verify all baseline instructions are present verbatim.
-   - Verify all tech stack items have doc links.
-   - Verify no package manager files appear in `# Resources`.
-   - Verify coding conventions and agent materials point to `.agents/`.
-   - Write or update only `AGENTS.md` at project root.
+   - Identify core technologies, test runners (Vitest, Jest, Playwright), database, auth, and styling tools.
+   - Check if `README.md`, `.agents/`, `graphify-out/`, or `wiki/` exist.
+3. **Draft the Targeted File(s)**:
+   - For `AGENTS.md`: Follow the 9 standard sections using standard relative `./` paths.
+   - For `.agents/development.md`: Define development principles, operational rules, and workflow skills.
+   - For `.agents/conventions.md`: Define structure, naming, architecture patterns, and skill overrides.
+   - For `.agents/testing.md`: Define runner setup, mocking patterns, coverage goals, and testing skills.
+   - For `.agents/design.md`: Define UI hierarchy, page container rules, styling, and design skills.
 
+4. **Ensure Synchronization**:
+   - Verify that any `.agents/*.md` files present in the repo are referenced under `# Resources` in `AGENTS.md`.
+5. **Review Against Contract**:
+   - Verify zero `#file:` prefixes.
+   - Verify doc links in `# Tech Stack`.
+   - Verify no meta skills in `# Skills`.

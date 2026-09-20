@@ -1,10 +1,10 @@
 # Skills Catalog for Agent Files
 
-Agent files must list all skills required to develop and maintain the codebase. This reference defines which skills to include universally, which to include conditionally by stack, and which to strictly exclude.
+Agent files must list all skills required to develop and maintain the codebase. This reference defines which skills to include universally in `AGENTS.md`, which to include conditionally by stack, which belong in modular `.agents/*.md` files, and which to strictly exclude.
 
 ---
 
-## 1. Core Universal Skills (Always Included)
+## 1. Core Universal Skills (Always Included in `AGENTS.md`)
 
 Every project agent file MUST include these universal skills, formatted with standard instruction markers:
 
@@ -43,11 +43,13 @@ Include skills below only when the corresponding language, framework, database, 
 - `mastering-typescript`: MUST be used when writing TypeScript code
 - `typescript-environment-variables`: MUST be used when managing environment variables in TypeScript
 
-### Frontend & React / Next.js
-- `ui-ux-pro-max`: MUST be used when creating components, pages, or other UI/UX related tasks
-- `structuring-nextjs-projects`: MUST be used when creating files, organizing code, or structuring Next.js projects
-- `centralised-routes`: MUST be used when designing or refactoring Next.js route definitions and typed URLs
+### Frontend & UI Design (List in `.agents/design.md` rather than `AGENTS.md`)
+- `ui-ux-pro-max`: MUST be used when creating components, pages, styling, or UI/UX related tasks
+- `ui-component-decomposition`: MUST be used when auditing or identifying UI component extraction candidates
 - `radix-ui-to-base-ui-migration`: MUST be used when migrating UI components to Base UI
+- `ui-design-language`: MUST be used when standardizing component density, iconography, and navigation patterns
+- `structuring-nextjs-projects`: MUST be used when creating files, organizing code, or structuring Next.js projects (place in `.agents/conventions.md`)
+- `centralised-routes`: MUST be used when designing or refactoring Next.js route definitions and typed URLs (place in `.agents/conventions.md`)
 
 ### Databases & Schemas
 - `database-normalisation-theory`: MUST be used when designing and modifying relational database schemas
@@ -76,9 +78,13 @@ Include skills below only when the corresponding language, framework, database, 
 - `python-typing-ecosystem`: MUST be used when configuring Python type checking (mypy, Pyright, Pyrefly)
 - `openpyxl`: MUST be used when manipulating Excel .xlsx files in Python
 
-### Testing & Verification
-- `writing-nextjs-vitest-tests`: MUST be used when writing Next.js Vitest unit and integration tests
+### Testing & Verification (List in `AGENTS.md` and `.agents/testing.md`)
+- `writing-nextjs-vitest-tests`: MUST be used when writing Next.js Vitest unit and integration tests (mocking Next.js runtime, Drizzle/Prisma DB queries, server actions, auth sessions)
 - `playwright-skill`: MUST be used when writing or running browser automation and end-to-end tests
+- `tdd`: MUST be used when practicing test-driven development (red-green-refactor loop)
+- `test-driven-development`: MUST be used when implementing any feature or bugfix, before writing implementation code
+- `systematic-debugging`: MUST be used when diagnosing test failures or unexpected test runner errors
+- `verification-before-completion`: MUST be used to verify all tests pass before completing tasks
 
 ### Code Review & Branching
 - `receiving-code-review`: MUST be used when receiving code review feedback
@@ -100,7 +106,7 @@ Never add one-time, setup, or meta authoring skills to an agent file. These clut
 | `find-skills`                                                                                                                | Interactive user discovery tool.                                    |
 | `writing-readmes`                                                                                                            | Specific to authoring repository README files.                      |
 | `writing-agent-instructions`                                                                                                 | This authoring skill itself.                                        |
+| `writing-conventions-instructions`                                                                                           | Merged into `writing-agent-instructions`.                           |
 | `migrating-*` (e.g. `migrating-ai-sdk-v6-to-v7`, `migrating-eslint-prettier-to-biome`, `migrating-spring-boot-applications`) | One-time version migration guides.                                  |
 | `generative_ui`                                                                                                              | Visual widget generator for chat UI.                                |
 | `wiki-writer`                                                                                                                | Standalone wiki authoring tool.                                     |
-
