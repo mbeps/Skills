@@ -75,6 +75,14 @@ Rules:
 - Always call `vi.useRealTimers()` in `afterEach` — leaked fake timers corrupt every subsequent test.
 - `act()` wraps `vi.advanceTimersByTime()` so React processes state updates triggered by timer callbacks.
 - For `renderHook`, wrap `rerender` in `act()` if the rerender triggers side effects.
+- **Asynchronous Timer Callbacks (watchdogs & polling intervals)**: When a timer callback invokes asynchronous functions or state sync (`await syncFromDb()`), synchronous `vi.advanceTimersByTime(ms)` runs the callback but leaves microtasks queued. Use `await vi.advanceTimersByTimeAsync(ms)` inside `await act(async () => ...)`:
+
+```typescript
+await act(async () => {
+  await vi.advanceTimersByTimeAsync(2000);
+});
+expect(mockSync).toHaveBeenCalled();
+```
 
 ## 2. Zustand getState() Direct Manipulation
 
@@ -130,6 +138,7 @@ Rules:
 - Use `getState()` for reads AND writes — avoids store wrapper overhead.
 - For stores with async methods, spy on them: `vi.spyOn(useStore.getState(), "createDb").mockResolvedValueOnce("id")`. Remember `restoreAllMocks`.
 - For modal stores, cast to access `setState`: `(useAuthModal as { setState: (s: Record<string, unknown>) => void }).setState({ isOpen: false })`.
+- **Mocking Store Action Rejections for Custom Hook Testing**: If a custom hook delegates to a Zustand action that swallows backend errors internally without re-throwing, rejecting the underlying server action will not exercise the hook's catch block. Mock the action method directly on the store: `useAppStore.setState({ loadEntities: vi.fn().mockRejectedValue(new Error("Network failure")) })`.
 
 ## 3. vi.mocked() Re-mocking
 
@@ -377,21 +386,35 @@ test: {
       "lib/env.ts", // throws on missing vars at import
     ],
     thresholds: {
-      statements: 80,
-      branches: 80,
-      functions: 80,
-      lines: 80,
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
     },
   },
 }
 ```
 
 Rules:
-- Exclude UI dirs (`app/**`, `components/**`) — keep thresholds on logic layers (actions, lib, schemas).
+- 100% full test coverage must be achieved across all metrics (statements, branches, functions, lines).
+- Exclude UI dirs (`app/**`, `components/**`) — keep strict thresholds on logic layers (actions, lib, schemas, hooks).
 - Exclude `lib/env.ts` — it throws on missing vars; it's mocked everywhere anyway.
 - **Branches is the hardest metric** — every `if`/ternary/`??` needs both sides exercised.
 - When branches fails, write the missing guard test rather than lowering the threshold.
 - Thresholds are evidence over configuration — failing the run proves gaps exist.
+
+### Reaching 100% Full V8 Branch & Line Coverage
+
+V8 coverage instruments AST nodes directly, creating sub-branch counters that standard happy/error tests miss:
+
+1. **Nullish Coalescing (`??`) & Optional Chaining (`?.`)**:
+   - `const parent = parentId ?? null;`: V8 flags a branch for when `parentId` is defined vs when it evaluates to `null`/`undefined`. Test both values explicitly (`{ parentId: "p1" }` and `{ parentId: undefined }`).
+2. **Error Normalization in Catch Blocks**:
+   - `error: err instanceof Error ? err.message : String(err)`: V8 marks the ternary condition. Test throwing both `new Error("msg")` and primitive non-Error values (`mockRejectedValueOnce("network failure")` or `{}`).
+3. **Array Sorting with Pinned Items (V8 TimSort)**:
+   - Comparators with pinned elements (e.g. `if (a.isPinned) return -1; if (b.isPinned) return 1;`) may only execute `b.isPinned` when sorting larger collections (>32 items). In small arrays V8 does not compare the pivot as `b`. Test sorting with 35+ items to exercise both comparator branches.
+4. **Pruning Dead Defensive Code**:
+   - If an internal function throws when a record is not found (e.g. `getSkill` throws `"Not Found"`), downstream caller checks like `if (!skill) throw new Error("Skill not found")` are unreachable dead code that permanently lowers line and branch coverage. Surgically remove dead checks to maintain 100% coverage.
 
 ## 10. Co-located Tests
 

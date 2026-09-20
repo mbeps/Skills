@@ -77,8 +77,26 @@ it("shows a success toast and navigates after delete", async () => {
 
 - Async handler flows: `await act(async () => { await result.current.handler(...) })`.
 - Polling transitions: `await waitFor(() => expect(result.current.activeToolCalls).toEqual([]))`.
+- Cached hooks & lifecycle: when hooks read from module caches (`getCacheData()`, `subscribeCache()`), test:
+  1. Fresh cache: returns data immediately without trigger.
+  2. Stale cache / empty: triggers server action fetch, handles retry limits.
+  3. Subscription cleanup: verify unmounting `renderHook` calls the returned unsubscribe callback.
+  4. Selector/filter variations: test all discriminator filters (e.g. `'chat' \| 'embedding' \| 'both'`) and parent/child `isEnabled` combinations.
 - Streaming: stub `global.fetch` with a constructed SSE `Response` (§8 of mocking-patterns.md); assert the assembled message args.
 - Failure paths: mock the action/fetch to reject; assert the error toast fired and loading state reset.
+
+## Error normalizers & categorizers
+
+Error utility functions (`isRateLimitError`, `classifyProviderError`, `normalizeErrorMessage`, `useApiError`) run at trust boundaries and must handle every conceivable thrown shape without throwing secondary errors. Test the full matrix:
+
+| Error Shape               | Input Example                                   | Expected Assertion                                              |
+| ------------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| Standard `Error`          | `new Error("Database timeout")`                 | Extracts `.message`                                             |
+| Custom Error Class        | `new ProviderNotConfiguredError()`              | Correct type match / preserved                                  |
+| `ZodError`                | `z.string().parse(123)` (caught)                | Formatted issues list / readable message                        |
+| HTTP Status Objects       | `{ status: 429, message: "Too many requests" }` | Correct 429 rate limit categorization                           |
+| Raw String / Number       | `"Network failed"`, `500`                       | Stringified / fallback message                                  |
+| Null / Undefined / Object | `null`, `undefined`, `{}`                       | Default fallback string (e.g. `"An unexpected error occurred"`) |
 
 ## Zustand stores
 

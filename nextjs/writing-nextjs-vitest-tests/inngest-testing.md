@@ -19,10 +19,13 @@ Testing Inngest v4 durable functions requires collapsing the entire event-driven
 
 ```typescript
 export const stepMock = {
-  run: vi.fn((id, cb) => cb()),          // SYNCHRONOUS — collapses durable step
+  run: vi.fn(async (_id, cb) => cb()),     // SYNCHRONOUS / ASYNC — collapses durable step callback
   ai: {
-    wrap: vi.fn((id, fn, args) => fn(args)), // CALLS THROUGH — no memoisation
+    wrap: vi.fn((_id, fn, args) => fn(args)), // CALLS THROUGH — no memoisation
   },
+  sendEvent: vi.fn().mockResolvedValue(undefined),
+  waitForEvent: vi.fn().mockResolvedValue(null),
+  sleep: vi.fn().mockResolvedValue(undefined),
 };
 
 export const publishMock = vi.fn().mockImplementation((val) => val); // Identity
@@ -36,13 +39,15 @@ vi.mock('@/inngest/utils', () => ({
 }));
 ```
 
-| Export                  | Purpose                                     | Behaviour                                                                                                                      |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `stepMock.run`          | Replaces `step.run("checkpoint", asyncFn)`  | Synchronously invokes callback. No retry, no checkpoint persistence. Returns `undefined` unless `.mockResolvedValue()` called. |
-| `stepMock.ai.wrap`      | Replaces `step.ai.wrap("key", fn, args)`    | Calls `fn(args)` directly. No caching, no replay protection.                                                                   |
-| `publishMock`           | Replaces `publish()` passed to executors    | Identity by default. Tests spy on it to verify realtime status publishing.                                                     |
-| `inngest.send`          | Replaces `inngest.send({ name, data, id })` | Plain `vi.fn()`. Rarely asserted.                                                                                              |
-| `sendWorkflowExecution` | Replaces the event-sending utility          | Plain `vi.fn()`. Asserted in router tests.                                                                                     |
+| Export                  | Purpose                                     | Behaviour                                                                                                                   |
+| ----------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `stepMock.run`          | Replaces `step.run("checkpoint", asyncFn)`  | Invokes callback immediately (`await cb()`). No retry, no checkpoint persistence. Resolves returned value or mock override. |
+| `stepMock.ai.wrap`      | Replaces `step.ai.wrap("key", fn, args)`    | Calls `fn(args)` directly. No caching, no replay protection.                                                                |
+| `stepMock.sendEvent`    | Replaces `step.sendEvent("id", event)`      | Resolves immediately.                                                                                                       |
+| `stepMock.waitForEvent` | Replaces `step.waitForEvent("id", opts)`    | Resolves with mocked matched event or `null` (timeout).                                                                     |
+| `publishMock`           | Replaces `publish()` passed to executors    | Identity by default. Tests spy on it to verify realtime status publishing.                                                  |
+| `inngest.send`          | Replaces `inngest.send({ name, data, id })` | Plain `vi.fn()`. Rarely asserted.                                                                                           |
+| `sendWorkflowExecution` | Replaces the event-sending utility          | Plain `vi.fn()`. Asserted in router tests.                                                                                  |
 
 ### Executor Test Template
 

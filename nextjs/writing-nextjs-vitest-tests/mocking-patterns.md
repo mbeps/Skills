@@ -21,10 +21,10 @@ Rules:
 - Everything shared between a mock factory and test assertions goes in `vi.hoisted`.
 - Because mocking is hoisted, "mock before imports" ordering is automatic — you can write `vi.mock` after the imports and it still runs first.
 - `vi.doMock`/`vi.doUnmock` are **not** hoisted — only for dynamic-import tests.
-- **Import refactoring & transform phase gotchas (Vite/OXC)**: When updating imports to `@/*` aliases or renamed modules in test files, ensure old imports are completely replaced, not appended. Vite/OXC parses module ASTs prior to test execution:
-  - Duplicate declarations (`import { x } from "old"; import { x } from "@/new";`) trigger `[PARSE_ERROR] Identifier 'x' has already been declared`.
-  - Incomplete multi-line block replacements leaving dangling closing delimiters (`} from "old"; } from "@/new";`) trigger `[PARSE_ERROR] Unexpected token`.
-  Both halt the test runner at the transform stage before any `describe` or `it` block can execute.
+- **Import refactoring & transform phase gotchas (Vite/OXC)**: When updating imports to `@/*` aliases or refactoring schemas/modules, ensure old declarations are completely replaced. Vite/OXC parses module ASTs prior to test collection:
+  - Duplicate declarations (`import { x } from "old"; import { x } from "@/new";` or duplicate source exports like `export const schema = ...; export const schema = ...`) trigger `[PARSE_ERROR] Identifier 'x' has already been declared`. This crashes the entire test file at the transform stage and hides test counts from Vitest.
+  - Dangling syntax tokens (e.g. unclosed `describe`/`it` braces, stray ternary tokens `: [arr],`, or duplicate keys in mock factories) trigger `[PARSE_ERROR] Unexpected token` or `Expected '}' but found 'EOF'`.
+  - In `renderHook`, the second parameter is an `options` object (`{ initialProps, wrapper }`), NOT a second hook invocation. Calling a hook as the second argument (`renderHook(() => useHook(), useHook())`) invokes the hook outside React's render phase and throws `Invalid hook call: Hooks can only be called inside of the body of a function component`.
 
 ## 2. Return/reject APIs + typed assertions
 
@@ -113,8 +113,9 @@ Drizzle officially offers `drizzle.mock({ schema })` (typed, non-connecting), bu
 const chainable = vi.hoisted(() => {
   const c = {} as Record<string, ReturnType<typeof vi.fn>>;
   for (const m of [
-    "select", "from", "leftJoin", "limit",
-    "insert", "values", "update", "set", "delete",
+    "select", "selectDistinct", "from", "leftJoin", "limit",
+    "insert", "values", "onConflictDoNothing", "onConflictDoUpdate",
+    "update", "set", "delete",
   ]) {
     c[m] = vi.fn();
   }
@@ -125,8 +126,9 @@ const chainable = vi.hoisted(() => {
   c.returning = vi.fn();                            // terminal → resolves rows
   c.transaction = vi.fn();
   for (const m of [
-    "select", "from", "leftJoin", "limit",
-    "insert", "values", "update", "set", "delete",
+    "select", "selectDistinct", "from", "leftJoin", "limit",
+    "insert", "values", "onConflictDoNothing", "onConflictDoUpdate",
+    "update", "set", "delete",
   ]) {
     c[m].mockImplementation(() => c);
   }
@@ -142,8 +144,9 @@ vi.mock("@/drizzle/db", () => ({ db: chainable }));
 
 Contract:
 
-- **Intermediate** methods (`select`, `from`, `where`, `leftJoin`, `limit`, `insert`, `values`, `update`, `set`, `delete`, `offset`, `$dynamic`) return the chainable itself — the chain survives `await`.
+- **Intermediate** methods (`select`, `selectDistinct`, `from`, `where`, `leftJoin`, `limit`, `insert`, `values`, `onConflictDoNothing`, `onConflictDoUpdate`, `update`, `set`, `delete`, `offset`, `$dynamic`) return the chainable itself — the chain survives `await`.
 - **Terminal** methods resolve rows: `returning` and `orderBy` — `chainable.returning.mockResolvedValueOnce([CHAT_ROW])`. `orderBy` is **terminal**, not intermediate: `listChats` awaits it and reads the rows, so `beforeEach` re-links it with `mockResolvedValue([])`, never as chain-returning.
+- **Chained `.where().returning()`**: When an action calls `db.update().set().where().returning()` or `db.delete().where().returning()`, `where` MUST return `chainable` (or an object with `returning`), and `returning` is the terminal method that resolves the promise array.
 - `transaction` passes the same chainable as `tx`, so `db.transaction(async (tx) => tx.select()...)` works.
 - `beforeEach` does `vi.resetAllMocks()` then **re-links every default** (reset wipes them):
 
@@ -173,6 +176,25 @@ chainable.where.mockImplementation(() => {
   return chainable; // intermediate in a later query
 });
 chainable.orderBy.mockResolvedValueOnce([MESSAGE_ROW]);
+```
+
+- **Decoupled `db.update` from `db.select`**: When an action runs both `db.update().set().where()` and `db.select().from().where()`, sharing a single `where` mock causes the update query to consume queue slots intended for the select query. Decouple `update` with its own isolated `where` mock:
+
+```typescript
+const mockSelectWhere = vi.hoisted(() => vi.fn());
+const mockUpdateWhere = vi.hoisted(() => vi.fn().mockResolvedValue([]));
+const mockUpdateSet = vi.hoisted(() => vi.fn().mockReturnValue({ where: mockUpdateWhere }));
+const mockUpdate = vi.hoisted(() => vi.fn().mockReturnValue({ set: mockUpdateSet }));
+
+const chainable = vi.hoisted(() => ({
+  select: vi.fn().mockImplementation(() => ({
+    from: vi.fn().mockImplementation(() => ({
+      where: mockSelectWhere,
+    })),
+  })),
+  update: mockUpdate,
+  where: mockSelectWhere,
+}));
 ```
 
 ## 6. Next.js runtime modules

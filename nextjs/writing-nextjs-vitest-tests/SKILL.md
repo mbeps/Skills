@@ -40,6 +40,7 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 5. **Pick the correct cleanup per test** — clearAllMocks keeps impls, resetAllMocks wipes impls, restoreAllMocks restores spies. *(Why: the wrong one leaks state or wipes needed behaviour.)*
 6. **Assert behaviour where possible; for server actions assert the db call args with expect.objectContaining** — the args are the observable contract. *(Why: different queries can return identical shapes.)*
 7. **Every non-trivial unit leaves one test that fails if the logic breaks** — a suite that always passes proves nothing. *(Why: that is the point of the file.)*
+8. **Achieve 100% full test coverage across lines, statements, functions, and branches** — unexercised branches hide runtime regressions and unhandled edge cases. *(Why: full branch coverage guarantees every fallback, error path, and optional branch is validated.)*
 
 ## Common Mistakes
 
@@ -56,14 +57,25 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "Next.js build should type-check all test files" | Tests are transformed by Vitest; exclude `__tests__` in `tsconfig.json` so test mock types don't break `next build` |
 | "vite-tsconfig-paths will always resolve @ aliases" | When tests are excluded in tsconfig.json, vite-tsconfig-paths ignores them — always configure resolve.alias in vitest.config.ts |
 | "Closing a Headless UI modal can be tested by synchronous rerender" | Headless UI Transition exit animations keep elements in jsdom DOM; test closed state on separate initial mount or wait for animation |
-| "Vitest suite failed to run with parse error, it's a test runner bug" | Vite/OXC transforms tests before execution and fails fast on duplicate import identifiers or dangling closing braces from incomplete refactoring |
+| "Vitest suite failed to run with parse error, it's a test runner bug" | Vite/OXC transforms tests before execution and fails fast on duplicate import/export identifiers, unclosed braces, or nested it() blocks — crashing suites before tests are collected |
+| "A single chainable DB mock can handle both db.update() and db.select() in the same action" | Sharing a single where mock desynchronizes queue slots; update queries consume where slots intended for subsequent select queries. Decouple db.update with its own mockUpdateWhere chain |
+| "A chainable Drizzle update where clause can resolve rows directly" | When an action calls `db.update().set().where().returning()`, `where()` must return the chainable builder so `.returning()` exists on the chain |
+| "Inngest step.run can always return undefined by default" | When downstream workflow logic expects step results, `step.run` must execute the callback or resolve step output |
+| "Testing Error instances is sufficient for error helpers" | Error normalizers and catch blocks accept diverse runtime shapes (`Error`, `ZodError`, strings, plain objects, status codes, `undefined`); test all branches |
+| "vi.advanceTimersByTime(ms) is enough to test async intervals/watchdogs" | Synchronous timer advancement leaves microtasks queued; use await vi.advanceTimersByTimeAsync(ms) inside await act(async () => ...) when timer callbacks perform async calls or state sync |
+| "80% line coverage is enough; branch edge cases can be skipped" | 100% full test coverage across lines, statements, functions, and branches is required; V8 coverage checks both sides of ?? and ?. and error type guards (err instanceof Error ? ... : String(err)) |
 | "tsc failed after moving route files, my code must have a broken import" | Next.js generated route validators in `.next/types/validator.ts` point to deleted paths — delete `.next` build cache (`rm -rf .next`) |
 | "The test passes so act(...) warnings in stderr can be ignored" | Radix / Base UI trigger clicks trigger async portal mounts; wrap in `await act(async () => ...)` or `await waitFor()` |
 
 ## Red Flags
 
 - Import-time crash on the unit's transitive graph (env, db, auth)
-- Vite/OXC transform failure aborting test suites before execution due to duplicate import identifiers
+- Vite/OXC transform failure aborting test suites before execution due to duplicate import/export identifiers or syntax typos
+- Sharing a single chainable where spy between db.update and db.select queries
+- Calling `.returning()` on a chain where `.where()` returned a plain array instead of the chainable builder
+- Incomplete error normalizer tests that omit string, ZodError, or non-Error throwables
+- Leaving uncovered lines, branches, functions, or statements below 100% coverage
+- Calling custom hooks inside renderHook's second argument (options) instead of inside the render callback
 - No vi.mock for env/db/auth although the unit touches them
 - Chainable mock returning undefined mid-chain in a failing test
 - Tests passing only with real env vars, a live Postgres, or network access
