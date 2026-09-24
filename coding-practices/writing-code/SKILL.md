@@ -46,11 +46,24 @@ Do NOT use for non-coding tasks (e.g. documentation-only tasks, conceptual discu
 
 - **Keep the main path easy to follow**: Use guard clauses to handle errors early so the primary logic remains clean and readable.
 - **Name things by their meaning**: Choose descriptive names that clearly communicate the purpose of your variables, functions, and types.
+- **Apply SOLID selectively with YAGNI as a control**: Adhere to Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion where they manage real variation and testability. Reject dogmatic SOLID when it introduces premature abstractions, 1:1 interfaces ("interface-itis"), or unwarranted complexity.
 - **Keep external systems behind a boundary**: Isolate your application from external service changes by converting their data into your own internal format.
-- **Make invalid states harder to represent**: Design your data types and schemas so that it is impossible or difficult to construct objects in an invalid state.
+- **Make invalid states harder to represent**: Design your data types and schemas so that it is impossible or difficult to construct objects in an invalid state (e.g. state machines or discriminated unions instead of boolean flag soup).
 - **Separate decisions from actions**: Decouple your business logic from side effects like database updates or network calls so that rules can be tested in isolation.
+- **Decouple state and communication when justified**: Use explicit State Machines for complex lifecycles and Event Buses for 1-to-many asynchronous side effects. For 1-to-1 calls or binary states, keep it direct.
 - **Make error messages and codes useful**: Provide both human-readable messages and machine-readable error codes to simplify debugging and system handling.
 - **Do not over-abstract**: At a certain point, abstraction is bad because there are too many layers. Keep implementations concrete until abstraction is proven necessary.
+
+# Pragmatic SOLID & Architecture Patterns
+
+Apply architectural patterns and SOLID principles selectively. They are tools to manage real complexity, not badges of honour.
+
+| Pattern / Principle | Purpose | YAGNI Sanity Check & Boundary | Reference |
+|---|---|---|---|
+| **SOLID Principles** (SRP, OCP, LSP, ISP, DIP) | Guide cohesion, extensibility, substitutability, and boundary decoupling. | Apply only when friction, churn, or 3+ concrete variations exist. Avoid 1:1 "interface-itis". | [solid-principles.md](./references/solid-principles.md) |
+| **State Machines** (FSM / Discriminated Unions) | Formalise multi-step lifecycles and eliminate illegal state transitions. | Use when managing 3+ dependent states or transition rules; avoid for binary toggles. Specific FSM libraries warrant separate skills. | [architectural-patterns.md](./references/architectural-patterns.md) |
+| **Event Bus / Pub-Sub** (Domain Events) | Decouple producers from multiple independent side-effect listeners. | Use for 1-to-many async side effects. If only 1 consumer exists, call the function directly. Full event broker setup warrants separate skills. | [architectural-patterns.md](./references/architectural-patterns.md) |
+| **Boundaries & Gateways** (Adapters) | Isolate external vendor SDKs and database clients from domain rules. | Keep wrappers thin; do not wrap stable standard library utilities. | [architectural-patterns.md](./references/architectural-patterns.md) |
 
 # Security Hygiene & Defensive Coding
 
@@ -83,6 +96,9 @@ Do NOT use for non-coding tasks (e.g. documentation-only tasks, conceptual discu
 | **Unvalidated Boundary Data** | Injection attacks, data corruption | Validate and sanitise all incoming data against explicit schemas |
 | **Unvetted Dependency Additions** | Supply chain vulnerabilities, bloat | Use existing utilities or standard library; vet packages before adding |
 | **Over-Abstraction** | Unnecessary indirection layers, cognitive friction | Keep code direct; inline until reuse across 3+ sites is proven |
+| **Dogmatic SOLID / Interface-itis** | Indirection mazes, single-implementation boilerplate | Write concrete code first; extract interfaces only for multiple implementations or I/O boundaries |
+| **Boolean Flag Soup** | Fragile states, illegal state combinations | Model states explicitly with State Machines or discriminated union types |
+| **Premature Decoupling / Event Sprawl** | Hard-to-trace action-at-a-distance for simple flows | Use direct function calls for 1-to-1 synchronous flows; reserve event buses for 1-to-many async side effects |
 | **Reinventing Utilities** | Redundant code, fragmented bug fixes | Check existing helpers first; reuse before creating new |
 | **God Functions / Monoliths** | Fragile edits, high maintenance complexity | Split into small functions with single responsibility |
 | **Deep Nesting (>2 levels)** | Unreadable branching logic | Use guard clauses and early returns |
@@ -103,7 +119,10 @@ Do NOT use for non-coding tasks (e.g. documentation-only tasks, conceptual discu
 Before completing any task, verify:
 - [ ] Code is simple, clear, and easy to understand, maintain, and modify.
 - [ ] Complexity is necessary and justified; simpler alternatives evaluated and chosen.
-- [ ] YAGNI adhered to: no speculative code or features that are not needed.
+- [ ] YAGNI adhered to: no speculative code, premature abstractions, or single-implementation interfaces.
+- [ ] SOLID principles applied selectively where variation or testing boundaries demand it, avoiding dogmatic over-engineering.
+- [ ] State transitions modeled explicitly (state machine, enum, discriminated union) rather than boolean flag soup.
+- [ ] Decoupling mechanisms (event bus, gateways) justified by real multi-consumer needs or system boundaries.
 - [ ] New unit, integration, or regression tests written and passing for all modified logic.
 - [ ] Zero hardcoded secrets, credentials, or API tokens in the codebase.
 - [ ] Untrusted inputs validated and sanitised at public boundaries.
