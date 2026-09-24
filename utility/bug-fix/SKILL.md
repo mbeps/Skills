@@ -130,7 +130,6 @@ This skill operates in two distinct modes:
   - `verification-before-completion`
   - `writing-plans`
   - `clean-code`
-  - `design-patterns`
   - `karpathy-guidelines`
   - `refactor`
   - `writing-code`
@@ -157,7 +156,6 @@ This skill operates in two distinct modes:
   - `verification-before-completion`
   - `writing-plans`
   - `clean-code`
-  - `design-patterns`
   - `karpathy-guidelines`
   - `refactor`
   - `writing-code`

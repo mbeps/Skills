@@ -125,7 +125,6 @@ List of skills that are required to work on this project:
 
 # Skills to Use
 - clean-code: MUST be used when writing code
-- design-patterns: MUST be used when writing code
 - writing-code: MUST be used when writing code
 - mastering-typescript: MUST be used when writing TypeScript code
 - typescript-environment-variables: MUST be used when managing environment variables in TypeScript

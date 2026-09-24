@@ -1,6 +1,6 @@
 ---
 name: writing-code
-description: Use when writing or modifying code across any language or framework — implementing new features, fixing bugs, refactoring, cleaning up technical debt, or reviewing code changes
+description: Use when writing or modifying code across any language or framework — implementing new features, fixing bugs, refactoring, applying pragmatic design patterns and SOLID principles, or reviewing code changes
 ---
 
 # Role & Directive
@@ -52,15 +52,16 @@ Do NOT use for non-coding tasks (e.g. documentation-only tasks, conceptual discu
 - **Separate decisions from actions**: Decouple your business logic from side effects like database updates or network calls so that rules can be tested in isolation.
 - **Decouple state and communication when justified**: Use explicit State Machines for complex lifecycles and Event Buses for 1-to-many asynchronous side effects. For 1-to-1 calls or binary states, keep it direct.
 - **Make error messages and codes useful**: Provide both human-readable messages and machine-readable error codes to simplify debugging and system handling.
-- **Do not over-abstract**: At a certain point, abstraction is bad because there are too many layers. Keep implementations concrete until abstraction is proven necessary.
+- **Do not over-abstract (3–4 layer limit)**: While abstraction can be good for managing real variation and isolating boundaries, never introduce over-abstraction as it creates indirection mazes and makes the codebase excessively complex. Around 3–4 layers of abstraction (e.g. Route/Handler → Service/UseCase → Repository/Gateway → Client) should be the absolute limit. Keep implementations direct and concrete until abstraction is proven necessary.
 
-# Pragmatic SOLID & Architecture Patterns
+# Pragmatic SOLID, Architecture & Design Patterns
 
-Apply architectural patterns and SOLID principles selectively. They are tools to manage real complexity, not badges of honour.
+Apply architectural patterns, design patterns, and SOLID principles selectively. They are tools to manage real complexity, not badges of honour.
 
 | Pattern / Principle | Purpose | YAGNI Sanity Check & Boundary | Reference |
 |---|---|---|---|
 | **SOLID Principles** (SRP, OCP, LSP, ISP, DIP) | Guide cohesion, extensibility, substitutability, and boundary decoupling. | Apply only when friction, churn, or 3+ concrete variations exist. Avoid 1:1 "interface-itis". | [solid-principles.md](./references/solid-principles.md) |
+| **Design Patterns & Refactoring** (Bridge, Strategy, Composition over Inheritance, Guard Clauses) | Resolve subclass explosion, dynamic rule dispatch, and nested logic safely. | Prefer composition by default. Use Strategy/Bridge only when 3+ variations or multi-axis churn exists. | [design-patterns.md](./references/design-patterns.md) |
 | **State Machines** (FSM / Discriminated Unions) | Formalise multi-step lifecycles and eliminate illegal state transitions. | Use when managing 3+ dependent states or transition rules; avoid for binary toggles. Specific FSM libraries warrant separate skills. | [architectural-patterns.md](./references/architectural-patterns.md) |
 | **Event Bus / Pub-Sub** (Domain Events) | Decouple producers from multiple independent side-effect listeners. | Use for 1-to-many async side effects. If only 1 consumer exists, call the function directly. Full event broker setup warrants separate skills. | [architectural-patterns.md](./references/architectural-patterns.md) |
 | **Boundaries & Gateways** (Adapters) | Isolate external vendor SDKs and database clients from domain rules. | Keep wrappers thin; do not wrap stable standard library utilities. | [architectural-patterns.md](./references/architectural-patterns.md) |
@@ -78,6 +79,7 @@ Apply architectural patterns and SOLID principles selectively. They are tools to
 - **Follow Industry Standards**: Adhere to established idioms, type safety, and conventions of the language and framework in use.
 - **Zero Assumptions**: Verify types, signatures, and library APIs against project source or documentation before use.
 - **Composition over Inheritance**: Prefer flat structures and composition over deep class hierarchies.
+- **Abstraction Depth Cap**: Strictly limit architectural indirection to around 3–4 layers maximum. Never wrap wrappers or create pass-through boilerplate that obscures execution flow.
 - **Justified Complexity**: Do not make code more complex than necessary. For intrinsically complex logic (e.g. mathematical algorithms, low-level optimisations), provide clear explanatory documentation explaining the rationale.
 
 ## Permitted Resources
@@ -95,7 +97,7 @@ Apply architectural patterns and SOLID principles selectively. They are tools to
 | **Hardcoded Secrets** | Credential leaks, severe security breaches | Extract to environment variables or secret management vaults |
 | **Unvalidated Boundary Data** | Injection attacks, data corruption | Validate and sanitise all incoming data against explicit schemas |
 | **Unvetted Dependency Additions** | Supply chain vulnerabilities, bloat | Use existing utilities or standard library; vet packages before adding |
-| **Over-Abstraction** | Unnecessary indirection layers, cognitive friction | Keep code direct; inline until reuse across 3+ sites is proven |
+| **Over-Abstraction (>3–4 Layers)** | Unnecessary indirection layers, cognitive friction, hard-to-trace execution | Limit abstraction depth to around 3–4 layers; keep code direct and collapse pass-through wrappers |
 | **Dogmatic SOLID / Interface-itis** | Indirection mazes, single-implementation boilerplate | Write concrete code first; extract interfaces only for multiple implementations or I/O boundaries |
 | **Boolean Flag Soup** | Fragile states, illegal state combinations | Model states explicitly with State Machines or discriminated union types |
 | **Premature Decoupling / Event Sprawl** | Hard-to-trace action-at-a-distance for simple flows | Use direct function calls for 1-to-1 synchronous flows; reserve event buses for 1-to-many async side effects |
