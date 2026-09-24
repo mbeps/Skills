@@ -124,7 +124,6 @@ List of skills that are required to work on this project:
 - You must use Podman to run Docker containers (Postgres, MinIO, etc.) for local development. Do NOT use Docker.
 
 # Skills to Use
-- clean-code: MUST be used when writing code
 - writing-code: MUST be used when writing code
 - mastering-typescript: MUST be used when writing TypeScript code
 - typescript-environment-variables: MUST be used when managing environment variables in TypeScript

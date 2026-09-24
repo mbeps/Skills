@@ -129,7 +129,6 @@ This skill operates in two distinct modes:
   - `tdd`
   - `verification-before-completion`
   - `writing-plans`
-  - `clean-code`
   - `karpathy-guidelines`
   - `refactor`
   - `writing-code`
@@ -155,7 +154,6 @@ This skill operates in two distinct modes:
   - `tdd`
   - `verification-before-completion`
   - `writing-plans`
-  - `clean-code`
   - `karpathy-guidelines`
   - `refactor`
   - `writing-code`

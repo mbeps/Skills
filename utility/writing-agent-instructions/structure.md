@@ -177,7 +177,7 @@ applyTo: '**/*.ts, **/*.tsx, **/*.js, **/*.jsx'
 
 ## 1. Skills
 Follow these skills as the single source of truth for development workflows:
-- `clean-code` & `writing-code` — Pragmatic code design, design patterns, simplicity, and maintainability.
+- `writing-code` — Pragmatic clean coding standards, design patterns, simplicity, and maintainability.
 - `mastering-typescript` — Idiomatic TypeScript development, strict typing, and best practices.
 - `writing-plans` — Structured planning for non-trivial changes before implementation.
 - `bug-fix` & `systematic-debugging` — Diagnosing root causes systematically before proposing fixes.

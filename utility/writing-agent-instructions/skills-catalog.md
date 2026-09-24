@@ -11,7 +11,6 @@ Every project agent file MUST include these universal skills, formatted with sta
 ```markdown
 # Skills
 List of skills that are required to work on this project:
-- clean-code: MUST be used when writing code
 - karpathy-guidelines: MUST be used for all coding related tasks
 - writing-code: MUST be used when writing code
 - documentation-writer: MUST be used when writing code or code documentation
