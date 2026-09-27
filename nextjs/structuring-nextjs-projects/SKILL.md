@@ -188,9 +188,9 @@ graph TD
 | `components/[domain]/` | Shared React components (centralised) | `components/comment/comment-list.tsx` |
 | `app/path/_components/` | Page-specific components ONLY | `app/songs/[id]/_components/song-details.tsx` |
 | `schemas/[domain]/` | Zod validation schemas | `schemas/comment/create-comment.schema.ts` |
-| `config/` | Centralised routes, env, assets, constants & config | `config/routes.ts`, `config/env.ts`, `config/assets.ts` |
+| `config/` | Centralised routes, env, assets, app configurations & constants | `config/routes.ts`, `config/env.ts`, `config/prompts.ts`, `config/languages.ts` |
 | `hooks/` | Custom React hooks (flat) | `hooks/use-player.ts` |
-| `lib/` | Business logic, utilities, logging | `lib/mappers/comment.ts`, `lib/logger.ts` |
+| `lib/` | Business logic, utilities, domain errors, logging | `lib/mappers/comment.ts`, `lib/errors.ts`, `lib/logger.ts` |
 | `utils/` | Infrastructure clients | `utils/supabase/server.ts` |
 | `providers/` | React Context providers | `providers/modal-provider.tsx` |
 | `app/` | Routing + special files ONLY (must include root `not-found.tsx`, `loading.tsx`, `error.tsx`) | `app/songs/[id]/page.tsx`, `app/not-found.tsx` |

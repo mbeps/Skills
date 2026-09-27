@@ -208,15 +208,16 @@ providers/
 - Application routes must be centralised under `./config` (e.g. `config/routes.ts`). Keep path definitions and dynamic route helpers here without mixing in auth or navigation logic. For detailed implementation patterns, refer to the `centralised-routes` skill.
 - Environment variable validation (`env.ts`) must be centralised in `./config` (e.g. `config/env.ts`), validating client and server environment variables via Zod. Refer to the `typescript-environment-variables` skill for full details.
 - Centralise static asset locations and paths (e.g. `config/assets.ts`) following a pattern similar to `ROUTES` in `centralised-routes`: define base path constants, group assets by entity/domain with object fields (e.g. `LOGO.DARK.path`, `LOGO.LIGHT.path`), and export as `as const`.
-- Centralise global site metadata, navigation structure, and app-wide constants (e.g. `config/site.ts`, `config/constants.ts`) in `./config` rather than scattering them in `lib/` or root files.
+- Centralise global site metadata, navigation structure, and app-wide constants or configurations (e.g. `config/site.ts`, `config/constants.ts`, `config/prompts.ts`, `config/languages.ts`) in `./config`. Domain-specific error classes, exception hierarchies, and procedural utilities belong in `lib/` (e.g. `lib/errors.ts`) or `lib/[domain]/`.
 
 ```
 config/
 ├── routes.ts                       # Centralized route definitions (see centralised-routes skill)
 ├── env.ts                          # Environment variable validation (see typescript-environment-variables skill)
+├── site.ts                         # Site metadata, branding, and app info
+├── ui.ts                           # UI layout dimensions, cookie keys, and keyboard shortcuts
 ├── assets.ts                       # Structured asset registry (e.g. ASSETS.LOGO.DARK.path)
-├── site.ts                         # Site metadata, navigation links, branding info
-└── constants.ts                    # Global application-wide constants
+└── [domain].ts                     # Feature/domain configurations (e.g. knowledgebase.ts, rag.ts, prompts.ts)
 ```
 
 #### Assets Registry Pattern (`config/assets.ts`)
