@@ -84,6 +84,12 @@ Include skills below only when the corresponding language, framework, database, 
 - `systematic-debugging`: MUST be used when diagnosing test failures or unexpected test runner errors
 - `verification-before-completion`: MUST be used to verify all tests pass before completing tasks
 
+### Planning & Architecture (List in `.agents/plan.md`)
+- `writing-plans`: MUST be used when creating, structuring, or reviewing implementation plans
+- `ponytail`: MUST be used when planning and writing code (YAGNI, radical simplicity, minimal abstractions)
+- `brainstorming`: MUST be used when exploring requirements, clarifying intent, and evaluating alternative designs
+- `karpathy-guidelines`: MUST be used when planning to prevent overcomplication and enforce verifiable success criteria
+
 ### Code Review & Branching
 - `receiving-code-review`: MUST be used when receiving code review feedback
 - `requesting-code-review`: MUST be used when completing tasks or before merging

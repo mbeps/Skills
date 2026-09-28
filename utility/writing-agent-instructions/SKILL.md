@@ -1,6 +1,6 @@
 ---
 name: writing-agent-instructions
-description: Use when creating, updating, or reviewing the AGENTS.md file or modular .agents/ instruction files (development.md, conventions.md, testing.md, design.md) for a project codebase.
+description: Use when creating, updating, or reviewing the AGENTS.md file or modular .agents/ instruction files (development.md, conventions.md, testing.md, design.md, plan.md) for a project codebase.
 ---
 
 # Writing Agent Instructions
@@ -15,6 +15,7 @@ Agent instructions govern how AI agents interact with and develop within a codeb
    - `.agents/conventions.md` (or `convensions.md`): Directory structure, naming conventions, architectural boundaries, and skill overrides.
    - `.agents/testing.md`: Testing strategy, runner setup, mock overrides, coverage rules, and testing skills.
    - `.agents/design.md`: UI architecture, component hierarchy, page container rules, styling, and design skills.
+   - `.agents/plan.md`: Planning instructions, architectural standards, alternative approaches, edge-case analysis, codebase simplification opportunities, anti-bloat rules, and planning skills.
 
 **Core Principle**: A domain rulebook is a **thin pointer, not a duplicate**. If a skill documents it, reference the skill. Only state project-specific rules or explicit skill overrides.
 
@@ -25,6 +26,7 @@ Agent instructions govern how AI agents interact with and develop within a codeb
 - Creating or updating `.agents/conventions.md` (or `convensions.md`) for code style, structure, and architecture overrides.
 - Creating or updating `.agents/testing.md` for test patterns, mocking setups, and testing skills.
 - Creating or updating `.agents/design.md` for UI architecture, styling conventions, and design skills.
+- Creating or updating `.agents/plan.md` for planning standards, architectural guidelines, edge-case analysis, codebase simplification opportunities, and planning workflow skills.
 - Auditing existing agent instructions against project standards.
 
 **Do NOT use when:**
@@ -37,7 +39,7 @@ Agent instructions govern how AI agents interact with and develop within a codeb
 
 Agents MUST support both full suite initialization and targeted single-file generation:
 
-1. **Full Suite Mode**: When asked to set up or overhaul agent instructions for a project, inspect the stack and generate `AGENTS.md` alongside relevant modular files in `.agents/` (`development.md`, `conventions.md`, `testing.md`, `design.md`).
+1. **Full Suite Mode**: When asked to set up or overhaul agent instructions for a project, inspect the stack and generate `AGENTS.md` alongside relevant modular files in `.agents/` (`development.md`, `conventions.md`, `testing.md`, `design.md`, `plan.md`).
 2. **Targeted / Granular Mode**: When the user specifies a particular file (e.g. *"create only .agents/testing.md"* or *"add design conventions"*), **generate or modify ONLY the requested file**. If a newly created `.agents/*.md` file is not yet listed in `AGENTS.md` `# Resources`, add a pointer to it under `# Resources` in `AGENTS.md`. Do not rewrite other unrelated `.agents/` files unless requested.
 
 ---
@@ -104,7 +106,7 @@ Agents MUST support both full suite initialization and targeted single-file gene
 ## Procedure
 
 1. **Identify Target Scope**:
-   - Determine whether the user wants a full setup or specific target file(s) (`AGENTS.md`, `.agents/development.md`, `.agents/conventions.md`, `.agents/testing.md`, `.agents/design.md`).
+   - Determine whether the user wants a full setup or specific target file(s) (`AGENTS.md`, `.agents/development.md`, `.agents/conventions.md`, `.agents/testing.md`, `.agents/design.md`, `.agents/plan.md`).
 2. **Inspect Repository Stack & Assets**:
    - Identify core technologies, test runners (Vitest, Jest, Playwright), database, auth, and styling tools.
    - Check if `README.md`, `.agents/`, `graphify-out/`, or `wiki/` exist.
@@ -114,6 +116,7 @@ Agents MUST support both full suite initialization and targeted single-file gene
    - For `.agents/conventions.md`: Define structure, naming, architecture patterns, and skill overrides.
    - For `.agents/testing.md`: Define runner setup, mocking patterns, coverage goals, and testing skills.
    - For `.agents/design.md`: Define UI hierarchy, page container rules, styling, and design skills.
+   - For `.agents/plan.md`: Define planning standards, alternative approaches, engineering detail, edge-case coverage, codebase simplification opportunities, and planning skills.
 
 4. **Ensure Synchronization**:
    - Verify that any `.agents/*.md` files present in the repo are referenced under `# Resources` in `AGENTS.md`.
