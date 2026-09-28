@@ -397,11 +397,34 @@ test: {
 
 Rules:
 - 100% full test coverage must be achieved across all metrics (statements, branches, functions, lines).
+- **Threshold values are percentages (0–100), not absolute counts.** `branches: 1000` parses without error but can never be satisfied, so that gate silently never fails. Write `100` to mean 100%.
 - Exclude UI dirs (`app/**`, `components/**`) — keep strict thresholds on logic layers (actions, lib, schemas, hooks).
 - Exclude `lib/env.ts` — it throws on missing vars; it's mocked everywhere anyway.
 - **Branches is the hardest metric** — every `if`/ternary/`??` needs both sides exercised.
 - When branches fails, write the missing guard test rather than lowering the threshold.
 - Thresholds are evidence over configuration — failing the run proves gaps exist.
+
+### Finding the specific uncovered gap
+
+The text report only names line numbers. To learn *which arm* of an `if`/ternary is missing, read `coverage/coverage-final.json` (V8): each file has `b` (per-branch hit counts), `branchMap` (site location + type), `s` (statements), `f` (functions). A branch site is under-covered when any entry in its array is `0`. Report the site line, the `branchMap[id].type` (`if`, `cond-expr`, `binary-expr`), and the zero arm indices — that tells you whether you need the true side, the false side, or a `??` operand.
+
+A ~30-line Node script that prints uncovered lines, uncovered functions, and per-arm branch gaps for every file turns a 5-minute suite run into a prioritised to-do list. Run it with a path filter to scope one package.
+
+**Caveat**: never read a `coverage-final.json` produced by a *scoped* run (`--coverage.include=...`) as the global picture. A scoped run reports every file it did not import as 0% covered, which inflates the total dramatically. Always drive global work from a full run.
+
+### Scoped verification runs
+
+A full suite with coverage takes minutes. While iterating on one module, run only its tests scoped to its sources, with thresholds zeroed so unrelated in-progress work does not fail the run:
+
+```bash
+npx vitest run path/to/a.test.ts path/to/b.test.ts \
+  --coverage --coverage.include='lib/a.ts' --coverage.include='lib/b.ts' \
+  --coverage.reporter=text \
+  --coverage.thresholds.lines=0 --coverage.thresholds.branches=0 \
+  --coverage.thresholds.functions=0 --coverage.thresholds.statements=0
+```
+
+This typically runs in seconds instead of minutes. Zero the thresholds rather than removing them, so the shape of the final gate stays exercised.
 
 ### Reaching 100% Full V8 Branch & Line Coverage
 
@@ -413,8 +436,42 @@ V8 coverage instruments AST nodes directly, creating sub-branch counters that st
    - `error: err instanceof Error ? err.message : String(err)`: V8 marks the ternary condition. Test throwing both `new Error("msg")` and primitive non-Error values (`mockRejectedValueOnce("network failure")` or `{}`).
 3. **Array Sorting with Pinned Items (V8 TimSort)**:
    - Comparators with pinned elements (e.g. `if (a.isPinned) return -1; if (b.isPinned) return 1;`) may only execute `b.isPinned` when sorting larger collections (>32 items). In small arrays V8 does not compare the pivot as `b`. Test sorting with 35+ items to exercise both comparator branches.
+   - **But if the pinned element is fixed at index 0, `a.isPinned` is unreachable, not merely untested.** The element at index 0 is the head of the left run, so TimSort only ever passes it as the `b` argument. Only `if (b.isPinned)` does any work. Verify with a 35+ item array containing the pinned node before treating `a.isPinned` as a coverage gap — you will be writing an impossible test.
 4. **Pruning Dead Defensive Code**:
    - If an internal function throws when a record is not found (e.g. `getSkill` throws `"Not Found"`), downstream caller checks like `if (!skill) throw new Error("Skill not found")` are unreachable dead code that permanently lowers line and branch coverage. Surgically remove dead checks to maintain 100% coverage.
+
+### Unreachable branches: prove it, then choose
+
+A 100% gate can be blocked by code no test can reach. Before writing a contrived test, **prove unreachability by execution**, then report it. Never close the gap with `/* v8 ignore */` or `/* istanbul ignore */` — suppressed coverage is not coverage, and it silently hides the dead code that would otherwise get deleted.
+
+Common causes, each verifiable with a two-line probe:
+
+| Pattern                                                                     | Why the arm is dead                                                                                                  | How to prove it                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `validated.field ?? null` where the schema is `z.string().optional()`       | `.optional()` is **not** `.nullable()` — Zod rejects `null`, and the `!== undefined` guard filters `undefined` first | `schema.safeParse({ field: null }).success` is `false` |
+| `validated.field ?? fallback` where the schema has `.default(x)`            | Zod applies the default, so the value is never nullish                                                               | parse `{}` and read the field                          |
+| A guard duplicated by a schema `.refine()`                                  | the refine is the logical negation of the guard, so nothing satisfies one and fails the other                        | feed every candidate payload; none reaches the branch  |
+| `x ?? fallback` where `x` is a required non-nullable field                  | the schema guarantees a value                                                                                        | `safeParse` rejects `undefined`, `null`, and omission  |
+| `obj.list \|\| []` where the list was assigned earlier in the same function | the assignment always makes it truthy                                                                                | read the function; the fallback is unreachable         |
+| `f(x) ?? fallback` where a prior `.filter()` already validated `x`          | only valid values survive the filter, so the helper is an identity cast                                              | confirm the filter precedes the call                   |
+| `err instanceof Error ? err.message : String(err)` around a Node builtin    | Node's sync `zlib`/`crypto` functions only ever throw real `Error`                                                   | call the builtin with every malformed input            |
+
+Two traps when you do reach for a builtin error path:
+
+- `Array.sort` comparators: an element pinned at index 0 is never passed as the **first** argument. V8's TimSort keeps the head of the left run as the `b` side, so `if (a.isPinned)` is unreachable while `if (b.isPinned)` does all the work. Sort a 35+ item array to confirm before concluding.
+- A "documented" unreachable branch may be one a previous run already pinned with a comment. Re-read the surrounding test before re-attempting it.
+
+Once proven, the choice is the owner's, and it is a real decision: **delete the dead code** (cleanest, and it makes the gate pass honestly), **relax the schema** so the fallback becomes live, or **lower the threshold** with a comment naming the lines. A `?? null` that is unreachable usually means there is no supported way for a client to *clear* the field — that is an API gap, and fixing the schema is the real fix, not a test.
+
+### Delegating coverage work to subagents
+
+Coverage gaps are parallelisable, so subagents help, but verify every claim:
+
+- **Partition by test file, not by source file.** Two agents given the same test file corrupt each other's work. Give each agent a disjoint set of test files and an optional subset of sources.
+- **A silent report is not a result.** Some agent runs return no output at all yet still write correct files; at least one returned empty *and* left failing tests behind. Always confirm with `git diff --stat` and a real scoped coverage run before trusting anything.
+- **Instruct agents to report unreachable branches with evidence, and forbid suppression comments.** Without that instruction they either fake a test or quietly add a `v8 ignore`.
+- Give each agent the exact scoped verification command so it iterates in seconds rather than running the full suite.
+
 
 ## 10. Co-located Tests
 

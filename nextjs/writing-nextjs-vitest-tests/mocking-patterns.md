@@ -317,6 +317,39 @@ vi.mock(import("@/lib/chat/build-prompt"), async (importOriginal) => {
 });
 ```
 
+### Node builtins are the exception
+
+`vi.mock` intercepts modules **inside the test module graph**. A source file that statically imports a Node builtin (`import { inflateRawSync } from "node:zlib"`) resolves that builtin outside the graph, so the mock applies in the test file while the source under test still calls the real implementation.
+
+```typescript
+// MISLEADING — the factory runs, but parseZipBuffer still uses real zlib
+vi.mock("node:zlib", async (importOriginal) => ({
+  ...(await importOriginal()),
+  inflateRawSync: vi.fn(() => { throw "boom"; }),
+}));
+```
+
+The failure mode is silent: the error-path test passes, the catch block never executes, and coverage simply never improves. `vi.doMock` plus `vi.resetModules` does not fix it, because the problem is the static import, not the module registry. `vi.spyOn` is no escape either — it throws `TypeError: Cannot spy on export "inflateRawSync". Module namespace is not configurable in ESM`.
+
+**Always confirm with a call counter**, never by assuming the mock applied:
+
+```typescript
+const raw = vi.fn(() => { throw "boom"; });
+vi.mock("node:zlib", async (importOriginal) => ({ ...(await importOriginal()), inflateRawSync: raw }));
+// after exercising the code under test:
+expect(raw).toHaveBeenCalled(); // 0 calls means the mock never reached it
+```
+
+To exercise a real builtin error path, **corrupt genuine input instead**. Build a valid archive/cipher/payload with the library's own writer, then overwrite the compressed bytes so the real implementation throws, and assert on the fallback behaviour:
+
+```typescript
+const zip = Buffer.from(createSkillZip({ /* ... */ }));
+// Overwrite the deflate payload so the real inflate genuinely fails
+for (let i = dataStart; i < dataStart + 12 && i < zip.length; i++) zip[i] = 0xff;
+const entries = parseZipBuffer(zip);
+expect(logError).toHaveBeenCalled();
+```
+
 ## 10. Generated recursive Proxy APIs (Convex `anyApi`)
 
 Libraries like Convex generate an `api` object (e.g. `@/convex/_generated/api`) backed by a recursive `Proxy` where each property access generates a new Proxy reference:

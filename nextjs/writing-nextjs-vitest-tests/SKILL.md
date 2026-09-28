@@ -25,7 +25,7 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | `mocking-patterns.md` | Hoisting, chainable DB mock, Next.js modules, SDKs, fetch/SSE, Convex api Proxy |
 | `testing-layers.md` | What to test per layer: schemas, actions, hooks, stores, utils, coverage |
 | `component-testing.md` | Rendering components, DOM assertions (SVG, focus guards), event firing, modal isolation, compound subcomponents, TestWrapper |
-| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, co-located tests, ESLint & Biome ignore, tsconfig & IDE diagnostics |
+| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, finding gaps in coverage-final.json, unreachable-branch proofs, co-located tests, ESLint & Biome ignore, tsconfig & IDE diagnostics |
 | `inngest-testing.md` | Inngest v4 durable functions — stepMock.run sync collapse, publishMock realtime status, executor test template, channel mocking |
 | `polar-billing-testing.md` | Polar.sh subscription gating — premiumProcedure bypass, dynamic import/env stubbing, checkout/portal flows |
 | `ai-sdk-testing.md` | Vercel AI SDK — generateText mocking, provider factories (OpenAI/Anthropic/Gemini/OpenRouter), credential decryption at execution time |
@@ -66,6 +66,10 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "80% line coverage is enough; branch edge cases can be skipped" | 100% full test coverage across lines, statements, functions, and branches is required; V8 coverage checks both sides of ?? and ?. and error type guards (err instanceof Error ? ... : String(err)) |
 | "tsc failed after moving route files, my code must have a broken import" | Next.js generated route validators in `.next/types/validator.ts` point to deleted paths — delete `.next` build cache (`rm -rf .next`) |
 | "The test passes so act(...) warnings in stderr can be ignored" | Radix / Base UI trigger clicks trigger async portal mounts; wrap in `await act(async () => ...)` or `await waitFor()` |
+| "vi.mock('node:zlib') will let me test the builtin's error path" | Node builtins resolve outside the test module graph, so the mock applies in the test file but the source still calls the real one — the test passes and the catch never runs. `doMock`/`resetModules` won't fix it and `vi.spyOn` on the ESM namespace throws. Confirm with a call counter, then corrupt genuine input instead |
+| "branches: 1000 means a stricter gate than 100%" | Threshold values are percentages (0–100). `1000` parses fine but can never be satisfied, so the gate silently never fails. Write `100` |
+| "This branch is unreachable, so I'll add a v8 ignore to reach 100%" | Suppressed coverage is not coverage and hides the dead code. Prove unreachability by execution, then delete the dead code, relax the schema, or lower the threshold with a comment naming the lines |
+| "A test in a multi-file coverage run that I didn't touch is flaky" | Confirm on a clean tree before blaming your change: a scoped `--coverage.include` run reports every unimported file as 0% and inflates the totals, which makes the gap list useless for prioritising |
 
 ## Red Flags
 
@@ -80,3 +84,8 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 - Chainable mock returning undefined mid-chain in a failing test
 - Tests passing only with real env vars, a live Postgres, or network access
 - Assertions on results only, never on call args, for server actions
+- Threshold set above 100 (e.g. `branches: 1000`) — parses cleanly, can never fail
+- Relying on `vi.mock` for a Node builtin to hit an error path, with no call-counter proof
+- A `v8 ignore` / `istanbul ignore` added to make a 100% gate pass
+- Trusting a subagent's coverage claim without a `git diff --stat` and a scoped coverage run
+- Reading a scoped run's `coverage-final.json` as the global gap list
