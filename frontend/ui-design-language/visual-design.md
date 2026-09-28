@@ -20,6 +20,7 @@ Icons are critical navigational anchors and visual landmarks.
   - Medium / Buttons & Navigation: `w-4 h-4` or `w-5 h-5` (16px to 20px).
   - Large / Metric cards & Empty states: `w-6 h-6` or `w-8 h-8` (24px to 32px).
 - **Stroke Width**: Standardise on a consistent stroke width (1.5px to 2px) throughout the entire application.
+- **Icon-to-Typography Calibration**: Set icon bounding box size to match the `line-height` of adjacent text. If body text is 14px with 20px line-height, size the icon bounding box to exactly **20×20px**. This prevents icons from looking disproportionately large or small next to labels.
 
 ---
 
@@ -45,6 +46,51 @@ Avoid flat, lifeless, washed-out monochrome gray (`#121212` or `#1f1f1f`). Use d
   - Secondary text: `text-slate-400` (labels, metadata).
   - Muted / Disabled text: `text-slate-500` or `text-slate-600`.
 
+### Semantic Color Assignments
+
+Colors must emerge exclusively from data and signal operational status — never decorative:
+
+| Color            | Semantic Meaning    | Use Cases                                                       |
+| ---------------- | ------------------- | --------------------------------------------------------------- |
+| **Blue**         | Information & Focus | Active tabs, primary buttons, input focus rings, links          |
+| **Green**        | Success & Safety    | Healthy system, paid invoices, active accounts, positive deltas |
+| **Amber/Yellow** | Warning & Caution   | Expiring certificates, approaching limits, non-blocking issues  |
+| **Red**          | Critical & Danger   | Destructive actions (Delete, Terminate), fatal errors, outages  |
+
+### Brand Ramp
+
+- Choose one primary brand color (e.g., Royal Blue `#2563EB`)
+- Generate a light tint surface (`#EFF6FF`) for chip fills and hover states
+- Generate a deep contrast shade (`#1E40AF`) for highlighted text
+
+### Elevation & Depth
+
+**Light Mode — Soft Shadows** (high blur, low opacity; if user notices shadow before data, it's too strong):
+
+| Tier              | CSS                                                                               |
+| ----------------- | --------------------------------------------------------------------------------- |
+| Flat Cards        | `box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)`              |
+| Raised/Hovered    | `box-shadow: 0 4px 6px -1px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.03)`    |
+| Floating Overlays | `box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04)` |
+
+**Dark Mode — Surface Luminance** (shadows invisible on dark canvas; use progressively lighter surfaces):
+- Canvas (lowest): Darkest tone (e.g., `#0F172A`)
+- Card/Panel: Lighter (e.g., `#1E293B`)
+- Modals/Flyouts: Lighter still (e.g., `#334155`)
+- Borders: Subtle (`rgba(255,255,255,0.08)`) — avoid bright white borders
+- Status chips: Lower saturation in dark mode to avoid harsh glowing
+
+### Photography & Graphic Overlays
+
+Never place solid dark block over entire photo. Use directional gradient or progressive blur:
+
+```css
+.card-overlay {
+  background: linear-gradient(to top, rgba(15,23,42,0.95) 10%, rgba(15,23,42,0) 80%);
+  backdrop-filter: blur(4px);
+}
+```
+
 ---
 
 ## 3. Typography & Hierarchy
@@ -61,6 +107,24 @@ Maintain a clear, readable type system that guides the eye naturally.
   - Card Header / Subheading: `text-sm font-medium text-slate-300` (14px).
   - Body Text: `text-sm text-slate-400` (14px).
   - Caption / Metadata: `text-xs text-slate-500` (12px).
+
+### Dashboard Typography Rules
+
+- **Single Font Family**: Use exactly ONE sans-serif typeface across all dashboard elements. Generate hierarchy through weight (400, 500, 600), size, and color — not font pairings.
+- **Maximum 6 Font Sizes**: Never use more than 6 distinct sizes across the entire stylesheet.
+- **24px Density Cap**: Dashboard text caps at 24px. Consumer landing page sizes (48px–72px) break information density and push operational data below the viewport fold.
+- **Header Tightening Formula**: Reduce loose spacing on headings:
+  - Letter-spacing: `-0.02em` to `-0.03em`
+  - Line-height: `1.1` to `1.2`
+
+```css
+h1, .dashboard-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+```
 
 ---
 
@@ -79,6 +143,36 @@ Layouts must dynamically adapt between desktop precision and mobile reachability
   - Edge padding: `px-6 py-6` or `px-8 py-8`.
   - Max container width clamped (e.g., `max-w-7xl mx-auto`).
 - **Consistent Corner Radii**: Stick to one border-radius scale across components (e.g., `rounded-lg` for badges/inputs, `rounded-xl` for cards/modals).
+
+### The 4-Point Grid System
+
+Every dimension, margin, padding, and gap must be a multiple of **4px**:
+
+| Value                    | Usage                                                          |
+| ------------------------ | -------------------------------------------------------------- |
+| `4px`                    | Micro spacing (chip padding, icon-to-text)                     |
+| `8px`                    | Standard compact (input padding, list item gaps)               |
+| `12px`                   | Moderate spacing                                               |
+| `16px`                   | Standard layout (card interior, table cell horizontal padding) |
+| `24px`                   | Section gaps                                                   |
+| `32px` / `48px` / `64px` | Macro containers, canvas boundaries                            |
+
+Multiples of 4 divide cleanly in half without fractional sub-pixels (16→8→4→2), ensuring sharp rendering on all displays.
+
+### Gestalt Proximity Grouping
+
+- Related elements (badge + title): `8px` separation
+- Title and subtext: `8px` or `12px` separation
+- Text block to CTA button group: `24px` to `32px` separation
+- Group elements into spatial clusters so users parse the page in chunks, not as loose items
+
+### Responsive Breakpoint Grids
+
+| Viewport | Grid Columns | Use Case                                                      |
+| -------- | ------------ | ------------------------------------------------------------- |
+| Desktop  | 12 columns   | Asymmetric splits (3:9, 4:8), symmetric (6:6, 4:4:4, 3:3:3:3) |
+| Tablet   | 8 columns    | Medium screens where 12 columns compress too tightly          |
+| Mobile   | 4 columns    | Single-column cards and list layouts                          |
 
 ---
 
