@@ -17,12 +17,12 @@ Subagent (general-purpose):
 
     ## What to Check
 
-    | Category | What to Look For |
-    |----------|------------------|
-    | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
-    | Spec Alignment | Plan covers spec requirements, no major scope creep |
-    | Task Decomposition | Tasks have clear boundaries, steps are actionable |
-    | Buildability | Could an engineer follow this plan without getting stuck? |
+    | Category           | What to Look For                                          |
+    | ------------------ | --------------------------------------------------------- |
+    | Completeness       | TODOs, placeholders, incomplete tasks, missing steps      |
+    | Spec Alignment     | Plan covers spec requirements, no major scope creep       |
+    | Task Decomposition | Tasks have clear boundaries, steps are actionable         |
+    | Buildability       | Could an engineer follow this plan without getting stuck? |
 
     ## Calibration
 
@@ -32,6 +32,15 @@ Subagent (general-purpose):
 
     Approve unless there are serious gaps — missing requirements from the spec,
     contradictory steps, placeholder content, or tasks so vague they can't be acted on.
+
+    **A prose step is not vague.** Judge a step by whether the implementer knows
+    what to build and why that shape. A step that names the file, the signature,
+    the invariant, and the constraint that would otherwise be guessed wrong is
+    actionable even with no code block. Do not request code for its own sake.
+
+    **Do flag unnecessary code volume.** A long block of boilerplate in the plan
+    is an issue: it is harder to review and drifts from the implementation. Name
+    the step and suggest the constraint be stated in prose.
 
     ## Output Format
 

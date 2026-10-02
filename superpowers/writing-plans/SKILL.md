@@ -7,7 +7,7 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document what they need to know: which files to touch for each task, the shape and constraints of each piece, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
@@ -109,11 +109,8 @@ owns the code, in that task's own step style.]
 
 - [ ] **Step 1: Write the failing test**
 
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
-```
+Cover exactly these cases, named in the spec's language: [case], [case].
+Assert on [observable outcome], not on internal structure.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -122,10 +119,8 @@ Expected: FAIL with "function not defined"
 
 - [ ] **Step 3: Write minimal implementation**
 
-```python
-def function(input):
-    return expected
-```
+`functionName(input: T) -> R`. Does [one thing]. Must [invariant]. Watch out:
+[the non-obvious constraint that would otherwise be guessed wrong].
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -140,14 +135,44 @@ git commit -m "feat: add specific feature"
 ```
 ````
 
+## Choosing How Much Code to Show
+
+A step is complete when the implementer knows **what to build and why that shape**,
+not when they can paste it. The default is prose plus signatures.
+
+**Show source when** a reader would otherwise guess wrong:
+
+- A wire format, request/response shape, or schema field that is validated by
+  something stricter than TypeScript. A nested-vs-flat key, a required-vs-optional
+  field, or an ordering rule fails at runtime, not at compile time.
+- A counter-intuitive constraint you verified, where the "obvious" implementation
+  is wrong. Say what breaks and with what error.
+- An exact signature neighbouring tasks depend on.
+- An arithmetic or boundary value that must be literal.
+
+**Do not show source when** the code is mechanical: imports, boilerplate, a
+straightforward loop, standard-library calls, or a component whose shape follows
+from the props you already listed. Name the file, the signature, and the
+behaviour. An implementer writes those in seconds.
+
+Test steps are the usual exception — they are short, and they pin behaviour
+precisely. Include them when the assertion itself carries the meaning.
+
+A 200-line block is not more precise than three sentences naming the constraint,
+the invariant, and the failure mode. It is harder to review, and once it exists
+the implementer diffs their code against it instead of against the requirement.
+It also becomes a second source of truth that drifts.
+
 ## No Placeholders
 
-Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
+Every step must carry the specific content an engineer needs to act. These are
+**plan failures** — never write them:
 - "TBD", "TODO", "implement later", "fill in details"
 - "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
+- "Write tests for the above" (without naming the cases and their assertions)
+- "Similar to Task N" (restate the detail — the engineer may be reading tasks out of order)
+- A step naming an outcome but not the shape, the invariant, or the constraint
+  that makes it non-obvious
 - References to types, functions, or methods not defined in any task
 
 ## Self-Review
@@ -157,6 +182,11 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 **1. Spec coverage:** Skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps.
 
 **2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section above. Fix them.
+
+**2b. Code volume check:** Find the longest code block in the plan. If any single
+block runs past roughly 40 lines, ask what constraint it encodes that prose
+cannot. Usually it is boilerplate that belongs in the implementation, not the
+plan. Extract the constraint into a sentence and cut the block.
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
 
