@@ -153,9 +153,9 @@ Provide specific file paths and line numbers for all findings.
 ## Related Skills
 
 - **ponytail** – YAGNI lens that keeps evaluation lean; load it if not already loaded
-- **clean-code** – Pragmatic coding standards and direct analysis
+- **writing-code** – Pragmatic coding standards and direct analysis
 - **karpathy-guidelines** – Guidelines to reduce common LLM coding mistakes
-- **design-patterns** – Architectural frameworks for sustainable software engineering
+- **refactor** – Code smells and architectural frameworks for sustainable software engineering
 - **agent-customization** – Creating and updating agent instructions and skills
 
 ## Extension Points
