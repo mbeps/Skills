@@ -41,10 +41,10 @@ Avoid flat, lifeless, washed-out monochrome gray (`#121212` or `#1f1f1f`). Use d
 
 - **Background Layering**: Ensure at least 3 distinct surface tiers: Canvas (lowest), Card/Section (middle), Modal/Dropdown (highest elevation).
 - **Subtle Borders**: Use 1px semi-transparent borders (`border-slate-800` or `border-white/10`) to define card boundaries rather than heavy drop shadows.
-- **Text Contrast Levels**:
-  - Primary text: `text-slate-100` or `text-white` (high contrast).
-  - Secondary text: `text-slate-400` (labels, metadata).
-  - Muted / Disabled text: `text-slate-500` or `text-slate-600`.
+- **Text Contrast Levels** (all verified against the canvas `#020617`; see the contrast rules in [color-hsb.md](color-hsb.md)):
+  - Primary text: `text-slate-100` or `text-white` (high contrast, 16:1 and above).
+  - Secondary text: `#94A3B8` (7.87:1 on canvas, 6.96:1 on card, 5.71:1 on popover). Step up to `#A8B6C9` on modal tiers. **Do not use `#64748B` on dark**, it measures 4.24:1 on canvas and 3.07:1 on a popover.
+  - Muted / Disabled text: `#94A3B8`, which passes 4.5:1 on canvas, card, and popover tiers. On a modal tier (`#334155`) step up to `#A8B6C9`. Halved opacity is never acceptable on text that carries meaning.
 
 ### Semantic Color Assignments
 
@@ -59,9 +59,11 @@ Colors must emerge exclusively from data and signal operational status — never
 
 ### Brand Ramp
 
-- Choose one primary brand color (e.g., Royal Blue `#2563EB`)
-- Generate a light tint surface (`#EFF6FF`) for chip fills and hover states
-- Generate a deep contrast shade (`#1E40AF`) for highlighted text
+- Choose one primary brand color (e.g., Royal Blue `#2563EB`, which is `H:221 S:84 B:92` in HSB)
+- Generate a light tint surface (`#EFF6FF`) for chip fills and hover states **in light mode only**
+- In dark mode use a dark chip fill with the brand hue held and saturation lowered, not a light tint
+- Generate a deep contrast shade (`#1E40AF`) for highlighted text, or step brightness up for dark surfaces
+- Build the full ramp with the remove-white method in [color-hsb.md](color-hsb.md)
 
 ### Elevation & Depth
 
@@ -102,11 +104,11 @@ Maintain a clear, readable type system that guides the eye naturally.
 - **Font Family Selection**: Use a single robust sans-serif font family (e.g., Inter, Geist, Plus Jakarta Sans) or a clean pairing of sans-serif with a monospace variant (e.g., JetBrains Mono) for tabular/numeric data.
 - **FORBIDDEN (Sandwich Text)**: Avoid cramming three stacked lines of text with alternating sizes into tight spaces (e.g. tiny uppercase eyebrow + bold title + tiny gray sub-sentence). Use direct, clean title-and-value or title-and-description structures.
 - **Heading Scale**:
-  - Page Title: `text-2xl font-bold tracking-tight text-slate-100` (24px to 28px).
+  - Page Title: `text-2xl font-semibold tracking-tight text-slate-100` (24px).
   - Section Title: `text-lg font-semibold text-slate-200` (18px).
   - Card Header / Subheading: `text-sm font-medium text-slate-300` (14px).
   - Body Text: `text-sm text-slate-400` (14px).
-  - Caption / Metadata: `text-xs text-slate-500` (12px).
+  - Caption / Metadata: `text-xs text-slate-400` (12px).
 
 ### Dashboard Typography Rules
 

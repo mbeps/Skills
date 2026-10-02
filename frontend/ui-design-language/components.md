@@ -20,6 +20,7 @@ Every button in the application must follow strict interactive and accessibility
   - Maintain identical button dimensions to prevent layout shifts.
 - **Visual Hierarchy**:
   - **Primary**: High-contrast solid accent (e.g., `bg-blue-600 hover:bg-blue-700 text-white`). Used for the single primary action per view.
+  - **Hover direction**: In dark interfaces, hover goes **darker and richer** (`#2664EB` → `#1349BD`), not lighter. Lightening a saturated fill in a dark context reads as a glow. In light interfaces, hover goes darker.
   - **Secondary / Outline**: Subdued border with subtle background tint on hover (`border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-200`).
   - **Ghost**: Zero background until hover (`hover:bg-slate-800 text-slate-300`). Used for table actions or tertiary controls.
   - **Destructive**: Clear warning tone (`bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white`).
@@ -28,10 +29,10 @@ Every button in the application must follow strict interactive and accessibility
 - **Action Bar Overflow Hygiene**: When an action header presents > 2 actions alongside a primary button (e.g. Save, Export, Delete), keep the primary call-to-action visible, pair with an unboxed toggle if applicable, and consolidate secondary/destructive utilities into an overflow dropdown menu (`...` / `MoreHorizontal`).
 - **5 Mandatory Interactive States**: Every button must implement all states:
   1. **Default**: Baseline styling with obvious container affordance.
-  2. **Hover**: Slightly darkened/lightened background fill + pointer cursor.
+  2. **Hover**: Background fill shift + pointer cursor. Darker in light mode, darker-but-richer in dark mode (see hover direction above).
   3. **Active/Pressed**: Inset depression feedback (`transform: scale(0.98)`).
-  4. **Focus**: High-contrast focus ring (`outline: 2px solid #2563EB; outline-offset: 2px`).
-  5. **Disabled**: Muted typography, 50% opacity, `cursor: not-allowed`.
+  4. **Focus**: High-contrast focus ring, `outline: 2px solid #60A5FA; outline-offset: 2px`. Use a lighter ring than the button fill: a ring must clear 3:1 against every surface it can land on, and `#2563EB` drops to 2.00:1 on a modal.
+  5. **Disabled**: Muted typography, `cursor: not-allowed`, and a colour that already passes contrast at full opacity. Do **not** halve the opacity of meaningful text: 50% opacity composites to roughly `#525D71` on a dark card, which is 2.69:1 and fails even the 3:1 UI floor.
 
 ---
 
@@ -88,7 +89,7 @@ Tables display structured tabular records. They must remain readable on all scre
   - Badges, status pills, action buttons: Center-aligned or right-aligned.
 - **Tabular Figures**: Enable `font-variant-numeric: tabular-nums` on all numeric cells. Proportional digits (`1` is narrower than `8`) cause horizontal jitter across rows.
 - **Categorical Chips**: Render finite categorical values (status, department, tier) as enclosed chips with tinted backgrounds matching semantic status (green=active, amber=pending, grey=inactive) instead of plain text strings. Use compact padding (`2px 8px`).
-- **Inactive Record De-emphasis**: Apply `opacity: 0.5` or subdued tertiary grey text (`text-slate-500`) to inactive, closed, or soft-deleted rows to reduce visual clutter.
+- **Inactive Record De-emphasis**: Set text to subdued grey `#94A3B8`. Do not drop to `text-slate-500`, and do not halve the opacity: both fall below 4.5:1 on dark surfaces.
 - **Horizontal Scrolling Container**: Wrap all tables in an `overflow-x-auto` container with sticky header support (`sticky top-0 bg-slate-900`).
 
 ---

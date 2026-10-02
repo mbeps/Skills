@@ -14,10 +14,11 @@ Convert bounded categorical values (status, department, tier) into visual **chip
 
 - Rounded pill containers with light tinted background + high-contrast foreground text
 - Minimal vertical padding (`2px 8px` or `4px 8px`) to avoid inflating table row height
-- **Standard color mappings:**
-  - Active / Completed → Soft green background, dark green text
-  - Pending / In Review → Soft amber background, dark amber text
-  - Inactive / Terminated → Neutral grey background, muted grey text
+- **Mode matters**: a light tint fill (`#EFF6FF`) is a light-mode token. In dark mode use a dark fill with the semantic hue held and saturation lowered, with a lighter foreground.
+- **Standard color mappings**:
+  - Active / Completed → green (soft green background, dark green text in light mode)
+  - Pending / In Review → amber (soft amber background, dark amber text in light mode)
+  - Inactive / Terminated → neutral grey background, muted grey text
 
 ### Numeric Data & Tabular Figures
 
@@ -52,7 +53,7 @@ Truncate dynamic text fields (emails, URLs, job titles, business names) at a def
 
 Lower visual weight of inactive, closed, or soft-deleted rows:
 
-- Apply `opacity: 0.5` or `0.6`, or set text to subdued tertiary grey (`#94A3B8` / `#64748B`)
+- Set text to subdued grey `#94A3B8`. Avoid `opacity: 0.5`, which composites below 4.5:1 on dark
 - Preserve basic readability while signalling disabled/archived state
 
 ### Chronological Data: Timelines & Charts vs Tables
@@ -160,14 +161,18 @@ Use exactly **one** clean sans-serif typeface across all dashboard elements. Rec
 
 ### Strict Scale: Maximum 6 Font Sizes
 
-| Size            | Usage                                               |
-| --------------- | --------------------------------------------------- |
-| `11px` / `12px` | Captions, metadata, tooltips, tags                  |
-| `13px` / `14px` | Body text, table cell values, form labels           |
-| `16px`          | Subheadings, card titles, prominent buttons         |
-| `18px`          | Section headers, modal titles                       |
-| `20px`          | Primary page sub-headers                            |
-| `24px`          | Maximum — dashboard page title / KPI metric display |
+**Exactly six steps. Nothing else is permitted in the scale.**
+
+| Step | Size   | Usage                                       |
+| ---- | ------ | ------------------------------------------- |
+| 1    | `12px` | Captions, metadata, tooltips, tags          |
+| 2    | `14px` | Body text, table cell values, form labels   |
+| 3    | `16px` | Subheadings, card titles, prominent buttons |
+| 4    | `18px` | Section headers, modal titles               |
+| 5    | `20px` | Primary page sub-headers                    |
+| 6    | `24px` | Maximum: dashboard page title / KPI metric  |
+
+11px, 13px, and 15px are **not** on the scale. If a design seems to need them, it needs one of the six above. Per-component limits are tighter still: 4 sizes and 2 weights on any single card, per [craft-and-copy.md](craft-and-copy.md).
 
 ### The 24px Density Cap
 
@@ -220,8 +225,8 @@ h1, .dashboard-title {
 ### Brand Ramp & Semantic Palette
 
 - **Brand Anchor**: One primary brand color (e.g., Royal Blue: `#2563EB`)
-  - Light tint surface: `#EFF6FF` for chip fills, active hover states
-  - Deep contrast shade: `#1E40AF` for highlighted text
+  - Light tint surface: `#EFF6FF` for chip fills and active hover states in **light mode only**
+  - Deep contrast shade: `#1E40AF` for highlighted text in **light mode** (8.01:1 on a `#EFF6FF` chip). In dark mode, brand-coloured text must step brightness **up** instead: `#3B82F6` (4.85:1) or `#60A5FA` (7.02:1) on a dark card.
 
 - **Semantic Colors (Function Over Form):**
 
@@ -290,13 +295,13 @@ Set icon bounding box to match the `line-height` of adjacent typography. If body
 
 Every button, selectable item, and input field must implement:
 
-| State                | Implementation                                                              |
-| -------------------- | --------------------------------------------------------------------------- |
-| **Default**          | Baseline styling with obvious container affordance                          |
-| **Hover**            | Slightly darkened/lightened background + pointer cursor                     |
-| **Active / Pressed** | Inset depression: `transform: scale(0.98)`                                  |
-| **Focus**            | High-contrast focus ring: `outline: 2px solid #2563EB; outline-offset: 2px` |
-| **Disabled**         | Muted typography, 50% opacity, `cursor: not-allowed`                        |
+| State                | Implementation                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Default**          | Baseline styling with obvious container affordance                                                                 |
+| **Hover**            | Slightly darkened/lightened background + pointer cursor                                                            |
+| **Active / Pressed** | Inset depression: `transform: scale(0.98)`                                                                         |
+| **Focus**            | High-contrast focus ring: `outline: 2px solid #60A5FA; outline-offset: 2px` (must clear 3:1 on every surface tier) |
+| **Disabled**         | Muted typography that already passes contrast, `cursor: not-allowed`. Do not halve opacity                         |
 
 ### Form Input Edge Cases
 
@@ -322,7 +327,7 @@ Use during code reviews and UI audits to verify every screen.
 - [ ] `font-variant-numeric: tabular-nums` enabled on all numeric cells
 - [ ] Categorical fields rendered as compact visual chips
 - [ ] Long strings truncated with ellipsis + full-text tooltips
-- [ ] Inactive/soft-deleted records visually dimmed (opacity or muted text)
+- [ ] Inactive/soft-deleted records use muted grey text, not halved opacity
 - [ ] Time-sorted data displayed as timelines or summary charts, not raw timestamp grids
 - [ ] User identifiers use visual avatars for fast scanning
 
@@ -336,14 +341,15 @@ Use during code reviews and UI audits to verify every screen.
 
 ### Spacing & Grid
 
-- [ ] All spacing uses 4-point grid multiples (4, 8, 12, 16, 24, 32px)
+- [ ] All spacing uses 4-point grid multiples (4, 8, 12, 16, 24, 32, 48, 64px)
 - [ ] Related elements closer together (8px) than distinct sections (24px+)
 - [ ] Responsive layouts: Desktop 12-col, Tablet 8-col, Mobile 4-col
 
 ### Typography
 
 - [ ] Single sans-serif font family across entire application
-- [ ] Typography scale capped at 6 discrete sizes
+- [ ] Typography scale capped at the six steps: 12, 14, 16, 18, 20, 24px
+- [ ] No single card uses more than 4 sizes or 2 weights
 - [ ] Max text size 24px on dashboard screens
 - [ ] Headings use tightened letter-spacing (-2% to -3%) and line-height (110%–120%)
 
@@ -354,6 +360,36 @@ Use during code reviews and UI audits to verify every screen.
 - [ ] Dark mode depth via surface luminance tiers, not shadows
 - [ ] Dark mode status chips: lower saturation to avoid glowing
 - [ ] Image overlays: directional gradients or backdrop blur, never solid blocks
+
+### Colour Mechanics & Ratio (see [color-hsb.md](color-hsb.md))
+
+- [ ] 60% of the surface is neutral base, 30% structural secondary, 10% accent
+- [ ] Accent appears only on the primary CTA and active status cues
+- [ ] Dark shades generated with saturation up AND brightness down, never brightness alone
+- [ ] All dark neutral tiers share one hue (no per-tier hue shifting)
+- [ ] Competing elements muted by lowering saturation, not by shifting hue
+- [ ] Accent hues nudged off raw primaries (210° / 260° rather than a flat 240°)
+- [ ] Body text clears WCAG AA 4.5:1 against its own surface tier (checked per tier, not once against the canvas)
+- [ ] Saturated brand colour used as fill, not as body text; brand-coloured text steps brightness up
+
+### Copy & Typography Precision (see [craft-and-copy.md](craft-and-copy.md))
+
+- [ ] Every button label names the exact user outcome
+- [ ] No label repeats a word already stated by its parent card or section title
+- [ ] 4 font sizes and 2 weights maximum on any single card
+- [ ] Dynamic numbers use `tabular-nums` with a fixed decimal count
+- [ ] Decimal point and trailing fraction use an existing scale step, not a new size
+- [ ] Live counters reserve width so they cannot shift neighbouring layout
+
+### Choreography (Static Frame Trap)
+
+- [ ] Hover, active, focus, and disabled states specified on every control
+- [ ] Loading state defined: skeleton matching final layout, or spinner
+- [ ] Empty state defined for zero-data views
+- [ ] Error state defined with a recoverable next action
+- [ ] Screen-to-screen transitions mapped, not left as a hard cut
+- [ ] `prefers-reduced-motion` respected
+
 
 ### Interactive Components & States
 

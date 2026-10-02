@@ -69,7 +69,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-slate-800/80 text-blue-400 font-semibold"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
@@ -87,7 +87,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
               <button
                 type="button"
                 onClick={() => setMoreOpen(!moreOpen)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-colors"
                 aria-expanded={moreOpen}
               >
                 <span>More</span>
@@ -95,7 +95,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
               </button>
 
               {moreOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-xl py-1.5 z-50">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-xl py-1 z-50">
                   {OVERFLOW_NAV.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -103,7 +103,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
                         key={item.href}
                         href={item.href}
                         onClick={() => setMoreOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
                       >
                         <Icon className="w-4 h-4 text-slate-400" />
                         <span>{item.label}</span>
@@ -121,7 +121,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
           <button
             type="button"
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2.5 p-1.5 rounded-full hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center gap-3 p-1 rounded-full hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-expanded={profileOpen}
           >
             <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200">
@@ -130,7 +130,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
           </button>
 
           {profileOpen && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-1.5 z-50">
+            <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-1 z-50">
               <div className="px-3 py-2 border-b border-slate-800 mb-1">
                 <p className="text-xs font-semibold text-slate-200">Jane Doe</p>
                 <p className="text-xs text-slate-400 truncate">jane.doe@example.com</p>
@@ -138,7 +138,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
               <Link
                 href="/profile"
                 onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <User className="w-4 h-4 text-slate-400" />
                 <span>Account Profile</span>
@@ -149,7 +149,7 @@ export function DesktopTopNavbar({ activeHref = "/dashboard" }: { activeHref?: s
                   setProfileOpen(false);
                   // handle logout
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4 text-rose-400" />
                 <span>Log Out</span>
@@ -230,8 +230,8 @@ export function DesktopSidebar({ activeHref = "/admin" }: { activeHref?: string 
         {/* Grouped Links */}
         <nav className="p-4 space-y-6">
           {SIDEBAR_GROUPS.map((group) => (
-            <div key={group.groupName} className="space-y-1.5">
-              <span className="px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <div key={group.groupName} className="space-y-1">
+              <span className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 {group.groupName}
               </span>
               <div className="space-y-1">
@@ -268,13 +268,13 @@ export function DesktopSidebar({ activeHref = "/admin" }: { activeHref?: string 
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-slate-200 truncate">Alex Lewis</p>
-              <p className="text-[11px] text-slate-500 truncate">Admin</p>
+              <p className="text-xs text-slate-400 truncate">Admin</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setProfileDropdown(!profileDropdown)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             aria-label="User Options"
           >
             <MoreVertical className="w-4 h-4" />
@@ -283,11 +283,11 @@ export function DesktopSidebar({ activeHref = "/admin" }: { activeHref?: string 
 
         {/* Profile Popover */}
         {profileDropdown && (
-          <div className="absolute bottom-full left-4 right-4 mb-2 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-1.5 z-50">
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-1 z-50">
             <Link
               href="/admin/profile"
               onClick={() => setProfileDropdown(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
             >
               <User className="w-4 h-4 text-slate-400" />
               <span>Profile Settings</span>
@@ -295,7 +295,7 @@ export function DesktopSidebar({ activeHref = "/admin" }: { activeHref?: string 
             <Link
               href="/admin/support"
               onClick={() => setProfileDropdown(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
             >
               <LifeBuoy className="w-4 h-4 text-slate-400" />
               <span>Help & Support</span>
@@ -305,7 +305,7 @@ export function DesktopSidebar({ activeHref = "/admin" }: { activeHref?: string 
               onClick={() => {
                 setProfileDropdown(false);
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors"
             >
               <LogOut className="w-4 h-4 text-rose-400" />
               <span>Sign Out</span>
@@ -355,41 +355,41 @@ export function MobileNavigation({ activeTab = "home" }: MobileBottomBarProps) {
       <nav className="md:hidden fixed bottom-0 inset-x-0 h-16 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 z-50 px-2 pb-[env(safe-area-inset-bottom)] flex items-center justify-around">
         <Link
           href="/m"
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
             activeTab === "home" ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Home className="w-5 h-5 mb-0.5" />
+          <Home className="w-5 h-5 mb-1" />
           <span>Home</span>
         </Link>
 
         <Link
           href="/m/search"
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
             activeTab === "search" ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Search className="w-5 h-5 mb-0.5" />
+          <Search className="w-5 h-5 mb-1" />
           <span>Search</span>
         </Link>
 
         <Link
           href="/m/projects"
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
             activeTab === "projects" ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <FolderKanban className="w-5 h-5 mb-0.5" />
+          <FolderKanban className="w-5 h-5 mb-1" />
           <span>Projects</span>
         </Link>
 
         <Link
           href="/m/notifications"
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
             activeTab === "notifications" ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Bell className="w-5 h-5 mb-0.5" />
+          <Bell className="w-5 h-5 mb-1" />
           <span>Alerts</span>
         </Link>
 
@@ -397,12 +397,12 @@ export function MobileNavigation({ activeTab = "home" }: MobileBottomBarProps) {
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-xs font-medium transition-colors ${
             drawerOpen ? "text-blue-400 font-semibold" : "text-slate-400 hover:text-slate-200"
           }`}
           aria-expanded={drawerOpen}
         >
-          <Menu className="w-5 h-5 mb-0.5" />
+          <Menu className="w-5 h-5 mb-1" />
           <span>More</span>
         </button>
       </nav>
@@ -446,45 +446,45 @@ export function MobileNavigation({ activeTab = "home" }: MobileBottomBarProps) {
               <Link
                 href="/m/profile"
                 onClick={() => setDrawerOpen(false)}
-                className="flex items-center justify-between p-3.5 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-slate-400" />
                   <span>Account & Profile</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </Link>
 
               <Link
                 href="/m/security"
                 onClick={() => setDrawerOpen(false)}
-                className="flex items-center justify-between p-3.5 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <ShieldCheck className="w-5 h-5 text-slate-400" />
                   <span>Security & 2FA</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </Link>
 
               <Link
                 href="/m/help"
                 onClick={() => setDrawerOpen(false)}
-                className="flex items-center justify-between p-3.5 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
+                className="flex items-center justify-between p-4 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800/80 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <HelpCircle className="w-5 h-5 text-slate-400" />
                   <span>Help & Support</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </Link>
 
-              <div className="flex items-center justify-between p-3.5 rounded-xl text-sm font-medium text-slate-200">
+              <div className="flex items-center justify-between p-4 rounded-xl text-sm font-medium text-slate-200">
                 <div className="flex items-center gap-3">
                   <SunMoon className="w-5 h-5 text-slate-400" />
                   <span>Theme (Dark)</span>
                 </div>
-                <span className="text-xs text-slate-500">System</span>
+                <span className="text-xs text-slate-400">System</span>
               </div>
             </div>
 
@@ -495,7 +495,7 @@ export function MobileNavigation({ activeTab = "home" }: MobileBottomBarProps) {
                 onClick={() => {
                   setDrawerOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-sm font-medium text-rose-400 bg-rose-950/30 hover:bg-rose-950/50 border border-rose-900/40 transition-colors"
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-xl text-sm font-medium text-rose-400 bg-rose-950/30 hover:bg-rose-950/50 border border-rose-900/40 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Log Out</span>
@@ -538,18 +538,18 @@ export function Button({
   ...props
 }: ButtonProps) {
   const baseClasses =
-    "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed";
 
   const sizeClasses = {
-    sm: "text-xs px-2.5 py-1.5 gap-1.5",
+    sm: "text-xs px-2 py-1 gap-1",
     md: "text-sm px-4 py-2 gap-2",
-    lg: "text-base px-5 py-2.5 gap-2.5",
+    lg: "text-base px-6 py-3 gap-3",
   }[size];
 
   const variantClasses = {
-    primary: "bg-blue-600 hover:bg-blue-500 text-white focus:ring-blue-500 shadow-sm",
+    primary: "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-400 shadow-sm",
     secondary: "bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 focus:ring-slate-400",
-    ghost: "bg-transparent hover:bg-slate-800/80 text-slate-300 hover:text-white focus:ring-slate-500",
+    ghost: "bg-transparent hover:bg-slate-800/80 text-slate-300 hover:text-white focus:ring-slate-400",
     destructive: "bg-rose-600/10 hover:bg-rose-600 hover:text-white text-rose-400 border border-rose-500/20 focus:ring-rose-500",
   }[variant];
 
@@ -607,7 +607,7 @@ export function ResponsiveTabs() {
     <div className="w-full space-y-4">
       {/* Desktop: Horizontal bar / Mobile: Responsive grid */}
       <div className="border-b border-slate-800 pb-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:flex md:items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -616,7 +616,7 @@ export function ResponsiveTabs() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 md:gap-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 md:gap-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-slate-800 text-blue-400 font-semibold shadow-sm"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
@@ -681,11 +681,11 @@ export function MetricCard({
 
       {/* Value */}
       <div>
-        <span className="text-2xl font-bold tracking-tight text-slate-100">{value}</span>
+        <span className="text-2xl font-semibold tracking-tight text-slate-100">{value}</span>
       </div>
 
       {/* Comparison & Horizon */}
-      <div className="flex items-center gap-1.5 text-xs">
+      <div className="flex items-center gap-1 text-xs">
         <span
           className={`flex items-center gap-1 font-semibold ${
             isPositive ? "text-emerald-400" : "text-rose-400"
@@ -694,7 +694,7 @@ export function MetricCard({
           {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
           {isPositive ? `+${comparisonPercentage}%` : `${comparisonPercentage}%`}
         </span>
-        <span className="text-slate-500 truncate">vs {timeHorizon}</span>
+        <span className="text-slate-400 truncate">vs {timeHorizon}</span>
       </div>
     </div>
   );
@@ -777,30 +777,30 @@ export function FormModal({ isOpen, onClose, onSubmit }: FormModalProps) {
             </div>
           )}
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-medium text-slate-300">Endpoint Identifier</label>
             <input
               type="text"
               value={endpointName}
               onChange={(e) => setEndpointName(e.target.value)}
               placeholder="e.g. stripe-charge-success"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-medium text-slate-300">Destination URL</label>
             <input
               type="url"
               value={targetUrl}
               onChange={(e) => setTargetUrl(e.target.value)}
               placeholder="https://api.domain.com/webhooks"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
             <Button type="button" variant="ghost" icon={X} onClick={onClose}>
               Cancel
             </Button>
@@ -853,7 +853,7 @@ export const InputWithIcon = forwardRef<HTMLInputElement, InputWithIconProps>(
     const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
 
     return (
-      <div className="w-full space-y-1.5">
+      <div className="w-full space-y-1">
         {label && (
           <label htmlFor={inputId} className="block text-xs font-medium text-slate-300">
             {label}
@@ -869,7 +869,7 @@ export const InputWithIcon = forwardRef<HTMLInputElement, InputWithIconProps>(
             ref={ref}
             id={inputId}
             disabled={disabled}
-            className={`w-full bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full bg-slate-950 border text-sm text-slate-100 placeholder-slate-400 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:bg-slate-900 disabled:text-slate-400 disabled:cursor-not-allowed ${
               LeadingIcon ? "pl-9" : "pl-3"
             } ${TrailingIcon ? "pr-9" : "pr-3"} py-2 ${
               error
@@ -879,7 +879,7 @@ export const InputWithIcon = forwardRef<HTMLInputElement, InputWithIconProps>(
             {...props}
           />
           {TrailingIcon && (
-            <div className="absolute right-2.5 flex items-center">
+            <div className="absolute right-2 flex items-center">
               {onTrailingIconClick ? (
                 <button
                   type="button"

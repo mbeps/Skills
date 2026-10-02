@@ -8,31 +8,38 @@ This guide catalogs common visual, structural, and interaction anti-patterns in 
 
 ## Anti-Patterns Summary Table
 
-| #      | Forbidden Anti-Pattern                              | Root Cause / Harm                                          | Mandatory Correction                                                          |
-| ------ | --------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **1**  | Unicode emojis as UI icons (`🔥`, `🚀`, `⚙️`)          | Inconsistent OS rendering, no stroke matching, unscaled    | Use Lucide / Tabler / Phosphor vector SVGs                                    |
-| **2**  | Marketing filler tropes ("Supercharge", "Unleash")  | Vague, unprofessional, hides functional intent             | Use direct, domain-specific operational copy                                  |
-| **3**  | Hollow dashboard dials & fake static gauges         | Misleads users with ungrounded arbitrary numbers           | Real metrics with time horizons & comparisons                                 |
-| **4**  | Sandwich text (eyebrow + heading + subtext crammed) | Visual fatigue, weak hierarchy, wasted vertical space      | Clean title + single clear label or value                                     |
-| **5**  | Mobile hamburger menus / desktop nav on mobile      | Inaccessible top-corner reach, hidden destinations         | Fixed bottom navigation bar + bottom drawer                                   |
-| **6**  | Unfixed / scrolling navigation bars                 | User loses navigation context when scrolling down          | Fixed or sticky navigation bar (`fixed` / `sticky`)                           |
-| **7**  | Flat lifeless monochrome gray dark mode (`#121212`) | Muddy low contrast, lack of depth, cheap appearance        | Rich tinted dark palettes (slate, navy, emerald)                              |
-| **8**  | Missing button icons & absent loading spinners      | Ambiguous actions, no visual feedback during async tasks   | Mandatory leading vector icon + loading spinner state                         |
-| **9**  | Oversized / stretched table columns                 | Distorted layout, poor readability, empty whitespace       | Constrained column widths, truncation, tooltips                               |
-| **10** | Giant monolithic page components (>300 LOC)         | Fragile maintenance, hard to test, bloated re-renders      | Decompose into modular cards, tabs, rows, forms                               |
-| **11** | Action button sprawl in page headers                | Horizontal wrapping, visual competition, lost hierarchy    | Primary action + unboxed toggle + `...` overflow menu                         |
-| **12** | Redundant wrapper cards around self-contained views | Nested borders, double margins, lost vertical real estate  | Mount self-contained components flush without wrapper                         |
-| **13** | Left-aligned or centre-aligned numbers in tables    | Misaligned decimal points, impossible magnitude comparison | Right-align all numerics with `font-variant-numeric: tabular-nums`            |
-| **14** | Plain text for categorical data (status, tier)      | Slow scanability, mental fatigue reading full strings      | Convert to enclosed tinted chips (green=active, amber=pending, grey=inactive) |
-| **15** | Arbitrary decorative color usage                    | Visual noise, confuses users, no operational meaning       | Color from data only: blue=info, green=success, amber=warning, red=danger     |
-| **16** | Heavy/dark drop shadows in light mode               | Visual mud, shadow noticed before data content             | Soft diffuse shadows: high blur radius, low opacity (< 0.08)                  |
-| **17** | Drop shadows for depth in dark mode                 | Shadows invisible against dark canvas backgrounds          | Surface luminance tiers: progressively lighter fills for elevation            |
-| **18** | Full-page views for record editing/details          | Loses scroll position, active filters, table context       | Slide-out inspection drawers from right edge                                  |
-| **19** | Full-screen onboarding modals with bullet lists     | Users dismiss immediately and forget everything            | Sequential contextual tooltips + persistent progress checklist                |
-| **20** | Missing interaction states on controls              | Users can't tell if click registered, no keyboard nav      | Implement all 5 states: Default, Hover, Active, Focus, Disabled               |
-| **21** | Arbitrary non-4px spacing values (5px, 7px, 10px)   | Fractional sub-pixels, inconsistent visual rhythm          | All spacing as multiples of 4px (4, 8, 12, 16, 24, 32px)                      |
-| **22** | More than 6 font sizes across dashboard             | Typography anarchy, no clear hierarchy                     | Cap at 6 discrete sizes; max 24px for dashboards                              |
-| **23** | Solid dark overlay blocks on photography            | Destroys image content, feels heavy and amateurish         | Directional linear gradient or progressive backdrop blur                      |
+| #      | Forbidden Anti-Pattern                              | Root Cause / Harm                                          | Mandatory Correction                                                           |
+| ------ | --------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **1**  | Unicode emojis as UI icons (`🔥`, `🚀`, `⚙️`)          | Inconsistent OS rendering, no stroke matching, unscaled    | Use Lucide / Tabler / Phosphor vector SVGs                                     |
+| **2**  | Marketing filler tropes ("Supercharge", "Unleash")  | Vague, unprofessional, hides functional intent             | Use direct, domain-specific operational copy                                   |
+| **3**  | Hollow dashboard dials & fake static gauges         | Misleads users with ungrounded arbitrary numbers           | Real metrics with time horizons & comparisons                                  |
+| **4**  | Sandwich text (eyebrow + heading + subtext crammed) | Visual fatigue, weak hierarchy, wasted vertical space      | Clean title + single clear label or value                                      |
+| **5**  | Mobile hamburger menus / desktop nav on mobile      | Inaccessible top-corner reach, hidden destinations         | Fixed bottom navigation bar + bottom drawer                                    |
+| **6**  | Unfixed / scrolling navigation bars                 | User loses navigation context when scrolling down          | Fixed or sticky navigation bar (`fixed` / `sticky`)                            |
+| **7**  | Flat lifeless monochrome gray dark mode (`#121212`) | Muddy low contrast, lack of depth, cheap appearance        | Rich tinted dark palettes (slate, navy, emerald)                               |
+| **8**  | Missing button icons & absent loading spinners      | Ambiguous actions, no visual feedback during async tasks   | Mandatory leading vector icon + loading spinner state                          |
+| **9**  | Oversized / stretched table columns                 | Distorted layout, poor readability, empty whitespace       | Constrained column widths, truncation, tooltips                                |
+| **10** | Giant monolithic page components (>300 LOC)         | Fragile maintenance, hard to test, bloated re-renders      | Decompose into modular cards, tabs, rows, forms                                |
+| **11** | Action button sprawl in page headers                | Horizontal wrapping, visual competition, lost hierarchy    | Primary action + unboxed toggle + `...` overflow menu                          |
+| **12** | Redundant wrapper cards around self-contained views | Nested borders, double margins, lost vertical real estate  | Mount self-contained components flush without wrapper                          |
+| **13** | Left-aligned or centre-aligned numbers in tables    | Misaligned decimal points, impossible magnitude comparison | Right-align all numerics with `font-variant-numeric: tabular-nums`             |
+| **14** | Plain text for categorical data (status, tier)      | Slow scanability, mental fatigue reading full strings      | Convert to enclosed tinted chips (green=active, amber=pending, grey=inactive)  |
+| **15** | Arbitrary decorative color usage                    | Visual noise, confuses users, no operational meaning       | Color from data only: blue=info, green=success, amber=warning, red=danger      |
+| **16** | Heavy/dark drop shadows in light mode               | Visual mud, shadow noticed before data content             | Soft diffuse shadows: high blur radius, low opacity (< 0.08)                   |
+| **17** | Drop shadows for depth in dark mode                 | Shadows invisible against dark canvas backgrounds          | Surface luminance tiers: progressively lighter fills for elevation             |
+| **18** | Full-page views for record editing/details          | Loses scroll position, active filters, table context       | Slide-out inspection drawers from right edge                                   |
+| **19** | Full-screen onboarding modals with bullet lists     | Users dismiss immediately and forget everything            | Sequential contextual tooltips + persistent progress checklist                 |
+| **20** | Missing interaction states on controls              | Users can't tell if click registered, no keyboard nav      | Implement all 5 states: Default, Hover, Active, Focus, Disabled                |
+| **21** | Arbitrary non-4px spacing values (5px, 7px, 10px)   | Fractional sub-pixels, inconsistent visual rhythm          | All spacing as multiples of 4px (4, 8, 12, 16, 24, 32px)                       |
+| **22** | More than 6 font sizes across the app               | Typography anarchy, no clear hierarchy                     | The six-step scale: 12, 14, 16, 18, 20, 24px. Max 24px on dashboards           |
+| **23** | Solid dark overlay blocks on photography            | Destroys image content, feels heavy and amateurish         | Directional linear gradient or progressive backdrop blur                       |
+| **24** | Dark shades built by dropping brightness alone      | Colour drains to dull, muddy grey-brown                    | "Remove white": raise saturation **and** drop brightness                       |
+| **25** | Saturated accents across >10% of a screen           | Accent stops signalling, becomes decoration                | Enforce 60-30-10: 60% neutral, 30% structural, 10% accent                      |
+| **26** | Button labels repeating their parent card title     | Redundant words, inflated cognitive load, longer labels    | Drop the duplicated noun: "Claim" under "Rewards", not "Claim Rewards"         |
+| **27** | Softening a colour by shifting its hue              | Changes the signal, not the emphasis                       | Lower saturation to de-emphasise; keep hue fixed                               |
+| **28** | More than 4 font sizes or 2 weights on one card     | Card typography fights itself, no clear hierarchy          | 4 sizes and 2 weights (of 400/500/600) per card; hierarchy from colour + space |
+| **29** | Live counters in proportional figures               | Layout shifts every tick as digit widths change            | `tabular-nums`, fixed decimals, right align, reserve width in `ch`             |
+| **30** | Screen approved from a static mockup only           | Empty, loading, error, and transition states ship broken   | Specify the full state matrix before review sign-off                           |
 
 ---
 
@@ -256,7 +263,7 @@ This guide catalogs common visual, structural, and interaction anti-patterns in 
 
 - **Anti-Pattern**: Buttons and controls that only have a default visual state with no hover, active, focus, or disabled variations.
 - **Why Forbidden**: Users cannot confirm clicks registered. Keyboard users have no navigation visibility. Disabled controls are indistinguishable from active ones.
-- **Correction**: Every interactive control must implement 5 states: Default (baseline), Hover (background shift + pointer), Active/Pressed (`transform: scale(0.98)`), Focus (ring: `outline: 2px solid #2563EB; outline-offset: 2px`), Disabled (50% opacity + `cursor: not-allowed`).
+- **Correction**: Every interactive control must implement 5 states: Default (baseline), Hover (background shift + pointer), Active/Pressed (`transform: scale(0.98)`), Focus (ring: `outline: 2px solid #60A5FA; outline-offset: 2px`), Disabled (a muted colour that already passes contrast, plus `cursor: not-allowed`; never 50% opacity on meaningful text).
 
 ---
 
@@ -272,7 +279,7 @@ This guide catalogs common visual, structural, and interaction anti-patterns in 
 
 - **Anti-Pattern**: Using 10+ different font sizes across a dashboard, or using 48px–72px display sizes on operational screens.
 - **Why Forbidden**: Destroys hierarchy when everything competes for attention. Large sizes break information density and push critical data below the viewport fold.
-- **Correction**: Cap at exactly 6 discrete font sizes (12px, 14px, 16px, 18px, 20px, 24px). Maximum dashboard text size is 24px. Use weight (400–600) and color for additional hierarchy.
+- **Correction**: Use the six-step scale (12, 14, 16, 18, 20, 24px). Maximum dashboard text size is 24px. Use weight (400-600) and color for additional hierarchy.
 
 ---
 
@@ -281,3 +288,83 @@ This guide catalogs common visual, structural, and interaction anti-patterns in 
 - **Anti-Pattern**: Placing a solid dark rectangle (`background: rgba(0,0,0,0.8)`) over an entire photograph to make overlaid text readable.
 - **Why Forbidden**: Destroys the image content that was presumably included for a reason. Feels heavy and amateurish.
 - **Correction**: Use a directional linear gradient (`linear-gradient(to top, rgba(15,23,42,0.95) 10%, rgba(15,23,42,0) 80%)`) or progressive `backdrop-filter: blur(4px)` to preserve visible portions of the image.
+
+---
+
+### 24. Dark Shades Made by Dropping Brightness Alone
+
+- **Anti-Pattern**: Hover states and dark panels produced by lowering brightness only. Blue `H:240 S:80 B:80` dimmed to `B:20` yields `#0A0A33`, a dead, muddy navy.
+- **Why Forbidden**: The eye loses colour discrimination as light level drops, so brightness-only darkening drains the hue. The result reads as dirt rather than as a darker version of the brand colour.
+- **Correction**: Remove white rather than add black. Raise saturation as you drop brightness. At matched luminance, blue `S:80 B:20` (`#0A0A33`, chroma 41) is dead while `S:100 B:30` (`#00004C`, chroma 76) is rich. See [color-hsb.md](color-hsb.md).
+
+```css
+/* ❌ WRONG — brightness only, colour drains out */
+.cta:hover { background: #0A0A33; }
+
+/* ✅ CORRECT — saturation up, brightness down */
+.cta:hover { background: #00004C; }
+```
+
+---
+
+### 25. Accent Colour Spread Beyond 10% of the Screen
+
+- **Anti-Pattern**: Saturated brand blue or green across large backgrounds, table headers, card borders, and chips simultaneously, so nothing reads as the primary action any more.
+- **Why Forbidden**: Once accent covers more than about a tenth of the surface, it stops signalling and becomes decoration. The primary CTA no longer stands out, and the user cannot tell what is interactive.
+- **Correction**: Enforce 60-30-10 by surface area. 60% neutral base, 30% structural secondary (cards, dividers, borders), 10% accent reserved for the primary CTA and active status only. Screens dominated by tables or logs must stay almost fully neutral.
+
+---
+
+### 26. Button Labels That Repeat Their Card Title
+
+- **Anti-Pattern**: A card titled "Rewards" containing a button labelled "Claim Rewards". Likewise "Team Members" containing "Invite Team Member".
+- **Why Forbidden**: The parent already established the noun. Repeating it adds words without adding meaning, lengthens the button, and forces the eye to read the same term twice.
+- **Correction**: Keep the verb, drop the duplicated noun. "Claim" under "Rewards". Keep the noun only when the action sits outside its context and must stand alone.
+
+```tsx
+// ❌ WRONG — "Rewards" restated
+<Card><h3>Rewards</h3><Button>Claim Rewards</Button></Card>
+
+// ✅ CORRECT
+<Card><h3>Rewards</h3><Button>Claim</Button></Card>
+```
+
+---
+
+### 27. Softening a Colour by Shifting Its Hue
+
+- **Anti-Pattern**: Muting a secondary chip, disabled row, or competing metric by nudging it toward a different hue, for example blue 240 becoming teal to make it "calmer".
+- **Why Forbidden**: A hue shift changes the colour's meaning. The chip now looks like a different semantic category rather than the same one, dimmer. Users lose the mapping they learned.
+- **Correction**: Lower **saturation** to de-emphasise. High saturation pulls the eye forward; low saturation pushes the element back while preserving its identity.
+
+---
+
+### 28. Per-Component Typography Overload
+
+- **Anti-Pattern**: Six font sizes and four weights on a single card, such as a 10px uppercase eyebrow, a 16px title, a 12px caption, plus bold and medium variants of each.
+- **Why Forbidden**: When a card carries more typographic voices than it has information, the card has no hierarchy. Every element appears to shout at the same volume.
+- **Correction**: Cap at 4 sizes and 2 weights per card, drawn from 400, 500, and 600. Hierarchy comes from colour, spacing, and weight contrast within those limits. The wider budget of 6 sizes applies to the whole stylesheet, not to one card.
+
+---
+
+### 29. Live Counters in Proportional Figures
+
+- **Anti-Pattern**: A balance, vote count, or price that ticks upward using default proportional digits, centred or left-aligned, with no reserved width.
+- **Why Forbidden**: Digit 1 is narrower than digit 8, so every tick reflows the row. The currency symbol, the number, and any button beside it all shift. The layout visibly jitters, and the user loses their place.
+- **Correction**: Apply `font-variant-numeric: tabular-nums`, fix the decimal count, right-align, and reserve width in `ch` units so a growing value never pushes neighbouring content.
+
+```css
+.balance {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 12ch;
+}
+```
+
+---
+
+### 30. Reviewing Screens as Static Mockups Only
+
+- **Anti-Pattern**: Signing off a screen that has hover, press, focus, loading, empty, and error states unwritten, because the static frame "looks right".
+- **Why Forbidden**: A static frame is what any generator produces and what review approves. Real use is the sequence between states. Unspecified states ship as frozen controls, invisible loading, and missing empty states discovered after launch.
+- **Correction**: Write the state matrix before sign-off: hover, active, focus, disabled, loading, success, error, empty, and the screen-to-screen transition. See [craft-and-copy.md](craft-and-copy.md).
