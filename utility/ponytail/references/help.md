@@ -13,9 +13,12 @@ write flag files, or persist anything.
 
 Level sticks until changed or session end.
 
-## Skills
+## Modes and Commands
 
-| Skill               | Trigger            | What it does                                                         |
+These are prompt files fired by slash commands, not installed skills. Only
+`ponytail` itself is a skill.
+
+| Command             | Trigger            | What it does                                                         |
 | ------------------- | ------------------ | -------------------------------------------------------------------- |
 | **ponytail**        | `/ponytail`        | Lazy mode itself. Simplest solution that works.                      |
 | **ponytail-review** | `/ponytail-review` | Over-engineering review: `L42: yagni: factory, one product. Inline.` |
