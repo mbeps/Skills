@@ -354,11 +354,12 @@ Follow these skills as the single source of truth for planning and design:
 
 ## 2. Core Philosophy & Engineer Audience
 Plans in this repository are written directly for engineers. They must respect the reader's time and technical competence:
-- **High-Level Overview First**: Always lead with the high-level architecture, design summary, and mental model before descending into file-level tasks.
-- **Concrete Technical Specifics**: Do not abstract away critical implementation details. Specify exact file paths, schemas, API route contracts, function signatures, state mutations, and error codes.
+- **High-Level Overview First**: Always lead with the high-level architecture, design summary, and mental model before descending into file-level tasks. Keep descending shallow: each task states intent and constraints before any implementation detail.
+- **Concrete Technical Specifics**: Do not abstract away the details that change the design. Specify exact file paths, API route contracts, function signatures, state mutations, and error codes — then state the invariant and the constraint that a reader would otherwise guess wrong.
+- **Prefer Spec Over Listing**: A block of source in a plan is a second source of truth that drifts from the code and is harder to review than prose. Show source only where the failure mode is a runtime one the compiler cannot catch.
 - **Edge-Cases Must Be Addressed**: Explicitly identify potential failure modes, boundary conditions, empty/error states, race conditions, and migration edge-cases before writing code.
 - **Codebase Simplification Opportunities**: Actively evaluate whether the changes can simplify the existing codebase—look for opportunities to delete redundant code, collapse unnecessary indirections, consolidate duplicate utilities, or retire obsolete abstractions.
-- **Anti-Bloat & Zero Fluff**: Plans must not be bloated or unnecessarily lengthy. Strip out tutorial-like prose, obvious explanations of standard framework mechanics, and generic boilerplate.
+- **Anti-Bloat & Zero Fluff**: Plans must not be bloated or unnecessarily lengthy. Strip out tutorial-like prose, obvious explanations of standard framework mechanics, and generic boilerplate — in both directions: tutorial filler, and full implementations pasted in place of a clear specification.
 - **Avoid Overcomplication**: Reject speculative configurability, premature factories, or multi-layered indirections. The best design solves the stated problem with the fewest files and simplest construct.
 
 ## 3. Alternative Approaches & Justification
@@ -382,7 +383,7 @@ When authoring an implementation plan, follow this standard structure:
 ### 4.3 Proposed Changes (File & Interface Breakdown)
 - Group changes logically (e.g., Config/Schema -> Backend/Lib -> Frontend/Components -> Tests).
 - Categorize touched files using `[NEW]`, `[MODIFY]`, or `[DELETE]`.
-- Provide concrete diffs or code snippets for critical logic (schemas, signatures, state transforms).
+- State the **signature, invariant, and constraint** for each unit. Include a code block only where a reader would otherwise guess wrong: a wire format or schema validated by something stricter than TypeScript, a counter-intuitive constraint, or a literal boundary value. Boilerplate, imports, and straightforward control flow get a sentence, not a listing.
 - **Codebase Simplification**: Highlight any code or abstractions that are being deleted, consolidated, or retired as part of this implementation.
 
 ### 4.4 Edge Cases & Failure Modes

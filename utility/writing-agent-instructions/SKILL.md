@@ -100,6 +100,7 @@ Agents MUST support both full suite initialization and targeted single-file gene
 | Mentioning tech stack in `# Project Overview` | Keep overview strictly to 1–2 sentences. Stack belongs in `# Tech Stack`. |
 | Missing official doc hyperlinks in `# Tech Stack` | Every technology listed must have a markdown hyperlink to its official documentation. |
 | Adding one-time meta skills (`writing-skills`, `refining-skills`) to `# Skills` | Only include persistent workflow and stack-specific operational skills. |
+| Writing `.agents/plan.md` rules that require code blocks or diffs in plans | Prescribe signature, invariant, and constraint. Reserve source for runtime failures the compiler cannot catch, such as wire formats and counter-intuitive API shapes. |
 
 ---
 
