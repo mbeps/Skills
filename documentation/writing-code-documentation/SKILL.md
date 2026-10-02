@@ -1,5 +1,5 @@
 ---
-name: documentation-writer
+name: writing-code-documentation
 description: "Write code documentation blocks: Docstrings (Google style), JavaDoc, JSDoc/TSDoc. Use whenever adding or updating documentation for classes, functions, methods, interfaces, and types. Use whenever writing code such that docs can be added immediately. Do not use when no documentation tasks are being performed."
 argument-hint: 'Optional: specify language or files to document'
 ---
