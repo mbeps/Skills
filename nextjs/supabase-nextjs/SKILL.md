@@ -33,7 +33,7 @@ Use when:
 | Storage: buckets, uploads, signed URLs | `storage.md` | Public vs private + store paths |
 | Realtime: channels, presence, pg changes | `realtime.md` | Publications + RLS enforcement |
 | Edge Functions: Deno, CORS, secrets | `edge-functions.md` | `withSupabase` scaffold |
-| CLI & local dev: stack, migrations | `cli.md` | Migration workflow |
+| CLI & local dev: stack, migrations, IaC | `cli.md` | Migration workflow & config push |
 | Conventions: env, clients, actions | `conventions.md` | Three-client rule + action boundary |
 
 ## Core Conventions

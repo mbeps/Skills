@@ -29,13 +29,15 @@ Needs ≥ 7GB RAM; exclude services with `-x` (e.g., `-x realtime`). Local email
 supabase migration new add_profiles_table    # creates supabase/migrations/<ts>_add_profiles_table.sql
 # edit the SQL, then:
 supabase db reset                             # recreate local DB from migrations + seed (--no-seed skips seed)
-supabase db push                              # push migrations to the linked remote
+supabase db push                              # push migrations to the linked remote (--dry-run to preview)
 supabase db pull                              # capture remote state as a migration (needs Docker;
                                               # if supabase/migrations is empty it ignores --schema — pull twice)
 supabase db diff --schema public -f pending   # generate a migration from pending schema changes
 supabase migration list                       # compare local vs remote
-supabase migration repair <ts> --status applied|reverted   # fix history drift
+supabase migration repair <ts> --status applied|reverted   # fix history drift (--linked to update remote)
 ```
+
+Adopting pre-existing databases: When converting an existing project into migrations, register baseline migrations via `supabase migration repair <ts> --status applied --linked` so `supabase db push` does not attempt to duplicate already provisioned tables.
 
 CI quality gates: `supabase db lint --fail-on error` (plpgsql_check) and `supabase test db` (pgTAP).
 
@@ -62,7 +64,7 @@ allowed_mime_types = ["image/png", "image/jpeg"]
 objects_path = "./images"
 ```
 
-## config.toml
+## config.toml & Declarative IaC
 
 ```toml
 [auth.email]
@@ -71,7 +73,7 @@ enable_confirmations = true
 [auth.external.github]
 enabled = true
 client_id = "env(SUPABASE_AUTH_GITHUB_CLIENT_ID)"      # resolved from local .env
-client_secret = "env(SUPABASE_AUTH_GITHUB_CLIENT_SECRET)"
+secret = "env(SUPABASE_AUTH_GITHUB_SECRET)"            # property is `secret` (not `client_secret`)
 
 [auth.passkey]
 enabled = true
@@ -79,9 +81,18 @@ enabled = true
 [auth.webauthn]
 rp_id = "example.com"
 rp_origins = ["https://example.com"]
+
+# Quote bucket names containing hyphens
+[storage.buckets."car-images"]
+public = true
+file_size_limit = "50MiB"
 ```
 
-`env(...)` values are auto-substituted from your local `.env`. Restart the stack after config changes: `supabase stop && supabase start`. Passkey/webauthn blocks cross-ref `authentication.md`.
+Commands for platform config:
+- `supabase config diff` — inspect configuration differences between local `config.toml` and the remote linked project.
+- `supabase config push` — declaratively apply `config.toml` settings (auth, storage buckets, pooler) to the remote project.
+
+`env(...)` values are auto-substituted from your local `.env` and masked during diff. Restart the local stack after config changes: `supabase stop && supabase start`. Passkey/webauthn blocks cross-ref `authentication.md`.
 
 ## CI / scripting
 
@@ -96,6 +107,9 @@ rp_origins = ["https://example.com"]
 - Generating types against the wrong environment (`--linked` vs `--local`).
 - Running `db pull` without Docker.
 - Putting secrets in `config.toml` instead of `env()` refs.
+- Using `client_secret` instead of `secret` under `[auth.external.<provider>]` in `config.toml`.
+- Running `db push` on a pre-existing database without registering baseline migrations (`supabase migration repair <ts> --status applied --linked`).
+- Forgetting quotes around storage bucket headers containing hyphens in `config.toml` (e.g. `[storage.buckets."my-bucket"]`).
 - Not committing `database.types.ts` / not regenerating on schema change.
 
 Official docs: [Supabase CLI](https://supabase.com/docs/guides/cli) · [CLI reference](https://supabase.com/docs/reference/cli/introduction) · [Local development](https://supabase.com/docs/guides/cli/local-development)
