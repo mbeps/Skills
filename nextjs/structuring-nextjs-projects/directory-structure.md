@@ -194,10 +194,11 @@ providers/
 ├── supabase-provider.tsx           # Manages Supabase client
 ├── user-provider.tsx               # User session/details context
 ├── modal-provider.tsx              # Modal mount point
-└── logging-provider.tsx
+├── logging-provider.tsx
+└── providers.tsx                   # Central provider stack (wrapping NuqsAdapter, theme, tooltips)
 ```
 
-**Pattern:** Providers wrap `app/layout.tsx`, providing global context.
+**Pattern:** Providers wrap `app/layout.tsx`, providing global context. When using `nuqs`, wrap root children with `<NuqsAdapter>` inside the provider tree.
 
 ---
 
@@ -208,7 +209,7 @@ providers/
 - Application routes must be centralised under `./config` (e.g. `config/routes.ts`). Keep path definitions and dynamic route helpers here without mixing in auth or navigation logic. For detailed implementation patterns, refer to the `centralised-routes` skill.
 - Environment variable validation (`env.ts`) must be centralised in `./config` (e.g. `config/env.ts`), validating client and server environment variables via Zod. Refer to the `typescript-environment-variables` skill for full details.
 - Centralise static asset locations and paths (e.g. `config/assets.ts`) following a pattern similar to `ROUTES` in `centralised-routes`: define base path constants, group assets by entity/domain with object fields (e.g. `LOGO.DARK.path`, `LOGO.LIGHT.path`), and export as `as const`.
-- Centralise global site metadata, navigation structure, and app-wide constants or configurations (e.g. `config/site.ts`, `config/constants.ts`, `config/prompts.ts`, `config/languages.ts`) in `./config`. Domain-specific error classes, exception hierarchies, and procedural utilities belong in `lib/` (e.g. `lib/errors.ts`) or `lib/[domain]/`.
+- Centralise global site metadata, branding, and app-wide configurations in `./config` (e.g. `config/site.ts`, `config/constants.ts`, `config/prompts.ts`, `config/languages.ts`). Always define the actual, distinct project name (e.g. "Personal Portfolio", "BeatPulse") rather than generic boilerplate like "Next App" or "Create Next App". Domain-specific error classes, exception hierarchies, and procedural utilities belong in `lib/` (e.g. `lib/errors.ts`) or `lib/[domain]/`.
 
 ```
 config/
@@ -330,10 +331,34 @@ __tests__/
 
 ---
 
+### `docker/`
+**Purpose:** Dockerfiles, compose specifications, and container configuration for the Next.js app and stack services (databases, caches, proxies)  
+**Structure:** Subdirectories per service (`docker/next/`, `docker/postgres/`, etc.) with root orchestration  
+**Rule:** Keep all container assets centralised under `docker/` to avoid polluting the project root
+
+```
+docker/
+├── README.md                       # High-level container architecture & usage commands
+├── docker-compose.yml              # Multi-container orchestration (context: ..)
+├── next/
+│   ├── Dockerfile                  # Next.js multi-stage build (builder, release)
+│   └── README.md                   # Next.js container documentation
+└── [service]/                      # Additional stack services (e.g., postgres, redis)
+    ├── Dockerfile                  # Service-specific build/configuration
+    └── init.sql                    # Initial schemas or seeds
+```
+
+- Build context in `docker-compose.yml` points to the project root (`..`) so the Dockerfile has access to the full source tree while keeping the Docker assets organised.
+
+---
+
 ## Root-Level Files
 
 ```
 .
+├── .github/
+│   └── workflows/
+│       └── merge.yml               # CI/CD pipeline (lint, build, test, docker, Node 24/26 matrix)
 ├── biome.json                      # Default linting & formatting configuration (see migrating-eslint-prettier-to-biome)
 ├── proxy.ts                        # Next.js 16 request proxy (replaces middleware.ts)
 ├── instrumentation.ts              # Monitoring/observability hooks
@@ -345,6 +370,7 @@ __tests__/
 ```
 
 **Key patterns:**
+- `.github/workflows/merge.yml` - CI/CD pipeline triggered on PRs to `main`, validating linting/formatting, building, testing, and Docker Compose across the latest 2 Node LTS versions (currently Node 24 and Node 26)
 - `biome.json` - By default, Biome is used for linting and formatting (replaces ESLint/Prettier; see `migrating-eslint-prettier-to-biome` skill)
 - `config/routes.ts` - Single source of truth for all URLs (see `centralised-routes` skill)
 - `config/env.ts` - Validates all env vars with Zod (see `typescript-environment-variables` skill)
@@ -382,6 +408,9 @@ Create `types/music/` or `lib/music/` when types/logic are used by 3+ domains.
 
 ```
 project/
+├── .github/
+│   └── workflows/
+│       └── merge.yml
 ├── actions/
 │   ├── _db-selects.ts
 │   ├── comment/
@@ -402,6 +431,11 @@ project/
 │   ├── env.ts
 │   ├── assets.ts
 │   └── constants.ts
+├── docker/
+│   ├── README.md
+│   ├── docker-compose.yml
+│   └── next/
+│       └── Dockerfile
 ├── hooks/
 │   ├── use-player.ts
 │   └── use-favourite.ts

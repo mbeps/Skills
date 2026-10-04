@@ -677,6 +677,205 @@ describe('CommentItem', () => {
 
 ---
 
+## Example 4: URL State Management with Nuqs
+
+### Scenario
+URL query parameter state management for search, filtering, and pagination where only non-default values appear in the browser URL.
+
+#### 1. Setup in Providers (`providers/providers.tsx`)
+```typescript
+'use client';
+
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <NuqsAdapter>
+      {children}
+    </NuqsAdapter>
+  );
+}
+```
+
+#### 2. Custom Filter Hook with Nuqs (`hooks/use-song-filter-state.ts`)
+```typescript
+'use client';
+
+import { parseAsString, parseAsInteger, parseAsBoolean, useQueryStates } from 'nuqs';
+
+export default function useSongFilterState() {
+  const [params, setParams] = useQueryStates(
+    {
+      query: parseAsString.withDefault(''),
+      page: parseAsInteger.withDefault(1),
+      archived: parseAsBoolean.withDefault(false),
+    },
+    {
+      history: 'push',
+      shallow: true,
+      clearOnDefault: true, // Only non-defaults appear in the URL
+    },
+  );
+
+  return {
+    query: params.query,
+    page: params.page,
+    archived: params.archived,
+    setSearch: (query: string) => setParams({ query, page: 1 }),
+    setPage: (page: number) => setParams({ page }),
+    toggleArchived: () => setParams((prev) => ({ archived: !prev.archived })),
+  };
+}
+```
+
+---
+
+## Example 5: Docker Containerization for Next.js App & Stack
+
+### Scenario
+Containerizing the Next.js application with a multi-stage Dockerfile and orchestrating it alongside PostgreSQL using Docker Compose.
+
+#### 1. Next.js Multi-Stage Dockerfile (`docker/next/Dockerfile`)
+```dockerfile
+# ---- Build Stage ----
+FROM node:24-alpine AS builder
+WORKDIR /app
+COPY package*.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+COPY . .
+RUN yarn build
+
+# ---- Release Stage ----
+FROM node:24-alpine AS release
+WORKDIR /app
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/yarn.lock ./
+RUN yarn install --production --frozen-lockfile
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["yarn", "start"]
+```
+
+#### 2. Multi-Container Orchestration (`docker/docker-compose.yml`)
+```yaml
+version: '3'
+services:
+  nextjs:
+    build:
+      context: ..
+      dockerfile: docker/next/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+---
+
+## Example 6: Automated CI/CD Pipeline with GitHub Actions
+
+### Scenario
+Validating linting (Biome), builds (Turbopack), Vitest coverage, and Docker compose smoke tests across the latest 2 Node LTS versions on every PR to `main`.
+
+#### GitHub Actions Workflow (`.github/workflows/merge.yml`)
+```yaml
+name: Merging to Main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: Lint & Format - Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['24.x', '26.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - name: Run Linter & Formatter Check (Biome)
+        run: yarn ci
+
+  build:
+    needs: lint
+    name: Build - Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['24.x', '26.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - name: Build Next.js
+        run: yarn build
+
+  test:
+    needs: build
+    name: Test - Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['24.x', '26.x']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - name: Run Tests with Coverage
+        run: yarn test:coverage
+
+  docker:
+    needs: test
+    name: Docker Compose Build & Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build & Run Containers
+        run: |
+          cd docker
+          docker compose -f docker-compose.yml up -d
+      - name: Stop Containers
+        run: |
+          cd docker
+          docker compose -f docker-compose.yml down
+```
+
+---
+
 ## Quick Scaffolding Checklist
 
 When adding a new feature, create files in this order:

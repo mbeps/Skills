@@ -225,6 +225,21 @@ The root of the `./app` directory **must contain**:
 **Dynamic Route Not-Found:**  
 For dynamic routes (e.g., `app/songs/[id]/`), include a route-level `not-found.tsx`. When `notFound()` from `next/navigation` is called (such as when an entity ID is missing in the database), this route-level component renders to clearly communicate that the specific item does not exist, rather than falling back to an unspecific global 404.
 
+**App Name & Metadata (`app/layout.tsx`):**  
+Always configure the actual project name (centralised via `config/site.ts`) in root layout metadata:
+```typescript
+import { SITE_CONFIG } from "@/config/site";
+
+export const metadata: Metadata = {
+  title: {
+    default: SITE_CONFIG.name,
+    template: `%s | ${SITE_CONFIG.name}`,
+  },
+  description: SITE_CONFIG.description,
+};
+```
+Never use placeholder strings like "Create Next App" or "Next App".
+
 ---
 
 ### NO Barrel Exports
