@@ -458,3 +458,22 @@ public final class OAuth2AttributeExtractor {
 }
 ```
 
+
+---
+
+## 6. Spring Security OIDC Client Contract Gotchas (Security 6.5+ / 7.x)
+
+Verified against Spring Security 7.0.5. Re-check the pinned version before relying on a row.
+
+| Behaviour | Consequence |
+|---|---|
+| `requireProofKey` defaults to `true` for `authorization_code`, including confidential `client_secret_post` clients | Authorize requests carry `code_challenge` (S256). The IdP must verify `code_verifier` at the token endpoint. |
+| Nonce sent to the IdP is `BASE64URL(SHA256(rawNonce))`, compared with the ID token `nonce` claim | The IdP (or mock) must echo the received value unchanged. |
+| `client_secret_post` puts `client_id` and `client_secret` in the form body | No `Authorization: Basic` header arrives at the token endpoint. |
+| `id_token` is mandatory in the token response for the OIDC provider | Missing means `invalid_id_token`. |
+| Userinfo is fetched whenever `user-info-uri` is set and the grant is `authorization_code` (no scope check) | Userinfo `sub` must string-equal the ID token `sub`, else `invalid_user_info_response`. |
+| A custom `JwtDecoderFactory<ClientRegistration>` that calls `NimbusJwtDecoder.withJwkSetUri(...).build()` bypasses `OidcIdTokenDecoderFactory.createDecoder()` | `OidcIdTokenValidator` never runs. `iss`, `sub`, `aud`, `azp` and required claims go unchecked. Only signature, `typ` and a present `exp`/`nbf` are. Add the validator explicitly (see [proxy-and-gateway-configuration.md](proxy-and-gateway-configuration.md) section 4.3). |
+| `OidcIdTokenDecoderFactory.setJwsAlgorithmResolver(...)` only affects decoders that factory creates | On a hand-built `NimbusJwtDecoder` it is dead code. Set the algorithm with `.jwsAlgorithm(...)` on the builder. The builder default is RS256. |
+| `issuer-uri` triggers discovery at startup and requires the discovery `issuer` to equal the configured value exactly | Omit it and declare explicit endpoints when discovery cannot be reached. |
+
+To run a login against a local stand-in IdP, see [local-oidc-idp-mock.md](local-oidc-idp-mock.md).

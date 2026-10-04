@@ -153,7 +153,9 @@ import org.apache.hc.client5.http.impl.routing.DefaultProxyRoutePlanner;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder;
 import org.apache.hc.client5.http.ssl.TrustAllStrategy;
+import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
@@ -223,7 +225,14 @@ public class RestTemplateConfig {
         if (proxyProperties.isEnabled() && proxyProperties.getHost() != null) {
             String cleanHost = proxyProperties.getHost().replaceAll("^https?://", "").replaceAll("/.*$", "");
             HttpHost proxyHost = new HttpHost(cleanHost, proxyProperties.getPort());
-            builder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost));
+            // DefaultProxyRoutePlanner proxies every host. Enforce nonProxyHosts (exact hostnames, no globs) or localhost IdP mocks get proxied.
+            builder.setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost) {
+                @Override
+                protected HttpHost determineProxy(HttpHost target, HttpContext context) throws HttpException {
+                    return proxyProperties.getNonProxyHosts().contains(target.getHostName())
+                            ? null : super.determineProxy(target, context);
+                }
+            });
 
             if (proxyProperties.getUsername() != null && !proxyProperties.getUsername().isBlank()) {
                 BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -338,9 +347,12 @@ package com.example.auth.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenValidator;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtDecoderFactory;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.web.client.RestTemplate;
 
@@ -362,9 +374,13 @@ public class JwtDecoderConfig {
                         OidcIdTokenDecoderFactory fallback = new OidcIdTokenDecoderFactory();
                         return fallback.createDecoder(clientRegistration);
                     }
-                    return NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+                    NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
                             .restOperations(restTemplate)
                             .build();
+                    // Required: building the decoder directly skips OidcIdTokenValidator (iss, aud, azp, required claims).
+                    decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                            JwtValidators.createDefault(), new OidcIdTokenValidator(clientRegistration)));
+                    return decoder;
                 });
             }
         };
