@@ -251,6 +251,7 @@ Add `"use client"` if component uses: state, effects, event handlers, browser AP
 - **URL State Management (Nuqs):** Use `nuqs` for query parameter state. Wrap root with `<NuqsAdapter>` in `providers/providers.tsx`. Always configure `clearOnDefault: true` so default parameters never appear in the URL. Encapsulate multi-param filters in custom hooks under `hooks/`. See [examples.md](examples.md#example-4-url-state-management-with-nuqs).
 - **Docker & Containerization:** Centralise all Docker configs under `docker/` (`docker/next/Dockerfile` multi-stage build, `docker/docker-compose.yml` with context `..`, and subdirectories for services like `postgres`). See [directory-structure.md](directory-structure.md#docker) and [examples.md](examples.md#example-5-docker-containerization-for-nextjs-app--stack).
 - **CI/CD Pipeline (GitHub Actions):** Enforce `.github/workflows/merge.yml` on PRs targeting `main` covering linting (`biome ci .`), building (`next build --turbopack`), testing with coverage (`yarn test:coverage`), and Docker compose spin-up, tested across the latest 2 Node LTS versions (`['24.x', '26.x']`). See [examples.md](examples.md#example-6-automated-cicd-pipeline-with-github-actions).
+- **Data Table UI & UX Standards:** Apply minimal tabs, prominent search, tinted header rows, accent sort controls, light row dividers, right-aligned numbers, abbreviated month dates (`14 Oct 2026`), bold primary identifiers, semantic status chips, icon row actions, and full-row selection tinting. See [data-table-ui.md](data-table-ui.md).
 
 ## Detailed References
 
@@ -259,6 +260,7 @@ See these files for comprehensive details:
 - **directory-structure.md** - Complete folder hierarchy, when to use each, cross-domain shared code
 - **file-conventions.md** - Naming rules, export patterns, import rules, edge cases
 - **examples.md** - Complete working examples of feature scaffolding
+- **data-table-ui.md** - Data table UI & UX design guidelines, checklist, and component organization
 
 ## Common Mistakes
 
@@ -285,6 +287,7 @@ See these files for comprehensive details:
 | Using generic placeholder names like "Next App" or "Create Next App" | Degrades UX and SEO, lacks brand identity | Use actual project name centralised in `config/site.ts` |
 | Scattering Dockerfiles or dumping Docker files at root | Clutters project root and complicates multi-container orchestration | Place all Docker configs under `docker/` (`docker/next/Dockerfile`, `docker/docker-compose.yml`) |
 | Skipping CI/CD pipeline or testing on single non-LTS Node version | Allows regressions in linting, builds, container startup, or newer Node runtimes | Configure `.github/workflows/merge.yml` covering lint, build, test, Docker with matrix on latest 2 Node LTS versions (24, 26) |
+| Cluttered table UI (heavy tabs, dark dividers, left-aligned numbers, plain text statuses) | High cognitive load, hard to scan or compare data | Follow [data-table-ui.md](data-table-ui.md) (tinted headers, right-aligned numbers, semantic chips, icon actions) |
 
 ## Decision Flowchart
 
