@@ -248,3 +248,107 @@ export function registerAllTools(server: McpServer): void {
   registerProjectTools(server);
 }
 ```
+
+---
+
+## 6. Flexible Argument Normalization for LLM Inputs
+
+LLMs often supply parameters formatted as conversational or display titles (e.g., `skill: "Spring Boot"`, `"React.js"`, `"Next JS"`) rather than internal database keys or kebab-case slugs (e.g., `"spring-boot"`, `"react-js"`, `"next-js"`).
+
+Direct strict comparisons (`item.key === input`) frequently result in false-negative empty sets (`{ total: 0 }`).
+
+### Best Practice: Key Resolver Pattern
+
+Create a utility to resolve incoming natural-language strings to canonical keys before filtering:
+
+```typescript
+// lib/utils/resolve-key.ts
+export function resolveItemKey(query: string, knownItems: Array<{ id: string; name: string }>): string | undefined {
+  const clean = query.trim().toLowerCase();
+
+  // 1. Direct slug or ID match
+  const exact = knownItems.find(
+    (i) => i.id.toLowerCase() === clean || i.name.toLowerCase() === clean
+  );
+  if (exact) return exact.id;
+
+  // 2. Normalized alphanumeric match (ignores spaces, dots, dashes)
+  const stripped = clean.replace(/[^a-z0-9]/g, "");
+  const normalized = knownItems.find(
+    (i) => i.id.replace(/[^a-z0-9]/g, "").toLowerCase() === stripped ||
+           i.name.replace(/[^a-z0-9]/g, "").toLowerCase() === stripped
+  );
+  if (normalized) return normalized.id;
+
+  // 3. Substring match for longer queries (min 3 chars to avoid false positives)
+  if (clean.length >= 3) {
+    const sub = knownItems.find((i) => i.name.toLowerCase().includes(clean));
+    if (sub) return sub.id;
+  }
+
+  return undefined;
+}
+```
+
+In your tool handler, resolve before filtering:
+```typescript
+async ({ skill }) => {
+  const resolvedKey = skill ? resolveItemKey(skill, databaseSkills) : undefined;
+  const filtered = resolvedKey
+    ? allProjects.filter((p) => p.skillKeys.includes(resolvedKey))
+    : allProjects;
+
+  return formatToolResponse({ total: filtered.length, items: filtered });
+}
+```
+
+---
+
+## 7. Server Branding and Icons (SEP-973)
+
+Clients like Google Gemini (Connected / Custom Apps), Claude Desktop, and VS Code Copilot render brand icons for connected MCP servers based on the **SEP-973** metadata standard in `serverInfo` during the `initialize` handshake.
+
+### Metadata Schema
+In `serverInfo`, provide `title`, `description`, `websiteUrl`, and an `icons` array:
+
+```typescript
+// lib/mcp/server.ts
+import { createMcpHandler } from "mcp-handler";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";
+
+export const mcpHandler = createMcpHandler(
+  (server) => {
+    registerAllTools(server);
+  },
+  {
+    serverInfo: {
+      name: "my-app-mcp",
+      title: "My Application MCP",
+      version: "1.0.0",
+      description: "App MCP server providing query tools and resources.",
+      websiteUrl: siteUrl,
+      icons: [
+        {
+          src: `${siteUrl}/favicon.svg`,
+          mimeType: "image/svg+xml",
+          sizes: ["any"],
+        },
+        {
+          src: `${siteUrl}/icon.png`,
+          mimeType: "image/png",
+          sizes: ["192x192"],
+        },
+        // Embedded Data URI ensures offline and proxy-resilient icon delivery
+        {
+          src: "data:image/svg+xml;base64,...",
+          mimeType: "image/svg+xml",
+          sizes: ["any"],
+        },
+      ],
+    } as unknown as { name: string; version: string },
+  },
+);
+```
+
+

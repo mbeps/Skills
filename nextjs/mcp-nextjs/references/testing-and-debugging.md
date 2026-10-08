@@ -143,3 +143,27 @@ curl -i -X POST http://localhost:3000/api/mcp \
 | **`405 Method Not Allowed` on GET** | Stateless Streamable HTTP does not support GET listeners without SSE channels. | Normal behavior for stateless 2026-07-28 servers. Use POST for RPC commands. |
 | **`TS2339: Property ... does not exist`** | Schema shape mismatch or accessing properties outside inferred Zod types. | Ensure types imported match database records, and `inputSchema` uses `z.object({...})`. |
 | **Client hangs on connection** | Client expecting stdio instead of Streamable HTTP. | Wrap HTTP endpoint with `mcp-remote` bridge (`npx -y mcp-remote <URL>`). |
+| **Tool returns empty list (`total: 0`)** | LLM passed natural language string (e.g. `"Spring Boot"`) against strict slug matching (`"spring-boot"`). | Implement flexible input normalization (`resolveItemKey`) to match canonical IDs. |
+| **LLM says "I do not have direct access..."** | Client UI intercepted tool call with an unapproved confirmation dialog (`Allow` / `Deny`). | User must click `Allow` in client UI before the tool request is dispatched to the server. |
+
+---
+
+## 5. Client Tool Permission Interception
+
+When integrating with conversational AI clients (such as Gemini or Claude), clients typically require explicit user permission before executing tools that fetch external data.
+
+### Symptoms
+- The client UI renders an interactive confirmation prompt:
+  ```text
+  Let Gemini use "<tool_name>" from <Server Name>
+  Tool: <tool_name>
+  [Deny]  [Allow]
+  ```
+- The model outputs a generic fallback response:
+  > *"You referenced @ServerName, but I do not have direct access to read the contents... Please provide..."*
+
+### Diagnosis & Remedy
+1. **Not a server error**: The Next.js route handler was never called because the client paused execution awaiting user consent.
+2. **Action required**: Clicking **`Allow`** dispatches the request to `/api/mcp` and feeds the result back to the LLM.
+3. **Auto-approval configuration**: In client settings or workspace policies, configure trusted tools or servers to bypass manual per-invocation approvals if permitted.
+

@@ -146,6 +146,16 @@ lib/
 - **Symptom**: `app/api/mcp/route.ts` bloated with thousands of lines of database logic and schemas.
 - **Fix**: Decompose into domain files (`lib/mcp/tools/*.ts`) and aggregate via `registerAllTools(server)`.
 
+### 5. Strict Slug / Key Mismatches on LLM Inputs
+- **Symptom**: Queries for valid items return empty results (`total: 0`).
+- **Cause**: LLMs generate natural-language strings (e.g. `"Spring Boot"`, `"React.js"`) rather than internal kebab-case keys (`"spring-boot"`).
+- **Fix**: Implement an input normalizer in tool handlers to resolve natural language and aliases to internal database keys before filtering.
+
+### 6. Client Tool Permission Interception
+- **Symptom**: LLM displays a fallback disclaimer (*"I do not have direct access..."*) when referencing the MCP server.
+- **Cause**: The client intercepted the tool call with a user permission prompt (`Allow` / `Deny`). The tool does not execute until approved.
+- **Fix**: Verify client UI for pending permission cards before suspecting server or tool bugs.
+
 ---
 
 ## Detailed References

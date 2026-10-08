@@ -113,3 +113,14 @@ Create `.vscode/mcp.json` at the workspace root:
    - **Name**: `my-nextjs-app`
    - **Type**: `SSE` or `HTTP` (or `Command` with `npx -y mcp-remote <URL>`)
    - **URL**: `http://localhost:3000/api/mcp`
+
+---
+
+## 5. Client Permission & Approval Lifecycles
+
+Most chat interfaces (Claude, Gemini, VS Code Copilot) enforce permission checks before executing remote MCP tools:
+
+- **Interactive Approval Banner**: On first invocation, the UI prompts the user to `Allow` or `Deny` tool access.
+- **Pending Execution Fallback**: Until `Allow` is clicked, the tool returns nothing. Chat models may print a disclaimer (e.g., *"I do not have access to read..."*) assuming external tools were denied or unavailable.
+- **Always-Allow Settings**: To prevent interruptions during iterative workflows, check your client's settings (e.g. VS Code MCP tool permissions or Gemini Workspace security rules) to grant auto-approval for trusted local endpoints (`localhost:3000`).
+
