@@ -73,6 +73,22 @@ All Python projects must follow this directory layout:
 
 * Use `uv` for dependency management instead of `pip`, `poetry`, or other tools unless otherwise stated.
 
+### poethepoet & poe Tasks
+
+* Use `poethepoet` to generate and manage `poe` tasks defined in `pyproject.toml`.
+* Run `poethepoet generate` to scaffold task boilerplate from your codebase.
+* Customize generated tasks in `pyproject.toml` as needed.
+* Example minimal `pyproject.toml` poe configuration:
+
+```toml
+[tool.poe.tasks]
+run = "uv run src/your_module/main.py"
+test = "uv run pytest -v"
+lint = "ruff check src/"
+format = "ruff format ."
+type-check = "pyrefly check"
+```
+
 ### Quality Control & Tooling
 
 * Use `pyrefly` as the language server to check Python code quality. Do not use `Pyright`, `Pylance`, or `mypy`.
