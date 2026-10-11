@@ -16,9 +16,9 @@ The client supports any OpenAI compatible API provider (OpenRouter, Ollama, Groq
 
 # Instructions
 - Use ./graphify-out/ to find navigate codebase. Graphify is like an index.
-- Whenever using subagents, read the *subagent-driven-development* and *dispatching-parallel-agents* skills first using the main agent right at the start of process to orchanstrate the subagents correctly and efficiently. 
+- Whenever using subagents, read the *subagent-driven-development* and *dispatching-parallel-agents* skills first using the main agent right at the start of process to orchestrate the subagents correctly and efficiently. 
 - Do not ask irrelevant questions such as asking permission to start analysing, researching.
-- Update ./.agents/learnings.md with new info that are relevant to the project such as mistakes, commmon pitfalls, info that is not obvious, etc.
+- Update ./.agents/learnings.md with new info that are relevant to the project such as mistakes, common pitfalls, info that is not obvious, etc.
 
 # Tech Stack
 ## Frontend
@@ -74,8 +74,10 @@ Type `/graphify` in Copilot Chat to build or update the graph.
 # Resources
 - README ./README.md - Includes features, setup, etc. 
 - Coding Convensions ./.agents/convensions.md - MUST be followed when writing code
-- Development Instructions ./.agents/development.md - MUST be followed when developing or modifying code
+- Development Instructions ./.agents/development.md - MUST be followed when developing, writing code, or running verification commands. Governs development process and operational rules.
+- Project Details ./.agents/project-details.md - MUST be followed when working across subsystems, understanding architecture, or inspecting system mechanics.
 - Testing Conventions ./.agents/testing.md - MUST be followed when writing or mocking tests
+- Design Conventions ./.agents/design.md - MUST be followed when creating or modifying UI components or styling (omit for headless/backend/CLI/library projects)
 - Planning Instructions ./.agents/plan.md - MUST be followed when creating or reviewing implementation plans
 - Graphify ./graphify-out/ - Includes report, graph relationships, etc. Must be loaded at the beginning.
   - Graph Report ./graphify-out/GRAPH_REPORT.md
@@ -99,13 +101,13 @@ List of skills that are required to work on this project:
 - evaluation: MUST be used when evaluating
 - graphify: MUST be used when generating and updating codebase index/graph relationships and report
 - ponytail: MUST be used when writing code or planning
-- using-checklists: MUST be used when to organize tasks 
+- using-checklists: MUST be used to organise tasks 
 - writing-nextjs-vitest-tests: MUST be used when writing Next.js Vitest tests
 - playwright-skill: MUST be used when automating browser testing
 
 # Additional Tools (and MCPs) 
 - headroom: MUST be used for retrieving content
-- Context7 - MUST be used for fiding relevant documentation about tools, libraries, and frameworks
+- Context7 - MUST be used for finding relevant documentation about tools, libraries, and frameworks
 - DBCode - Managing database
 - Web - MUST be used for searching the web for relevant information
 ```
@@ -115,31 +117,73 @@ List of skills that are required to work on this project:
 ## Example 2: `.agents/development.md`
 
 ```markdown
-- Code must not be unnecessarily overcomplicated. 
-- Code must be simple to understand, modify and maintain.
-- Follow YAGNI principles.
-- Plan before implementing unless the change is trivial.
-- Codebase must be documented including code.
-- Code must pass building, linting checks, type checks and testing. Check at the end of the process to ensure that the code is working as expected and is not broken.
-- You must never commit, stage, etc with Git. The developer is in charge of managing version control (Git and GitHub). You can do Git actions that do not have side affects such as logs, status, etc.
-- You must use Podman to run Docker containers (Postgres, MinIO, etc.) for local development. Do NOT use Docker.
+---
+description: Load before implementing features, fixing bugs, refactoring code, or executing development workflows in the Next.js AI chat client.
+applyTo: '**/*'
+---
 
-# Skills to Use
-- writing-code: MUST be used when writing code
-- mastering-typescript: MUST be used when writing TypeScript code
-- typescript-environment-variables: MUST be used when managing environment variables in TypeScript
-- test-driven-development: MUST be used when writing tests
-- verification-before-completion: MUST be used when verifying code before completion
-- writing-plans: MUST be used when creating plans
-- bug-fix: MUST be used when fixing bugs
-- tdd: MUST be used when practicing test-driven development
-- better-auth-nextjs: MUST be used whenever working with authentication 
-- ui-component-decomposition: MUST be used when auditing or identifying UI component extraction candidates 
+# Development Instructions & Operational Guidelines
+
+## 1. Skills
+Follow these skills as the single source of truth for development workflows:
+- `writing-code` — Pragmatic clean coding standards, design patterns, simplicity, and maintainability.
+- `writing-plans` — Structured planning for non-trivial changes before implementation.
+- `bug-fix` & `systematic-debugging` — Diagnosing root causes systematically before proposing fixes.
+- `verification-before-completion` — Verifying builds, linting, and tests pass before completion.
+
+## 2. Non-Negotiable Operational Rules
+- **Simplicity & YAGNI**: Code must not be unnecessarily overcomplicated. It must be simple to understand, modify, and maintain. Strictly follow YAGNI principles.
+- **Plan Before Implementing**: Always plan before implementing unless the change is completely trivial.
+- **Document Codebase & Changes**: Document code purposefully, explaining WHY rather than WHAT.
+- **Enforce Quality Gates**: Code must pass building (`npm run build`), linting/formatting checks (`npm run lint`), type checks, and testing before completion.
+- **Git & Version Control Safety**: You must NEVER commit, stage, push, or stash with Git. The developer is in charge of managing version control (Git and GitHub). You may only execute read-only Git commands that have no side effects (e.g. `status`, `log`, `diff`).
+- **Local Development Runtime**: You must use Podman to run Docker containers (Postgres, MinIO, etc.) for local development. Do NOT use Docker.
+
+## 3. Verification
+Codebase must pass verifications below:
+- `npm run build`
+- `npm run lint`
+- `npm run test`
 ```
 
 ---
 
-## Example 3: `.agents/convensions.md`
+## Example 3: `.agents/project-details.md`
+
+```markdown
+---
+description: Project-specific architectural details, system design decisions, and how components interact. Load when working on features that span multiple subsystems.
+applyTo: '**/*'
+---
+
+# Project Details & Architecture
+
+## 1. System Architecture & Subsystem Interactions
+- **Branching Conversation Tree**: Treat chat state as a branching tree, not a flat list. Active thread leaf is tracked by `chat.currentLeafId`. Persisting any message must update `currentLeafId` to prevent orphaned threads.
+- **Attachment Scoping**: Attachments bind to `message_id`, not `chat_id`. To fetch all attachments for a chat, query message IDs first, then retrieve attachments with `inArray(attachment.messageId, messageIds)`.
+- **Tool Registration & Precedence**: External tools are registered before internal tools to prevent third-party integrations from shadowing core system tools.
+
+## 2. State Management & Lifecycle
+- **Streaming State Isolation**: Keep transient streaming chunks local to UI hooks. Pushing chunks into global state stores creates unnecessary re-renders.
+- **Centralised Sign-Out Reset**: Sign-out flows must clear all in-memory client state in one coordinated handler (`resetClientState`), wiping entity stores, chat state, and provider caches.
+- **Cache Invalidation Epochs**: Provider registry cache tracking uses generational counters to discard in-flight responses that resolve after an invalidation event.
+
+## 3. Concurrency, Async Execution & Cancellation
+- **Stream Abort Registry**: Background job cancellation checks step checkpoints but cannot stop an active HTTP stream. Maintain an in-memory `ChatAbortRegistry` (`Map<string, AbortController>`). Stopping a stream aborts the controller immediately.
+- **Persistence Idempotency on Abort**: When client and server both attempt to persist a stopped message, use database-level idempotency (`onConflictDoNothing`) on message IDs to prevent primary key collision errors.
+
+## 4. Security & Trust Boundaries
+- **Trust Boundaries for Approvals**: Tool approvals must be validated server-side. The client payload is restricted to `{ approvalId, approved }`. The server verifies cryptographic approval secrets and retrieves the stored tool call from the database.
+- **Tenancy and User Scoping**: Knowledge base queries, vector embeddings, and database mutations must be strictly scoped by `userId`. Cross-user data retrieval is a critical security defect.
+
+## 5. Runtime & Framework Mechanics
+- **AI SDK Symmetry**: AI SDK v7 requires that every `tool-call` part in message history has a corresponding `tool-result` part before sending prompts to models.
+- **Dynamic Vector Partitions**: Partition vector collections dynamically by embedding dimension (e.g. `kb_chunks_${dimensions}`). Idempotently initialise collections and payload indexes on first write.
+```
+
+---
+
+## Example 4: `.agents/convensions.md`
 
 ```markdown
 ---
@@ -184,7 +228,7 @@ applyTo: '**/*.ts, **/*.js, **/*.tsx, **/*.jsx'
 ## 3. Code Style & Language Conventions
 ### 3.1 Language-Specific Standards
 - Next.js 16: Utilise App Router, Server Components (default), and Server Actions. `proxy.ts` is used instead of `middleware.ts` for request interception.
-- Logging: Use the centralized `./lib/logger.ts` for all application logging. Avoid `console.log/warn/error` in production-facing code.
+- Logging: Use the centralised `./lib/logger.ts` for all application logging. Avoid `console.log/warn/error` in production-facing code.
 - TypeScript: Strict typing required. Use `interface` for object shapes and `type` for compositions or derivations.
 - React 19: Use functional components with hooks. Use the `"use client"` or `"use server"` directives at the file top where required.
 - One Export per File: Each file should export a single function, class, or component.
@@ -194,7 +238,7 @@ applyTo: '**/*.ts, **/*.js, **/*.tsx, **/*.jsx'
 
 ---
 
-## Example 4: `.agents/testing.md`
+## Example 5: `.agents/testing.md`
 
 ```markdown
 ---
@@ -210,7 +254,7 @@ Follow these skills as the single source of truth for general testing patterns:
 - `tdd` & `test-driven-development` — Red-green-refactor loop before writing production code.
 - `playwright-skill` — End-to-end browser automation workflows.
 - `systematic-debugging` — Diagnosing test runner failures or flaky assertions.
-- `verification-before-completion` — Running test suites to verify passing behavior before finishing.
+- `verification-before-completion` — Running test suites to verify passing behaviour before finishing.
 
 ## 2. Project-Specific Test Setup & Commands
 - **Test Commands**:
@@ -240,7 +284,7 @@ Follow these skills as the single source of truth for general testing patterns:
 
 ---
 
-## Example 5: `.agents/design.md`
+## Example 6: `.agents/design.md`
 
 ```markdown
 ---
@@ -252,10 +296,10 @@ applyTo: 'components/**/*.tsx, app/**/*.tsx, styles/**/*.css'
 
 ## 1. Skills
 Follow these skills as the single source of truth for UI/UX patterns:
-- `ui-ux-pro-max` — Primary reference for UI/UX design intelligence (styles, responsive layouts, color palettes, dark mode, typography, and micro-interactions).
+- `ui-ux-pro-max` — Primary reference for UI/UX design intelligence (styles, responsive layouts, colour palettes, dark mode, typography, and micro-interactions).
 - `ui-component-decomposition` — Decomposing monolithic page templates into focused, testable, and reusable UI components.
 - `radix-ui-to-base-ui-migration` — Migrating UI primitives to `@base-ui/react` with Tailwind CSS v4.
-- `ui-design-language` — Standardizing component density, accessible contrast, iconography, and desktop/mobile navigation patterns.
+- `ui-design-language` — Standardising component density, accessible contrast, iconography, and desktop/mobile navigation patterns.
 
 ## 2. Project-Specific UI Architecture
 - **Component Directory Hierarchy**:
@@ -265,19 +309,19 @@ Follow these skills as the single source of truth for UI/UX patterns:
 - **Layout Shell Boundaries & Width Control**:
   - Layout files (`layout.tsx`) must remain unconstrained shells (rendering navigation, header, and viewport containers).
   - Do NOT hardcode `max-w-*` or `overflow-y-auto` into layout wrappers.
-  - Use `PageContainer` (`variant="default" | "narrow" | "wide" | "full" | "prose"`, `scrollable={true | false}`) inside page components to govern layout width and scroll behavior.
+  - Use `PageContainer` (`variant="default" | "narrow" | "wide" | "full" | "prose"`, `scrollable={true | false}`) inside page components to govern layout width and scroll behaviour.
 - **Client Hydration & Empty Store Guards**:
   - For client-side detail pages reading from client state stores, guard against initial empty hydration with loading spinners (`Loader2`) before invoking `notFound()`.
 
 ## 3. Styling & Responsive Design
-- **Tailwind CSS 4**: Utilize CSS variable theme tokens defined in the global stylesheet.
+- **Tailwind CSS 4**: Use CSS variable theme tokens defined in the global stylesheet.
 - **Dark Mode**: Maintain high-contrast accessible borders (`border-border`) and muted foreground hierarchy (`text-muted-foreground`).
 - **Responsive Adaptations**: Use drawers (`vaul` / `Sheet`) for mobile interactions and collapsible sidebars for desktop viewports.
 ```
 
 ---
 
-## Example 6: `.agents/plan.md`
+## Example 7: `.agents/plan.md`
 
 ```markdown
 ---
@@ -324,7 +368,7 @@ When authoring an implementation plan, follow this standard structure:
 
 ### 4.3 Proposed Changes (File & Interface Breakdown)
 - Group changes logically (e.g., Config/Schema -> Backend/Lib -> Frontend/Components -> Tests).
-- Categorize touched files using `[NEW]`, `[MODIFY]`, or `[DELETE]`.
+- Categorise touched files using `[NEW]`, `[MODIFY]`, or `[DELETE]`.
 - State the **signature, invariant, and constraint** for each unit. Include a code block only where a reader would otherwise guess wrong: a wire format or schema validated by something stricter than TypeScript, a counter-intuitive constraint, or a literal boundary value. Boilerplate, imports, and straightforward control flow get a sentence, not a listing.
 - **Codebase Simplification**: Highlight any code or abstractions that are being deleted, consolidated, or retired as part of this implementation.
 
@@ -339,7 +383,7 @@ When authoring an implementation plan, follow this standard structure:
 ### 4.6 Verification Plan
 - **Automated Tests**: Exact commands to run targeted unit/integration tests (`pnpm test -- <path>`).
 - **Typecheck & Lint**: Verification commands (`pnpm check`, `pnpm lint`).
-- **Manual Verification**: Step-by-step checklist to test the behavior in the browser/client.
+- **Manual Verification**: Step-by-step checklist to test the behaviour in the browser/client.
 
 ## 5. Simplicity Guardrails
 - **The Simplicity Ladder**: Stop at the first rung that solves the problem (YAGNI -> stdlib -> native platform -> existing vetted dependency -> minimal concrete code).

@@ -2,7 +2,7 @@
 
 Agent instruction files follow a strict contract. The agent ecosystem uses a tiered structure:
 - **`AGENTS.md`**: The root orchestrator and entry point.
-- **`.agents/*.md`**: Modular, on-demand domain rulebooks (`development.md`, `conventions.md`, `testing.md`, `design.md`, `plan.md`, `learnings.md`).
+- **`.agents/*.md`**: Modular, on-demand domain rulebooks (`development.md`, `project-details.md`, `conventions.md`, `testing.md`, `design.md`, `plan.md`, `learnings.md`).
 
 ---
 
@@ -11,23 +11,25 @@ Agent instruction files follow a strict contract. The agent ecosystem uses a tie
 ### 1. Root File: `AGENTS.md`
 - Strictly located at the project root: `AGENTS.md`.
 - Acts as the primary entry point loaded into the agent's context across sessions.
-- Contains the project overview, baseline operational instructions, categorized tech stack links, resources index, and skills catalog.
+- Contains the project overview, baseline operational instructions, categorised tech stack links, resources index, and skills catalog.
 
 ### 2. The `.agents/` Folder
-- All modular agent files and guidelines live inside `.agents/`:
-  - `development.md`: Dev lifecycle principles, non-negotiable rules, container tools, dev skills.
-  - `conventions.md` (or `convensions.md`): Directory structure, naming conventions, architectural boundaries, skill overrides.
-  - `testing.md`: Testing strategy, mock setup (Vitest, jsdom), coverage rules, testing skills.
-  - `design.md`: UI architecture, component hierarchy, page container rules, styling, design skills.
-  - `plan.md`: Planning instructions, architectural standards, alternative approaches, anti-bloat guidelines, and planning skills.
-  - `learnings.md`: Historical discoveries, pitfalls, and session takeaways.
-- Centralizing these in `.agents/` keeps the root clean and prevents context bloat by allowing agents to load detailed rules only when triggered by relevant tasks.
+All modular agent files and guidelines live inside `.agents/`:
+- `development.md`: Process-focused: dev lifecycle, operational rules, workflow skills, verification commands.
+- `project-details.md`: System mechanics, architectural decisions, subsystem data flows, state lifecycles, concurrency/cancellation, security boundaries, runtime mechanics.
+- `conventions.md` (or `convensions.md`): Directory structure, naming conventions, architectural boundaries, language idioms, and skill overrides.
+- `testing.md`: Testing strategy, mock setup, coverage rules, and testing skills.
+- `design.md`: UI architecture, component hierarchy, page container rules, styling, and design skills (frontend projects only; omitted for headless, backend, CLI, or library projects).
+- `plan.md`: Planning instructions, architectural standards, alternative approaches, anti-bloat guidelines, and planning skills.
+- `learnings.md`: Historical discoveries, pitfalls, and session takeaways.
+Centralising these in `.agents/` keeps the root clean and prevents context bloat by allowing agents to load detailed rules only when triggered by relevant tasks.
 
 ### 3. Path Relativity
 All path references resolve from the repository root using standard markdown relative paths (`./...`):
 - `./README.md`
 - `./graphify-out/`
 - `./.agents/development.md`
+- `./.agents/project-details.md`
 - `./.agents/convensions.md` (or `conventions.md`)
 - `./.agents/testing.md`
 - `./.agents/design.md`
@@ -65,9 +67,9 @@ All path references resolve from the repository root using standard markdown rel
   ```markdown
   # Instructions
   - Use ./graphify-out/ to find navigate codebase. Graphify is like an index.
-  - Whenever using subagents, read the *subagent-driven-development* and *dispatching-parallel-agents* skills first using the main agent right at the start of process to orchanstrate the subagents correctly and efficiently. 
+  - Whenever using subagents, read the *subagent-driven-development* and *dispatching-parallel-agents* skills first using the main agent right at the start of process to orchestrate the subagents correctly and efficiently. 
   - Do not ask irrelevant questions such as asking permission to start analysing, researching.
-  - Update ./.agents/learnings.md with new info that are relevant to the project such as mistakes, commmon pitfalls, info that is not obvious, etc.
+  - Update ./.agents/learnings.md with new info that are relevant to the project such as mistakes, common pitfalls, info that is not obvious, etc.
   ```
 - If the user provides additional repository-level instructions, append them as bullets to the end of this list.
 
@@ -98,16 +100,17 @@ All path references resolve from the repository root using standard markdown rel
   ```
 
 ### 4. `# Resources`
-- Centralizes pointers to repository documentation, indexing assets, and `.agents/` modular rulebooks.
+- Centralises pointers to repository documentation, indexing assets, and `.agents/` modular rulebooks.
 - Annotate each resource with clear triggers indicating when an agent should read it.
 - **Standard Entries**:
   ```markdown
   # Resources
   - README ./README.md - Includes features, setup, etc. 
   - Coding Convensions ./.agents/convensions.md - MUST be followed when writing code
-  - Development Instructions ./.agents/development.md - MUST be followed when developing or modifying features
+  - Development Instructions ./.agents/development.md - MUST be followed when developing, writing code, or running verification commands. Governs development process and operational rules.
+  - Project Details ./.agents/project-details.md - MUST be followed when working across subsystems, understanding architecture, or inspecting system mechanics.
   - Testing Conventions ./.agents/testing.md - MUST be followed when writing, running, or mocking tests
-  - Design Conventions ./.agents/design.md - MUST be followed when creating or modifying UI components or styling
+  - Design Conventions ./.agents/design.md - MUST be followed when creating or modifying UI components or styling (omit for headless/backend/CLI/library projects)
   - Planning Instructions ./.agents/plan.md - MUST be followed when creating or reviewing implementation plans
   - Graphify ./graphify-out/ - Includes report, graph relationships, etc. Must be loaded at the beginning.
     - Graph Report ./graphify-out/GRAPH_REPORT.md
@@ -130,7 +133,7 @@ All path references resolve from the repository root using standard markdown rel
   ```markdown
   # Additional Tools (and MCPs) 
   - headroom: MUST be used for retrieving content
-  - Context7 - MUST be used for fiding relevant documentation about tools, libraries, and frameworks
+  - Context7 - MUST be used for finding relevant documentation about tools, libraries, and frameworks
   - DBCode - Managing database
   - Web - MUST be used for searching the web for relevant information
   ```
@@ -165,15 +168,73 @@ All path references resolve from the repository root using standard markdown rel
 
 ---
 
+## Universal vs Stack-Specific Taxonomy
+
+Agent instructions must remain generalisable across languages (TypeScript, Python, Java, Go, Rust) and project types (CLI, backend services, full-stack apps, libraries). Follow this division when generating files:
+
+### 1. `.agents/development.md`
+- **Universal (core)**:
+  - Workflow skills to load (`writing-code`, `writing-plans`, `systematic-debugging`, `verification-before-completion`, `bug-fix`).
+  - Operational rules: Simplicity, YAGNI, planning before implementing, Git safety (zero-commit/push rule for agents), purposeful documentation.
+  - Verification gates: Concrete build, lint, typecheck, and test commands detected from repository configuration.
+- **Stack / project-dependent (optional, only include when non-trivial and necessary)**:
+  - Build & CI rules (headless builds, container-free CI, environment variable requirements during build, secret handling on pull requests).
+  - Dependency and toolchain rules (lockfile synchronisation, compiler options, package manager rules).
+  - Tooling gotchas (terminal diff wrapping, file encoding anomalies, runtime platform limitations). Keep lean—do not add irrelevant trivia or boilerplate.
+
+### 2. `.agents/project-details.md`
+- **Dense & architecture-focused**: Focus strictly on core invariants, subsystem contracts, and data lifecycles. **Do NOT bloat with trivia, tutorial prose, or full code dumps.**
+- **Universal categories**:
+  - Subsystem interactions & data flow: How primary modules communicate across boundaries and entity lifecycle pipelines.
+  - State management & lifecycles: Distinctions between persistent state, client state, and transient in-flight state.
+  - Concurrency, async execution & cancellation: Abort signal propagation, race condition prevention, deduplication, and idempotency.
+  - Security & trust boundaries: Tenant isolation, authentication token scoping, SSRF guards, encrypted secrets, and permission boundaries.
+- **Stack / project-dependent categories**:
+  - Runtime & framework mechanics: Framework-specific runtime mechanics (streaming protocols, background job engines, ORM query building quirks, IPC bridges, native extensions).
+
+### 3. `.agents/conventions.md`
+- **Universal**:
+  - Directory layout and module responsibilities.
+  - File and symbol naming conventions.
+  - Architectural boundaries and domain isolation.
+  - Skill overrides.
+- **Language-specific**:
+  - Typing idioms (strict types, interfaces vs types, dataclasses, traits).
+  - Export and import discipline (named exports, direct paths, barrel file policies).
+
+### 4. `.agents/design.md`
+- **Applicability**: Applicable **ONLY** when the project includes UI or frontend code. Omit entirely for backend services, APIs, CLI tools, daemon processes, and shared libraries.
+- **Universal**: Component directory hierarchy, layout shell boundaries, viewport width controls.
+- **Stack-specific**: Styling framework rules (Tailwind CSS, CSS modules, design tokens, theme variables), UI primitive libraries.
+
+### 5. `.agents/testing.md`
+- **Universal**:
+  - Testing strategy (TDD, red-green-refactor loop).
+  - Coverage thresholds & quality gates.
+  - Testing skills.
+- **Stack-specific**:
+  - Runner setup & commands.
+  - Mocking overrides & environment stubs.
+
+### 6. `.agents/plan.md`
+- **Universal**:
+  - Planning standards (high-level first, concrete specs, edge cases).
+  - Codebase simplification & anti-bloat.
+  - Alternatives evaluated & justification.
+
+---
+
 ## Specifications for Modular `.agents/` Files
 
 ### 1. `.agents/development.md`
-Captures core operational habits, non-negotiable developer rules, and development workflow skills:
+Captures dev lifecycle principles, operational rules, workflow skills, and verification commands. **This file is purely process-focused; system architecture mechanics belong in `project-details.md`.**
+
+Keep this file lean and focused purely on the development process. The clean core template contains Skills, Non-Negotiable Operational Rules, and Verification. Optional sections (Build & CI Rules, Dependency & Toolchain Rules, Tooling Gotchas) are added only when the project has non-trivial constraints. Do not add generic boilerplate or irrelevant trivia.
 
 ```markdown
 ---
-description: Load before implementing features, fixing bugs, refactoring code, or executing development workflows in the Next.js AI chat client.
-applyTo: '**/*.ts, **/*.tsx, **/*.js, **/*.jsx'
+description: Load before implementing features, fixing bugs, refactoring code, or executing development workflows.
+applyTo: '**/*'
 ---
 
 # Development Instructions & Operational Guidelines
@@ -181,25 +242,78 @@ applyTo: '**/*.ts, **/*.tsx, **/*.js, **/*.jsx'
 ## 1. Skills
 Follow these skills as the single source of truth for development workflows:
 - `writing-code` — Pragmatic clean coding standards, design patterns, simplicity, and maintainability.
-- `mastering-typescript` — Idiomatic TypeScript development, strict typing, and best practices.
 - `writing-plans` — Structured planning for non-trivial changes before implementation.
 - `bug-fix` & `systematic-debugging` — Diagnosing root causes systematically before proposing fixes.
 - `verification-before-completion` — Verifying builds, linting, and tests pass before completion.
-- `better-auth-nextjs` — Implementing and modifying authentication flows.
-- `typescript-environment-variables` — Centralized Zod environment variable validation.
 
 ## 2. Non-Negotiable Operational Rules
 - **Simplicity & YAGNI**: Code must not be unnecessarily overcomplicated. It must be simple to understand, modify, and maintain. Strictly follow YAGNI principles.
 - **Plan Before Implementing**: Always plan before implementing unless the change is completely trivial.
 - **Document Codebase & Changes**: Document code purposefully, explaining WHY rather than WHAT.
-- **Enforce Quality Gates**: Code must pass building (`pnpm build`), linting/formatting checks (`pnpm lint`), type checks, and testing before completion.
-- **Git & Version Control Safety**: You must NEVER commit, stage, push, or stash with Git. The developer is in charge of managing version control. Only read-only Git commands (`status`, `log`, `diff`) are permitted.
-- **Local Development Runtime**: You must use Podman to run Docker containers (Postgres, MinIO, etc.) for local development. Do NOT use Docker.
+- **Enforce Quality Gates**: Code must pass build, lint, typecheck, and test commands before completion.
+- **Git & Version Control Safety**: Agents must NEVER commit, stage, push, or stash with Git. The developer manages version control. Only read-only Git commands (`status`, `log`, `diff`) are permitted.
+
+## 3. Verification
+Codebase must pass verifications below:
+- `<detected-build-command>`
+- `<detected-lint-command>`
+- `<detected-test-command>`
+
+<!-- Optional sections below: include ONLY when the project has non-trivial constraints -->
+<!--
+## 4. Build & CI Rules
+- Project-specific build and CI requirements (e.g. headless builds, container-free CI, environment variable requirements during build).
+
+## 5. Dependency & Toolchain Rules
+- Toolchain, package manager, and lockfile synchronisation rules.
+
+## 6. Tooling Gotchas
+- Concrete runtime, IDE, or terminal gotchas detected in the project.
+-->
+```
+
+**Verification Section (Required)**: Every generated `development.md` MUST contain a `## Verification` section listing the concrete commands an agent runs to verify the project — build, lint/format, type check, and test. **Detect the commands from the repository** (`package.json` `scripts`, `Makefile`, `pyproject.toml`, `go.mod`, `Cargo.toml`, etc.) and write the exact commands the project uses. Each project has its own package manager or task runner (`npm`, `pnpm`, `yarn`, `bun`, `make`, `uv`, `cargo`, etc.) — never assume `npm`. If the project has no test or lint command, state that explicitly instead of inventing one.
+
+---
+
+### 2. `.agents/project-details.md`
+Captures how the system works: architecture, subsystem interactions, state management, concurrency, security boundaries, and runtime mechanics. **This file captures system design; development process rules belong in `development.md`.**
+
+Keep this file dense, high-signal, and architecture-focused. Document concise architectural invariants and subsystem contracts. **Do NOT bloat this file with trivia, tutorial prose, or full code dumps.** Capture concise invariants, ownership models, and failure boundaries.
+
+```markdown
+---
+description: Project-specific architectural details, system design decisions, and subsystem interactions. Load when working on features that span multiple subsystems or modifying system mechanics.
+applyTo: '**/*'
+---
+
+# Project Details & Architecture
+
+## 1. System Architecture & Subsystem Interactions
+- Document how primary subsystems communicate across module boundaries.
+- Trace end-to-end data flows for primary entity lifecycles.
+- Document ownership boundaries and database/storage relationship scoping.
+
+## 2. State Management & Lifecycle
+- Define boundaries between persistent storage, cached data, and ephemeral client state.
+- Define hydration lifecycles, store reset behaviour, and cache invalidation policies.
+
+## 3. Concurrency, Async Execution & Cancellation
+- Document cancellation mechanisms (e.g. AbortController registries, cooperative cancellation tokens).
+- Define deduplication rules, idempotent database operations, and race condition mitigations.
+
+## 4. Security & Trust Boundaries
+- Document trust boundaries between client, application server, and external integrations.
+- Enforce tenant and user scoping across all persistence and retrieval queries.
+- Specify credential handling, encryption boundaries, and SSRF protections.
+
+## 5. Runtime & Framework Mechanics
+- Document framework-specific runtime mechanics (e.g. streaming chunk assembly, background job execution, ORM column mappings, IPC bridges).
 ```
 
 ---
 
-### 2. `.agents/conventions.md` (or `convensions.md`)
+### 3. `.agents/conventions.md` (or `convensions.md`)
 Captures codebase architecture, directory layouts, and code style. Follows the **"Thin Pointer, Not Duplicate"** rule:
 - If a skill documents it, reference the skill.
 - Only restate a rule if the project **overrides** the skill or the rule is unique to the project.
@@ -263,12 +377,12 @@ Follow these skills as the single source of truth for architecture and conventio
 
 ---
 
-### 3. `.agents/testing.md`
+### 4. `.agents/testing.md`
 Captures project-specific testing setup, runner commands, unique mock overrides, and coverage thresholds. Like conventions, **it is a thin pointer that must NOT duplicate general testing skills** (e.g. `writing-nextjs-vitest-tests`):
 
 ```markdown
 ---
-description: Load when writing, running, or mocking unit, integration, or E2E tests in the Next.js AI chat client.
+description: Load when writing, running, or mocking unit, integration, or E2E tests.
 applyTo: '**/*.test.ts, **/*.test.tsx, **/*.spec.ts, **/*.spec.tsx'
 ---
 
@@ -280,7 +394,7 @@ Follow these skills as the single source of truth for general testing patterns:
 - `tdd` & `test-driven-development` — Red-green-refactor loop before writing production code.
 - `playwright-skill` — End-to-end browser automation workflows.
 - `systematic-debugging` — Diagnosing test runner failures or flaky assertions.
-- `verification-before-completion` — Running test suites to verify passing behavior before finishing.
+- `verification-before-completion` — Running test suites to verify passing behaviour before finishing.
 
 ## 2. Project-Specific Test Setup & Commands
 - **Test Commands**: `pnpm test` (`vitest run`), `pnpm test:watch`, `pnpm test:coverage`.
@@ -296,12 +410,12 @@ Follow these skills as the single source of truth for general testing patterns:
 
 ---
 
-### 4. `.agents/design.md`
-Captures UI component architecture, styling conventions, layout boundaries, and design skills:
+### 5. `.agents/design.md`
+Captures UI component architecture, styling conventions, layout boundaries, and design skills. **Applicable ONLY when the project includes UI or frontend code. Omit this file entirely for backend services, APIs, CLI tools, daemon processes, and shared libraries.**
 
 ```markdown
 ---
-description: Load when creating or modifying UI components, pages, styling, or layouts in the Next.js AI chat client.
+description: Load when creating or modifying UI components, pages, styling, or layouts.
 applyTo: 'components/**/*.tsx, app/**/*.tsx, styles/**/*.css'
 ---
 
@@ -309,10 +423,10 @@ applyTo: 'components/**/*.tsx, app/**/*.tsx, styles/**/*.css'
 
 ## 1. Skills
 Follow these skills as the single source of truth for UI/UX patterns:
-- `ui-ux-pro-max` — Primary reference for UI/UX design intelligence (styles, responsive layouts, color palettes, dark mode, typography, and micro-interactions).
+- `ui-ux-pro-max` — Primary reference for UI/UX design intelligence (styles, responsive layouts, colour palettes, dark mode, typography, and micro-interactions).
 - `ui-component-decomposition` — Decomposing monolithic page templates into focused, testable, and reusable UI components.
 - `radix-ui-to-base-ui-migration` — Migrating UI primitives to `@base-ui/react` with Tailwind CSS v4.
-- `ui-design-language` — Standardizing component density, accessible contrast, iconography, and desktop/mobile navigation patterns.
+- `ui-design-language` — Standardising component density, accessible contrast, iconography, and desktop/mobile navigation patterns.
 
 ## 2. Project-Specific UI Architecture
 - **Component Directory Hierarchy**:
@@ -322,19 +436,19 @@ Follow these skills as the single source of truth for UI/UX patterns:
 - **Layout Shell Boundaries & Width Control**:
   - Layout files (`layout.tsx`) must remain unconstrained shells (rendering navigation, header, and viewport containers).
   - Do NOT hardcode `max-w-*` or `overflow-y-auto` into layout wrappers.
-  - Use `PageContainer` (`variant="default" | "narrow" | "wide" | "full" | "prose"`, `scrollable={true | false}`) inside page components to govern layout width and scroll behavior.
+  - Use `PageContainer` (`variant="default" | "narrow" | "wide" | "full" | "prose"`, `scrollable={true | false}`) inside page components to govern layout width and scroll behaviour.
 - **Client Hydration & Empty Store Guards**:
   - For client-side detail pages reading from client state stores, guard against initial empty hydration with loading spinners (`Loader2`) before invoking `notFound()`.
 
 ## 3. Styling & Responsive Design
-- **Tailwind CSS 4**: Utilize CSS variable theme tokens defined in the global stylesheet.
+- **Tailwind CSS 4**: Use CSS variable theme tokens defined in the global stylesheet.
 - **Dark Mode**: Maintain high-contrast accessible borders (`border-border`) and muted foreground hierarchy (`text-muted-foreground`).
 - **Responsive Adaptations**: Use drawers (`vaul` / `Sheet`) for mobile interactions and collapsible sidebars for desktop viewports.
 ```
 
 ---
 
-### 5. `.agents/plan.md`
+### 6. `.agents/plan.md`
 Captures planning standards, architectural guidelines, alternative approaches, engineering detail, high-level overview first, anti-bloat rules, and planning skills:
 
 ```markdown
@@ -382,7 +496,7 @@ When authoring an implementation plan, follow this standard structure:
 
 ### 4.3 Proposed Changes (File & Interface Breakdown)
 - Group changes logically (e.g., Config/Schema -> Backend/Lib -> Frontend/Components -> Tests).
-- Categorize touched files using `[NEW]`, `[MODIFY]`, or `[DELETE]`.
+- Categorise touched files using `[NEW]`, `[MODIFY]`, or `[DELETE]`.
 - State the **signature, invariant, and constraint** for each unit. Include a code block only where a reader would otherwise guess wrong: a wire format or schema validated by something stricter than TypeScript, a counter-intuitive constraint, or a literal boundary value. Boilerplate, imports, and straightforward control flow get a sentence, not a listing.
 - **Codebase Simplification**: Highlight any code or abstractions that are being deleted, consolidated, or retired as part of this implementation.
 
@@ -397,7 +511,7 @@ When authoring an implementation plan, follow this standard structure:
 ### 4.6 Verification Plan
 - **Automated Tests**: Exact commands to run targeted unit/integration tests (`pnpm test -- <path>`).
 - **Typecheck & Lint**: Verification commands (`pnpm check`, `pnpm lint`).
-- **Manual Verification**: Step-by-step checklist to test the behavior in the browser/client.
+- **Manual Verification**: Step-by-step checklist to test the behaviour in the browser/client.
 
 ## 5. Simplicity Guardrails
 - **The Simplicity Ladder**: Stop at the first rung that solves the problem (YAGNI -> stdlib -> native platform -> existing vetted dependency -> minimal concrete code).

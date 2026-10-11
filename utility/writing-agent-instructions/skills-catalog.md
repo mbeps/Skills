@@ -27,7 +27,7 @@ List of skills that are required to work on this project:
 - evaluation: MUST be used when evaluating
 - graphify: MUST be used when generating and updating codebase index/graph relationships and report
 - ponytail: MUST be used when writing code
-- using-checklists: MUST be used to organize tasks 
+- using-checklists: MUST be used to organise tasks 
 - tdd: MUST be used when practicing test-driven development
 ```
 
@@ -45,8 +45,8 @@ Include skills below only when the corresponding language, framework, database, 
 - `ui-ux-pro-max`: MUST be used when creating components, pages, styling, or UI/UX related tasks
 - `ui-component-decomposition`: MUST be used when auditing or identifying UI component extraction candidates
 - `radix-ui-to-base-ui-migration`: MUST be used when migrating UI components to Base UI
-- `ui-design-language`: MUST be used when standardizing component density, iconography, and navigation patterns
-- `structuring-nextjs-projects`: MUST be used when creating files, organizing code, or structuring Next.js projects (place in `.agents/conventions.md`)
+- `ui-design-language`: MUST be used when standardising component density, iconography, and navigation patterns
+- `structuring-nextjs-projects`: MUST be used when creating files, organising code, or structuring Next.js projects (place in `.agents/conventions.md`)
 - `centralised-routes`: MUST be used when designing or refactoring Next.js route definitions and typed URLs (place in `.agents/conventions.md`)
 
 ### Databases & Schemas
@@ -58,7 +58,7 @@ Include skills below only when the corresponding language, framework, database, 
 ### Authentication & Permissions
 - `better-auth-nextjs`: MUST be used when building or modifying Better Auth authentication
 - `clerk-nextjs`: MUST be used when building or modifying Clerk authentication
-- `access-control`: MUST be used when designing or implementing authorization, permissions, RBAC, or ABAC
+- `access-control`: MUST be used when designing or implementing authorisation, permissions, RBAC, or ABAC
 - `spring-boot-oauth`: MUST be used when configuring Spring Boot OAuth2 architectures
 
 ### Background Jobs & Workflows
@@ -95,6 +95,16 @@ Include skills below only when the corresponding language, framework, database, 
 - `requesting-code-review`: MUST be used when completing tasks or before merging
 - `using-git-worktrees`: MUST be used when isolating feature work in git worktrees
 - `finishing-a-development-branch`: MUST be used when completing implementation on a branch
+
+### Placement Rules for Modular `.agents/` Files
+Skills are distributed according to their functional role:
+- `AGENTS.md`: Core universal workflow skills and primary language skills.
+- `.agents/development.md`: Dev workflow skills (`writing-code`, `writing-plans`, `systematic-debugging`, `verification-before-completion`, `bug-fix`).
+- `.agents/project-details.md`: **None**. `project-details.md` is an architectural reference document capturing system invariants and mechanics. It does not declare workflow skills.
+- `.agents/conventions.md`: Architecture, structure, and language skills (`structuring-nextjs-projects`, `centralised-routes`, `mastering-typescript`, `drizzle-nextjs`).
+- `.agents/testing.md`: Test execution and runner skills (`writing-nextjs-vitest-tests`, `playwright-skill`, `tdd`).
+- `.agents/design.md`: UI/UX and styling skills (`ui-ux-pro-max`, `ui-design-language`, `ui-component-decomposition`).
+- `.agents/plan.md`: Planning and design evaluation skills (`writing-plans`, `ponytail`, `brainstorming`, `karpathy-guidelines`).
 
 ---
 
