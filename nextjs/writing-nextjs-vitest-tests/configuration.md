@@ -153,6 +153,29 @@ This works because jsdom does not implement `window.matchMedia`. The mock inspec
 - React 19 logs `console.warn` (React 18: `console.error`) for state updates outside `act` — wrap async work in `await act(async () => ...)`.
 - jsdom has no layout engine; offset/geometry reads return 0.
 
+### Nuqs Testing Adapter
+When components consume `useQueryState` from `nuqs`, Vitest tests outside Next.js will throw `[nuqs] nuqs requires an adapter` unless wrapped with `withNuqsTestingAdapter({ hasMemory: true })`:
+
+```typescript
+import { withNuqsTestingAdapter } from "nuqs/testing";
+
+beforeEach(() => {
+  withNuqsTestingAdapter({ hasMemory: true });
+});
+```
+
+### CSS Module Mocking
+When testing components that import CSS files (e.g. `katex/dist/katex.min.css`, `@blocknote/mantine/style.css`, `@blocknote/core/fonts/inter.css`), mock them to avoid PostCSS / JSDOM parsing crashes during test transformation:
+
+```typescript
+vi.mock("katex/dist/katex.min.css", () => ({ default: {} }));
+vi.mock("@blocknote/mantine/style.css", () => ({ default: {} }));
+vi.mock("@blocknote/core/fonts/inter.css", () => ({ default: {} }));
+```
+
+### Vitest `afterEach` Order Is Reverse
+Vitest's default `sequence.hooks` is `"stack"`, so `afterEach` hooks run in reverse registration order. RTL auto-cleanup registers first (at import), so a file's own `afterEach` runs BEFORE the React tree unmounts. Fix: call `cleanup()` from `@testing-library/react` FIRST, then tick. `cleanup()` is idempotent.
+
 ## TypeScript, Linter & IDE Integration
 
 Tests are transformed and executed by Vitest/Vite directly, not by `next build` or production linters. Exclude tests from production compilation and linting to avoid false failures and editor noise:

@@ -96,6 +96,13 @@ fireEvent.change(input, { target: { value: "jam" } });
 fireEvent.submit(screen.getByRole("form"), {
   target: { email: { value: "test@example.com" } },
 });
+
+// React Hook Form: handleSubmit passes SyntheticEvent as trailing arg.
+// expect(onSubmit).toHaveBeenCalledWith(...) matches ALL args including event.
+// Use destructuring or objectContaining instead:
+expect(onSubmit.mock.calls[0][0]).toEqual(expectedData);
+// or:
+expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining(expectedData));
 ```
 
 For async interactions (debounce, navigation), combine with fake timers (§1 of advanced-mocks.md):
@@ -131,6 +138,12 @@ Provider mocks are typically in `vitest.setup.tsx`. If a component needs specifi
 const { result } = render(<MyComponent />, { wrapper: TestWrapper });
 vi.mocked(useRouter).mockReturnValue({ push: mockPush, ... });
 ```
+
+### Radix Tooltip Provider Context
+Radix UI's `<Tooltip>` requires a `<TooltipProvider>` context in the component tree. Isolated unit/component tests rendering pages containing `<Tooltip>` must be wrapped in `<TooltipProvider>` in the test `render(...)`.
+
+### Nested TooltipProvider vs Test Boundaries
+Removing redundant `<TooltipProvider>` wrappers from leaf components is correct since root `app/layout.tsx` wraps the whole app. However, unit tests rendering these components outside `layout.tsx` in isolation will fail unless the test helper wraps the rendered component with `<TooltipProvider>`.
 
 ## Test Wrapper Pattern
 
@@ -317,3 +330,7 @@ await waitFor(() => {
 - Missing `beforeEach` cleanup — leftover mocks leak between tests
 - Not mocking child components that have side effects — causes import-time crashes
 - Testing implementation details (state shape, internal refs) instead of observable output
+- Sidebar User Footer: when testing Radix `DropdownMenu` inside `SidebarProvider`, ensure pointer-capture methods (`setPointerCapture`, `releasePointerCapture`, `hasPointerCapture`) and `scrollIntoView` are polyfilled in `beforeAll`.
+
+### Radix Leaked Focus Scope & Timer Hygiene
+When a test opens a Radix modal dropdown and finishes without closing it, unmounting triggers `@radix-ui/react-focus-scope`'s unmount handler, which queues an asynchronous macrotask to restore focus. When the next test begins, that queued `setTimeout` fires mid-interaction and dismisses the newly opened dropdown. Close dropdowns cleanly before test exit, or flush pending timers between tests.

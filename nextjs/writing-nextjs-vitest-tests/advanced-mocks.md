@@ -542,6 +542,42 @@ Rules:
 - `globalIgnores` (ESLint) and `files.includes` negative globs (Biome) exclude paths from ALL rules.
 - Consider whether you want linting on co-located tests (`lib/actions/**/*.test.ts`) — if so, do not glob-ignore them.
 
+## 12. Before-Mocking Grep
+Before mocking a collaborator to assert on its call args, grep that test file for assertions on the RESULTING value. A blanket `vi.mock` returning a stub string silently breaks sibling tests. Use `vi.mock(path, async (importOriginal) => ...)` wrapping the real export in a spy instead.
+
+## 13. expect.anything() Null Trap
+`expect.anything()` FAILS on `null` and `undefined`. For a call whose leading args are nullable prompts, destructure the specific arg out of `mock.calls[0]` and assert on that, rather than padding with `expect.anything()` or hardcoding `null`.
+
+## 14. DOM Anchor Download Spying in jsdom
+Spying on `document.createElement` causes `Maximum call stack size exceeded` when `document.createElement.bind(document)` re-captures previous spies across test boundaries. The robust pattern is spying on `HTMLAnchorElement.prototype.click` and inspecting `document.body.appendChild.mock.calls[0][0]`.
+
+## 15. Inngest createFunction Import-Time Crash
+`inngest.createFunction` is called at module import time, so any test that does `vi.mock("@/lib/inngest/client")` with a bare object breaks collection with `TypeError: inngest.createFunction is not a function`. Wrap the real module instead. Stub the outbound calls, never the client itself.
+
+## 16. Two-Act Split for Async Hooks
+Testing async hooks with `@testing-library/react`: calling `resolvePersist()` and `await p` inside the SAME `act(async () => ...)` can deadlock (React 19 act microtask scheduling). Split into two acts: flush sync part, then resolve + await in a second act.
+
+## 17. Never Mock Component Under Test
+Never mock the component under test to assert its own props — that tests React's `useState` semantics, not your code. Exercise the real component and change its inputs instead.
+
+## 18. useState First-Mount Seed Trap
+`useState(new Set(initialX))` only seeds on FIRST MOUNT, so any `initialX` derived from store-backed entities that hydrate asynchronously NEVER lands. Entity-inherited composer seeds need an explicit re-sync `useEffect` keyed on the seed value. Test it with a `rerender()` that changes the seed — a test that only passes the seed at first mount proves nothing.
+
+## 19. Required Env Var Needs Four Edits
+Adding a required env var needs FOUR edits, not two: `config/env.ts` schema + `runtimeEnv`, `.env.example`, **`vitest.setup.ts`**, and any test fixture holding a required-env object such as `baseRequiredServerEnv` in `__tests__/config/env.test.ts`.
+
+## 20. COVERAGE_DIR Caveat
+**`COVERAGE_DIR` alone does NOT redirect the report** — `vitest.config.ts` hardcodes `reportsDirectory: "coverage"`. Scoped verification must pass `--coverage.reportsDirectory=<dir>` AND set `COVERAGE_DIR` for the reader script.
+
+## 21. V8 Lundefined Branches
+**V8 emits an `if` branch with an EMPTY location `{}` for the implicit else (the guard's FALSE path).** `scripts/coverage-gaps.js` prints these as `Lundefined`. They are extremely common in `if (!res.ok) return null;` style guards and are closed by a test where the condition is false.
+
+## 22. Code Extraction Drops Coverage
+Moving code out of a covered function into a new module drops coverage hard. Extracting ~1000 lines relocated previously-exercised test coverage. Check `npm run test:coverage` after any extraction, not just `vitest run`.
+
+## 23. createObjectURL in jsdom Node 24
+In Node 24, jsdom's `createObjectURL` accesses `blob._buffer`, which is undefined on native Blobs, throwing unless mocked. When testing artifact export branches, terminate with `return` regardless of whether exporting succeeded or threw — this prevents both unwanted file downloads and CI runtime exceptions.
+
 ## Red Flags
 
 - Leaking `vi.useFakeTimers()` — every test after yours runs with fake timers
@@ -551,3 +587,8 @@ Rules:
 - Asserting CSS classes as primary assertion — classes change; roles/text are stable
 - Missing `NODE_ENV: "test"` in env mock — some code branches on it
 - Incomplete mock factory nesting — `undefined` crashes in mapper code
+- `expect.anything()` on nullable arguments — use destructured `mock.calls[0]` assertions
+- No before-mocking grep — blanket `vi.mock` returning stubs breaks sibling tests
+- Mocking the component under test instead of exercising real inputs
+- Assuming `useState` seeds on every render — it only seeds on first mount
+- Ignoring `Lundefined` V8 branches — they are the guard's false path, close with a falsy-condition test

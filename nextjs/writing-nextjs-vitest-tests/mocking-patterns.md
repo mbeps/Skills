@@ -387,3 +387,17 @@ vi.mock("convex/react", () => ({
   }),
 }));
 ```
+
+### Table-Matching Drizzle Mocks
+When testing server actions executing multiple parallel `db.select` queries across distinct tables in `Promise.all`, matching on the table identity inside `db.from(table)` decouples mock data resolution from execution order and prevents chained `.where()` mock queue exhaustion:
+
+```typescript
+chainable.from.mockImplementation(function (table) {
+  if (table === chatTable) return mockSelectWhereForChats;
+  if (table === messageTable) return mockSelectWhereForMessages;
+  return mockSelectWhere;
+});
+```
+
+### SDK Rename Trap (Vitest Module-Mock Lockstep)
+A `vi.mock("ai", ...)` factory missing a name the source imports fails at RUNTIME with `[vitest] No "isStepCount" export is defined on the "ai"` thrown from the mocked module access. After any SDK rename, grep tests for the old export name.
