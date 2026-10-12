@@ -34,9 +34,11 @@ Agent instructions govern AI agent behaviour through **tiered progressive disclo
 
 | Document | Purpose |
 |---|---|
-| `structure.md` | Section templates, contracts, and modular file layouts. |
-| `skills-catalog.md` | Universal and stack skills, placement rules, exclusions. |
-| `example.md` | Canonical examples of `AGENTS.md` and `.agents/*.md` files. |
+| `references/structure.md` | Section templates, contracts, and modular file layouts (index). |
+| ↳ `references/structure/*.md` | Decomposed specifications & templates (`overview-and-layout.md`, `agents-contract.md`, `taxonomy.md`, `development.md`, `project-details.md`, `conventions.md`, `testing.md`, `design.md`, `plan.md`). |
+| `references/skills-catalog.md` | Universal and stack skills, placement rules, exclusions. |
+| `references/example.md` | Canonical examples of `AGENTS.md` and `.agents/*.md` files (index). |
+| ↳ `references/examples/*.md` | Decomposed worked examples (`agents.md`, `development.md`, `project-details.md`, `conventions.md`, `testing.md`, `design.md`, `plan.md`). |
 
 ## Mandatory Operational Rules
 
@@ -51,7 +53,7 @@ Agent instructions govern AI agent behaviour through **tiered progressive disclo
 
 1. **Identify Scope**: Full suite setup or specific target file (`AGENTS.md`, `.agents/*.md`).
 2. **Inspect Stack**: Identify language, framework, test runner, build system, and UI presence.
-3. **Draft Target File(s)**: Apply templates from `structure.md` and skills from `skills-catalog.md`. Detect real verification commands from repository.
+3. **Draft Target File(s)**: Apply templates from `references/structure.md` (or the targeted file in `references/structure/`) and skills from `references/skills-catalog.md`. Consult corresponding worked examples in `references/examples/` (or `references/example.md`). Detect real verification commands from repository.
 4. **Synchronise Resources**: Register all `.agents/*.md` files with descriptive triggers under `# Resources` in `AGENTS.md`.
 5. **Review Contract**: Verify relative paths, doc links in `# Tech Stack`, and zero prohibited skills.
 
