@@ -92,5 +92,6 @@ components/
     [domain]-status-badge.tsx     # Semantic pill chip badge
 ```
 
-- Query parameter state (filtering, search, page, sorting) must be managed via `nuqs` (see `nuqs` pattern in `SKILL.md`).
+- Query parameter state (filtering, search, page, sorting) must be managed via `nuqs` (see `nuqs` pattern in [URL State Management](examples/url-state-nuqs.md)).
 - Formatting utilities for dates and numbers belong in `lib/formatters/` (e.g. `lib/formatters/date.ts`, `lib/formatters/currency.ts`).
+
