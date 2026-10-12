@@ -123,6 +123,7 @@ applyTo: '**/*'
 ---
 
 # Development Instructions & Operational Guidelines
+Guidlines and instructions in this file MUST be followed.
 
 ## 1. Skills
 Follow these skills as the single source of truth for development workflows:
@@ -136,14 +137,17 @@ Follow these skills as the single source of truth for development workflows:
 - **Plan Before Implementing**: Always plan before implementing unless the change is completely trivial.
 - **Document Codebase & Changes**: Document code purposefully, explaining WHY rather than WHAT.
 - **Enforce Quality Gates**: Code must pass building (`npm run build`), linting/formatting checks (`npm run lint`), type checks, and testing before completion.
+- **Manual Audit**: Evaluate quality, accuracy, completeness, consistency of implementation against codebase guidelines and requirements. Make necessary adjustments if any.
 - **Git & Version Control Safety**: You must NEVER commit, stage, push, or stash with Git. The developer is in charge of managing version control (Git and GitHub). You may only execute read-only Git commands that have no side effects (e.g. `status`, `log`, `diff`).
 - **Local Development Runtime**: You must use Podman to run Docker containers (Postgres, MinIO, etc.) for local development. Do NOT use Docker.
+- **Updated README:** Update README.md if necessary.
+
 
 ## 3. Verification
 Codebase must pass verifications below:
+- `npm run lint` - Use `lint:fix` if there are errors and fix any that are not fixed automatically.
 - `npm run build`
-- `npm run lint`
-- `npm run test`
+- `npm run test:coverage` - Tests must pass and coverage threashold must be met.
 ```
 
 ---
@@ -192,6 +196,7 @@ applyTo: '**/*.ts, **/*.js, **/*.tsx, **/*.jsx'
 ---
 
 # Codebase Conventions & Style Guide
+All conventions and guidelines in this file MUST be followed.
 
 ## 1. Repository & Directory Structure
 ### 1.1 Directory Layout
@@ -347,6 +352,7 @@ Plans in this repository are written directly for engineers. They must respect t
 - **Codebase Simplification Opportunities**: Actively evaluate whether the changes can simplify the existing codebase—look for opportunities to delete redundant code, collapse unnecessary indirections, consolidate duplicate utilities, or retire obsolete abstractions.
 - **Anti-Bloat & Zero Fluff**: Plans must not be bloated or unnecessarily lengthy. Strip out tutorial-like prose, obvious explanations of standard framework mechanics, and generic boilerplate — in both directions: tutorial filler, and full implementations pasted in place of a clear specification.
 - **Avoid Overcomplication**: Reject speculative configurability, premature factories, or multi-layered indirections. The best design solves the stated problem with the fewest files and simplest construct.
+- **Follow Conventions**: Plans MUST follow codeabase conventions and guidelines. 
 
 ## 3. Alternative Approaches & Justification
 Every non-trivial design or plan must document alternative approaches evaluated:

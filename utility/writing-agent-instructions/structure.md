@@ -251,13 +251,14 @@ Follow these skills as the single source of truth for development workflows:
 - **Plan Before Implementing**: Always plan before implementing unless the change is completely trivial.
 - **Document Codebase & Changes**: Document code purposefully, explaining WHY rather than WHAT.
 - **Enforce Quality Gates**: Code must pass build, lint, typecheck, and test commands before completion.
+- **Manual Audit**: Evaluate quality, accuracy, completeness, consistency of implementation against codebase guidelines and requirements. Make necessary adjustments if any.
 - **Git & Version Control Safety**: Agents must NEVER commit, stage, push, or stash with Git. The developer manages version control. Only read-only Git commands (`status`, `log`, `diff`) are permitted.
 
 ## 3. Verification
 Codebase must pass verifications below:
-- `<detected-build-command>`
+- `<detected-build-command>` - Use `lint:fix` if there are errors and fix any that are not fixed automatically.
 - `<detected-lint-command>`
-- `<detected-test-command>`
+- `<detected-test-command>` - Tests must pass and coverage threshold must be met.
 
 <!-- Optional sections below: include ONLY when the project has non-trivial constraints -->
 <!--
@@ -327,6 +328,7 @@ applyTo: '**/*.ts, **/*.tsx, **/*.js, **/*.jsx'
 ---
 
 # Codebase Conventions & Style Guide
+All conventions and guidelines in this file MUST be followed.
 
 ## 1. Skills
 Follow these skills as the single source of truth for architecture and conventions:
