@@ -1,108 +1,107 @@
 # Over-Abstraction Audit Module
 
-Identifies unnecessary layers, complex design patterns used for simple tasks, and abstractions that obscure logic without functional benefit.
+Identifies shallow layers, trivial wrappers, anticipatory abstractions, and excessive fragmentation that obscure code flow and increase cognitive load without functional benefit.
+
+For comprehensive catalogs and diagnostic metrics, see [Code Smells Matrix](references/code-smells-matrix.md) and [Complexity & Hotspots Reference](references/complexity-and-hotspots.md).
 
 ## When to Use
 
 Use this module when you need to:
-- Identify "shallow" abstraction layers adding no functional value
-- Find "Interfaces for One"—interfaces with only a single implementation
-- Detect "Lasagna Code"—excessive layering without data transformation
-- Flag logic fragmented across too many files, making execution hard to follow
-- Assess if decoupling mechanisms provide genuine value or just increase cognitive load
-- Evaluate whether an abstraction truly reduces duplication or merely adds complexity
+- Audit codebases for shallow abstraction layers and trivial passthrough wrappers
+- Detect "Interfaces for One"—interfaces or abstract classes with only a single implementation
+- Identify Lasagna Code—excessive layering where data passes through unchanged
+- Flag excessive granularity and micro-file explosion (over-decomposition)
+- Spot speculative infrastructure schema debt (premature multi-tenancy, unused plugin hooks)
+- Identify micro-tool and micro-endpoint catalog sprawl
+- Detect over-abstracted presentational UI wrappers
+- Measure Indirection Debt and Cognitive Load along critical execution paths
 
-## Key Concepts
+## Key Analysis Areas
 
-### Cognitive Load
-Does the abstraction make the logic harder to find or follow? Can a developer understand the flow without reading multiple files?
+### 1. Trivial Passthrough Wrappers
+1–2 line functions, adapter classes, or facade methods that do nothing except forward parameters to another underlying function with zero validation, mutation, or error translation. Adds execution hops without adding value.
 
-### Indirection Tracing
-Count the files a single data point touches before being processed. Higher indirection = higher complexity.
+### 2. Interfaces for One
+Interfaces or abstract base classes that have exactly one concrete implementation in the entire codebase, with no polymorphism, no swappable driver requirements, and no distinct test mock needs.
 
-### Rule of Three
-Abstraction should generally be justified by at least three distinct use cases.
+### 3. Lasagna Code & Indirection Debt
+Excessive vertical layering where a simple request traverses $\ge 4$ distinct layers (e.g. Controller → Interceptor → Manager → Service → Repository → DAO) without data modification.
 
-### YAGNI Principle
-Does the abstraction support an actual, present requirement or is it speculative future-proofing?
+### 4. Excessive Granularity & Micro-File Explosion
+Over-decomposition where a coherent 150-line domain feature is fragmented into 15 isolated 10-line files across nested directories. Increases cognitive overhead as engineers must maintain dozens of open tabs to follow a single sequence.
 
-### Open-Closed Principle
-Balance between being "closed for modification" and not over-engineering for unlikely changes.
+### 5. Speculative Infrastructure Schema Debt
+Anticipatory architecture designed for hypothetical future scale—such as multi-tenant organization IDs, distributed event sourcing tables, or dynamic plugin registries—in an application that currently serves a single tenant with static requirements.
 
-## Analysis Approach
+### 6. Micro-Tool & Micro-Endpoint Catalog Sprawl
+Creating dozens of hyper-specialized, single-parameter endpoints or MCP tools (e.g. `get_user_name`, `get_user_email`, `get_user_phone`) instead of a cohesive, structured query interface, leading to context bloat and selection fatigue.
 
-### Trace Paths
-Identify sequences of files/classes involved in processing a single request or data transformation.
+### 7. Over-Abstracted Presentational & Typography Wrappers
+Creating bespoke React/Vue wrappers around native HTML tags (e.g. `<TextSpan>`, `<ParagraphContainer>`) that merely forward `children` and `className` without encapsulating design tokens or accessibility behaviour.
 
-### Inheritance Trees
-Evaluate whether inheritance hierarchies provide organisation or just add layers.
+---
 
-### Shallow Implementations
-Flag interfaces or abstract classes where the concrete implementation adds trivial logic.
+## Quality Principles
 
-### Data Flow Obscuring
-Find cases where simple operations require jumping between multiple files and abstractions.
+- **YAGNI (You Ain't Gonna Need It)** – Build abstractions for proven present requirements, not speculative future permutations.
+- **Rule of Three** – An abstraction should typically be justified by at least three concrete, distinct call sites or polymorphic implementations.
+- **Cognitive Proximity** – Code that changes together should live together; do not fragment tightly bound logic across disparate files.
+- **Preserve Legitimate Abstractions** – Distinguish between shallow wrappers and legitimate domain boundaries (e.g. external payment gateway insulation, security authorization gates).
 
-### Debate & Consensus
-Distinguish between "genuinely unnecessary" and "framework-required" patterns.
+---
 
 ## What This Module Does NOT Do
 
-- Does not suggest flattening code if it results in duplication
-- Does not flag standard patterns required by specific frameworks (Controllers/Services in Spring/NestJS)
-- Does not rewrite or refactor any code
-- Does not use subjective language—relies on concrete evidence and design principles
+- Does not suggest collapsing abstractions if it creates code duplication (violating DRY)
+- Does not flag standard layers required by frameworks (e.g. NestJS controllers/services, Spring repositories)
+- Does not modify or inline code
+- Does not penalize deliberate hexagonal or clean architecture boundaries when properly justified by domain complexity
+
+---
 
 ## Report Structure
 
 Each finding includes:
 
-- **Finding Name/Design Pattern** – Clear description of the over-abstraction
-- **Status** – Confirmed Over-abstraction / Subjective / Framework Required
-- **Trace Path** – Sequential list of files/classes involved in the indirection
-- **Complexity Justification** – Concrete evidence of why this layer is unnecessary
-- **Logic Fragmentation** – How the execution flow is obscured
-- **Simplification Suggestion** – Guidance on flattening or consolidating logic
-- **Impact Assessment** – How this change improves readability without sacrificing centralisation
+- **Finding Name & Pattern** – Clear title of the over-abstraction pattern
+- **Status** – Confirmed Over-Abstraction / Speculative Architecture / Excessive Granularity
+- **Indirection Trace Path** – Sequential list of files and hops involved in the call path
+- **Complexity Justification** – Concrete metrics (hop count, LOC, pass-through ratio) proving lack of utility
+- **Diagnostic Simplification** – Target architecture recommendation (e.g. inline wrapper, consolidate micro-files)
+- **Impact** – Measurable reduction in indirection depth and cognitive load
+
+---
 
 ## Example Findings
 
-**Example 1: Shallow Adapter Pattern**
-- Status: Confirmed Over-abstraction
-- Trace Path: `UserController` → `UserServiceAdapter` → `UserService` → `UserRepository`
-- Complexity Justification: `UserServiceAdapter` is empty pass-through; adds no logic or translation
-- Logic Fragmentation: Developer must trace through four files to understand basic user retrieval
-- Simplification Suggestion: Remove adapter; call `UserService` directly from controller
-- Impact: Eliminates one layer; reduces cognitive load without losing centralisation
+**Example 1: Trivial Passthrough Wrapper Over-Abstraction**
+- **Pattern**: `UserServiceAdapter` Passthrough Layer
+- **Status**: Confirmed Over-Abstraction
+- **Indirection Trace Path**: `UserController` (line 34) → `UserServiceAdapter` (line 12) → `UserService` (line 45) → ORM
+- **Complexity Justification**: `UserServiceAdapter.getUserById(id)` merely executes `return this.userService.getUserById(id)`. Contains 0 lines of transformation or validation across all 8 methods.
+- **Diagnostic Simplification**: Remove `UserServiceAdapter`; inject `UserService` directly into `UserController`.
+- **Impact**: Eliminates 1 intermediary hop, deletes 65 lines of dead wrapper code, simplifies stack traces.
 
-**Example 2: Interface for One Implementation**
-- Status: Confirmed Over-abstraction
-- Trace Path: `PaymentService` implements `IPaymentService` (no other implementations)
-- Complexity Justification: No actual decoupling achieved; no alternative implementations exist or are planned
-- Logic Fragmentation: Developers must find the interface definition, then locate the single implementation
-- Simplification Suggestion: Remove interface; use concrete class directly
-- Impact: Reduces cognitive load; preserves all functionality
+**Example 2: Excessive Granularity (Micro-File Explosion)**
+- **Pattern**: Hyper-Fragmented String Utilities
+- **Status**: Excessive Granularity
+- **Indirection Trace Path**: `src/utils/strings/capitalize.ts`, `src/utils/strings/lowercase.ts`, `src/utils/strings/trim.ts`, `src/utils/strings/index.ts`
+- **Complexity Justification**: 6 individual files each containing a 2-line standard JavaScript string method wrapper. Navigating between them creates mental friction.
+- **Diagnostic Simplification**: Consolidate into a single cohesive `src/utils/strings.ts` module.
+- **Impact**: Reduces file count by 5; keeps related string operations in a single readable module.
 
-**Example 3: Over-Engineered Factory**
-- Status: Subjective Design Choice: Requires Senior Review
-- Trace Path: `UserFactory` → `UserBuilder` → `User` constructor
-- Complexity Justification: Factory creates simple objects with standard properties; builder is rarely used
-- Logic Fragmentation: Object creation spread across three files
-- Simplification Suggestion: Use direct constructor calls for simple cases; keep builder only if actually used elsewhere
-- Impact: Depends on usage patterns; requires team discussion
+---
 
 ## Example Invocation
 
 ```
-Analyse [PROJECT_PATH] for over-abstraction and unnecessary indirection.
-Identify:
-- Shallow abstraction layers with no functional logic
-- Interfaces with single implementations
-- Excessive layering (Lasagna Code)
-- Decoupling mechanisms that add complexity without clear benefit
-- Logic fragmented across too many files
+Analyse [PROJECT_PATH] for over-abstraction, trivial passthrough wrappers, and excessive indirection.
+Audit:
+- Shallow pass-through wrappers that merely forward parameters
+- Interfaces with only a single implementation (Interfaces for One)
+- High indirection call stacks (hops >= 5)
+- Micro-file explosion and excessive folder fragmentation
+- Speculative multi-tenancy or unused plugin infrastructure
 
-For each finding, trace the data flow and assess cognitive load.
-Provide simplification suggestions that preserve DRY principles.
-Flag patterns that are framework-required versus genuinely unnecessary.
+Trace execution paths and calculate indirection debt for each finding.
 ```

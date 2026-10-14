@@ -1,94 +1,106 @@
 # Dead Code Analysis Module
 
-Identifies unreachable, unused, and redundant code that can be safely removed to reduce technical debt.
+Identifies unreachable logic, unused exports, zombie code, phantom event dispatchers, and obsolete migration assets that add maintenance overhead and obscure codebase navigability.
+
+For complete smell mappings and diagnostic criteria, see [Code Smells Matrix](references/code-smells-matrix.md).
 
 ## When to Use
 
 Use this module when you need to:
-- Trace from entry points to find unreachable logic
-- Identify unused variables, imports, private methods, and classes
-- Find public functions never consumed within the codebase
-- Locate "zombie code"—syntactically correct but functionally obsolete logic
-- Assess removal safety by identifying side effects
+- Trace execution graphs from primary entry points to find unreachable functions and branches
+- Identify unused public exports, classes, and types across the repository (Export Minimization)
+- Locate "zombie code"—syntactically valid logic whose triggers, routes, or callers have been removed
+- Detect phantom event dispatching—events emitted with zero registered listeners
+- Identify obsolete ephemeral migration assets and one-off backfill scripts
+- Flag speculative domain model bloat and dead type definitions
+- Assess side effects and verify safety prior to dead code pruning
 
-## Analysis Approach
+## Key Analysis Areas
 
-### Entry Point Tracing
-Analyse call graphs from primary entry points (main, index, API routes) to identify unreachable code.
+### 1. Entry Point Tracing & Unreachable Logic
+Traverse call graphs starting from primary entry points (API route handlers, CLI commands, HTTP server bootstrap, main entry). Detect functions, methods, or blocks with zero inbound references.
 
-### Unused Detection
-Find variables, imports, private methods, and classes with no references.
+### 2. Unused Public Exports (Export Minimization)
+Files exporting functions, classes, constants, or types that are never imported anywhere within the repository.
+- Distinguish between application internal modules (where unused exports are dead code) and published library packages intended for external consumers.
 
-### Zombie Code
-Logic that is syntactically valid but functionally obsolete—its triggers or dependencies have been removed.
+### 3. Phantom Event Dispatching
+Producers broadcasting events via EventEmitter, Redis Pub/Sub, or Webhook dispatches where zero consumers or event handlers listen for the event name. Generates misleading logs, unnecessary serialization overhead, and false maintenance assumptions.
 
-### Side Effect Assessment
-Determine if code has global state changes, I/O operations, or other side effects that complicate safe removal.
+### 4. Zombie Code
+Code that is syntactically correct and fully compiled, but functionally inert because its triggering condition (e.g. a removed feature flag, deprecated API version, or retired payment provider) can never evaluate to true.
 
-### Verification
-Confirm code is truly dead rather than rarely used or dynamically invoked, ensuring findings are accurate.
+### 5. Speculative Domain Model Bloat (Anticipatory Dead Types)
+Complex TypeScript interfaces, union types, or database entity models defined for hypothetical future features that have no corresponding production runtime usage.
 
-## Quality Criteria
+### 6. Zombie Migration Scripts & Ephemeral Assets
+One-off schema migration backfills, CSV import bridges, or data sanitization scripts left permanently in `scripts/` or `migrations/` long after production execution.
 
-- Do not flag code used in dynamic calls (reflection, string-based lookups) unless proven dead
-- Do not flag boilerplate required by frameworks or external APIs
-- Do not flag code in public-facing libraries meant for external consumption
-- Distinguish between "Dead Code" (unreachable) and "Redundant Code" (executed but produces no effect)
+### 7. Side Effect Assessment
+Audit candidate code for side effects (e.g. self-executing module-level expressions, global variable mutations, dynamic reflection calls, telemetry beacons) to evaluate whether removal is 100% safe.
+
+---
+
+## Quality Principles
+
+- **Trace Before Calling Dead** – Inspect dynamic invocation patterns (reflection, string-keyed property access, dependency injection containers) before declaring a symbol dead.
+- **Library vs Application Distinction** – Only flag public exports as dead if the repository is an application, not a shared reusable package.
+- **Side-Effect Verification** – Ensure candidate symbols do not perform global module-level side effects on import.
+
+---
 
 ## What This Module Does NOT Do
 
-- Does not suggest removal of code used in dynamic invocation
-- Does not flag framework-required boilerplate
-- Does not flag code in public APIs or external libraries
-- Does not modify or delete any code
-- Does not consider comments or documentation as usage
+- Does not delete or comment out code
+- Does not flag framework-required entrypoints (e.g. Next.js page components, framework lifecycles)
+- Does not flag exports in designated public library SDKs
+- Does not treat commented-out notes as active code
+
+---
 
 ## Report Structure
 
 Each finding includes:
 
-- **Finding Name/Identifier** – Clear description of the dead code
-- **Location** – File path, line numbers, export name
-- **Category** – Unreachable Logic / Unused Variable / Zombie Code / Unused Export
-- **Justification** – Why this is considered dead (e.g. "No inbound references", "Unreachable after line X")
-- **Side Effect Assessment** – Potential risks or global state impacts if removed
-- **Consensus Status** – Confirmed / Potentially Dead / Ambiguous
+- **Identifier / Symbol Name** – Function, variable, export, or script name
+- **Location** – File path and line numbers
+- **Dead Code Category** – Unreachable Logic / Unused Export / Phantom Event / Zombie Code / Ephemeral Migration Asset / Speculative Type Bloat
+- **Justification & Trace** – Evidence proving absence of callers or subscribers
+- **Side Effect Assessment** – Analysis of module initialization or runtime side effects
+- **Consensus Status** – Confirmed / Potentially Dead / Dynamic Ambiguity
+
+---
 
 ## Example Findings
 
-**Example 1: Unreachable Legacy Function**
-- Location: `src/services/PaymentService.ts`, lines 234–256
-- Category: Unreachable Logic
-- Justification: Function `processLegacyPayment()` is private and has zero inbound references; unused after refactor (commit abc123)
-- Side Effect Assessment: No global state or I/O; safe to remove
-- Consensus Status: Confirmed
+**Example 1: Phantom Event Dispatching**
+- **Identifier**: `OrderRefundedEvent`
+- **Location**: `src/services/RefundService.ts`, line 64
+- **Dead Code Category**: Phantom Event
+- **Justification**: `eventEmitter.emit('order.refunded', payload)` is executed on refund completion. Repository-wide search confirms 0 active listeners (`on('order.refunded')` or `once('order.refunded')`) exist anywhere in the codebase.
+- **Side Effect Assessment**: In-memory event emission with no registered listeners produces zero state change; safe to remove.
+- **Consensus Status**: Confirmed
 
-**Example 2: Unused Import**
-- Location: `src/controllers/UserController.ts`, line 3
-- Category: Unused Variable
-- Justification: `import { deprecatedValidator }` imported but never referenced in file
-- Side Effect Assessment: No side effects
-- Consensus Status: Confirmed
+**Example 2: Unused Public Domain Models (Speculative Type Bloat)**
+- **Identifier**: `IOrganizationHierarchy`, `OrganizationTierEnum`
+- **Location**: `src/types/organizations.ts`, lines 15–48
+- **Dead Code Category**: Speculative Type Bloat
+- **Justification**: 6 complex interfaces and 2 enums defined for hierarchical multi-tenancy. AST grep reveals zero imports or references across all source and test files.
+- **Side Effect Assessment**: Pure TypeScript type definitions; zero runtime footprint.
+- **Consensus Status**: Confirmed
 
-**Example 3: Zombie Code**
-- Location: `src/handlers/webhook-handler.ts`, lines 78–95
-- Category: Zombie Code
-- Justification: Code waits for `event.deprecated_flag` which was removed in v2.0 (ref: CHANGELOG); trigger can never fire
-- Side Effect Assessment: Logs to console; no I/O or state changes
-- Consensus Status: Confirmed
+---
 
 ## Example Invocation
 
 ```
-Analyse [PROJECT_PATH] to identify unreachable, unused, and redundant code.
-Trace from entry points to find unreachable logic.
-Identify unused variables, imports, private methods, and classes.
-For each finding, provide:
-- Location (file path, line numbers)
-- Category classification
-- Clear justification with evidence
-- Side effect assessment
-- Consensus status
+Audit [PROJECT_PATH] for dead code, unused exports, and obsolete assets.
+Identify:
+- Unused public exports across all modules
+- Unreachable logic and zombie functions
+- Phantom event emissions with no subscribers
+- Ephemeral migration scripts left in the repository
+- Speculative types and interfaces with zero production usage
 
-Facility debate to confirm dead code before reporting.
+Assess side effects for each candidate and provide specific file paths and line numbers.
 ```

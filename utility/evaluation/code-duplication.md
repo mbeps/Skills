@@ -1,92 +1,110 @@
 # Code Duplication Module
 
-Rigorously identifies code duplication, structural redundancy, and missed reuse opportunities across the codebase.
+Rigorously identifies exact duplications, structural clones, declarative schema redundancies, and missed reuse opportunities across the codebase.
+
+For diagnostic taxonomies and smell mappings, see [Code Smells Matrix](references/code-smells-matrix.md).
 
 ## When to Use
 
 Use this module when you need to:
-- Find exact, line-for-line code duplications
-- Identify similar code blocks that can be parameterised into a single function
-- Spot instances where an existing shared function is ignored in favour of duplicate logic
-- Locate repeated logical patterns or workflows that should be extracted
-- Understand redundancy impact on maintainability
+- Detect exact, line-for-line duplicated code blocks across files
+- Identify semantic clones that use different variable names or formatting but identical control flow
+- Spot declarative schema and model duplication across database entities (ORM tables, DTOs)
+- Locate scattered inline variations where common transformations are re-implemented ad-hoc
+- Detect competing engine duplications where multiple libraries perform identical responsibilities
+- Identify call-site guard redundancy and fragmented low-level micro-routines
+- Evaluate whether extraction improves maintainability or creates undesirable coupling
 
-## Analysis Approach
+## Analysis Categories
 
-### Exact Match Detection
-Identify identical code blocks, possibly with renamed variables or whitespace changes.
+### 1. Exact Clones
+Identical blocks of code ($\ge 6$ lines) repeated in multiple locations, differing at most in whitespace or variable names.
 
-### Functional Similarity
-Find code with different syntax or naming but identical underlying logic and data flow.
+### 2. Functional & Semantic Clones
+Code blocks with different syntax, order, or identifiers that accomplish identical underlying business logic and state transitions. Evaluated via Abstract Syntax Tree (AST) comparison.
 
-### Ignored Shared Utilities
-Cases where an existing shared function is available but new duplicate logic is written instead.
+### 3. Declarative Model & Schema Duplication (Group-Level Clones)
+Repeated identical column definitions, foreign key references, or audit timestamp declarations across database ORM schemas (Drizzle, Prisma, TypeORM, SQLAlchemy) or API DTOs.
+- *Diagnostic Target*: Tables repeating identical ID, tenant, and timestamp column declarations instead of composable schema helpers.
 
-### Pattern Extraction Opportunities
-Identify repeated workflows or logical sequences that should be centralised.
+### 4. Scattered Inline Variations (Ad-Hoc Transformations)
+Ad-hoc, one-off variations of parsing, string manipulation, or currency/date formatting written directly inside UI components or API handlers instead of calling a centralised domain utility.
 
-### Semantic Equivalence
-Analyse Abstract Syntax Trees (AST) to find disguised duplications that look different but do the same work.
+### 5. Competing Engine Duplication
+Multiple libraries performing the exact same technical task present in the repository (e.g. `date-fns` and `dayjs`, `marked` and `markdown-it`, `axios` and native `fetch`). Results in bundle bloat and divergent runtime behaviour.
 
-## Quality Criteria
+### 6. Ignored Shared Utilities
+Writing custom duplicate logic when an existing, tested utility function is already present in the shared library or dependencies.
 
-- Extract duplications only if they improve maintainability without introducing tight coupling
-- Distinguish between necessary boilerplate (e.g. standard interfaces, basic getters) and true duplication
-- Evaluate if abstracting the duplication violates Single Responsibility Principle
-- Consider if extracted code genuinely benefits from centralisation
+### 7. Call-Site Guard Redundancy
+Defensive precondition checks (null validation, permission asserts, bound checks) repeated identically at every call site rather than consolidated at the boundary guard or function entry.
+
+---
+
+## Quality Principles
+
+- **DRY with Context** – Eliminate duplication when it represents a single, shared business concept. Do not force code sharing between disparate business domains that evolve independently.
+- **Rule of Three** – Require at least three occurrences before flagging an abstraction opportunity unless the logic is complex or security-sensitive.
+- **Single Responsibility Preservation** – Ensure proposed consolidations do not create tightly coupled, monolithic helper functions.
+
+---
 
 ## What This Module Does NOT Do
 
-- Does not write refactored code or new shared functions
-- Does not flag boilerplate as duplication
-- Does not suggest over-abstractions that harm readability
-- Does not report similar code that serves fundamentally different purposes
-- Does not count commented-out or dead code as duplication
+- Does not rewrite or refactor code
+- Does not flag standard framework boilerplate (e.g. controller decorators, route parameters) as duplication
+- Does not count dead or commented-out code as active duplication
+- Does not recommend sharing code between modules that have fundamentally different rates of change
+
+---
 
 ## Report Structure
 
 Each finding includes:
 
-- **Duplication Name/Logic Pattern** – Clear description of the duplicated logic
-- **Status** – Confirmed / Disputed Duplication
-- **Type** – Exact Match / Functional Similarity / Ignored Shared Utility / Pattern
-- **Locations** – File paths and line numbers for each occurrence
-- **Explanation** – Why the duplication is redundant and its architectural impact
-- **Proposed Extraction** – High-level suggestion for a shared function or parameterised utility
-- **Impact** – Estimated lines saved and benefit to maintainability
+- **Duplication Pattern Name** – Clear title referencing the clone type
+- **Classification** – Exact Clone / Semantic Clone / Declarative Schema Duplication / Competing Engine / Scattered Inline Variation
+- **Locations** – File paths and line numbers for all occurrences
+- **Explanation** – Concrete rationale detailing how the logic overlaps and the maintenance liability
+- **Proposed Simplification** – High-level extraction recommendation (e.g. composable schema mixin, canonical domain facade)
+- **Impact** – Estimated lines of code saved and maintainability improvement
+
+---
 
 ## Example Findings
 
-**Example 1: Duplicated Validation Logic**
-- Status: Confirmed Duplication
-- Type: Exact Match
-- Locations:
-  - `src/services/UserService.ts` (lines 45–60)
-  - `src/services/AdminService.ts` (lines 32–47)
-- Explanation: Identical email validation logic appears in two services
-- Proposed Extraction: Create `ValidationUtils.validateEmail()` shared utility
-- Impact: Saves ~15 lines of code; centralises validation rules
+**Example 1: Declarative Schema Duplication Across ORM Entities**
+- **Classification**: Declarative Schema Duplication
+- **Locations**:
+  - `src/db/schema/projects.ts` (lines 8–18)
+  - `src/db/schema/documents.ts` (lines 10–20)
+  - `src/db/schema/comments.ts` (lines 7–17)
+- **Explanation**: All 3 tables duplicate identical primary key UUID generation, foreign key tenant references, and `createdAt`/`updatedAt` timestamp column definitions.
+- **Proposed Simplification**: Extract composable schema helper functions (`entityIdColumn()`, `tenantForeignKeyColumn()`, `timestampColumns()`).
+- **Impact**: Removes ~30 lines of boilerplate; guarantees identical migration snapshots across all entities.
 
-**Example 2: Overlooked Shared Function**
-- Status: Confirmed Duplication
-- Type: Ignored Shared Utility
-- Locations:
-  - `src/handlers/order-handler.ts` (lines 88–110) – new custom implementation
-  - `src/utils/formatting.ts` (line 45) – existing `formatCurrency()` already available
-- Explanation: Custom currency formatting logic duplicates existing utility
-- Proposed Extraction: Use existing `formatCurrency()`; remove custom logic
-- Impact: Eliminates 25 lines; standardises formatting across codebase
+**Example 2: Competing Markdown Engines**
+- **Classification**: Competing Engine Duplication
+- **Locations**:
+  - `package.json` (`marked@^9.0.0` and `markdown-it@^13.0.0`)
+  - `src/components/MarkdownViewer.tsx` (uses `marked`)
+  - `src/services/DocumentationParser.ts` (uses `markdown-it`)
+- **Explanation**: Two distinct markdown rendering engines installed and used simultaneously. Increases bundle size by ~45 KB and causes rendering discrepancies (different footnote and table extension support).
+- **Proposed Simplification**: Standardise on a single markdown engine via a unified parser wrapper.
+- **Impact**: Cuts bundle size; harmonizes content rendering behaviour across UI and server.
+
+---
 
 ## Example Invocation
 
 ```
-Identify all code duplication in [PROJECT_PATH].
-Cross-reference modules for overlapping logic.
-Analyse semantic equivalence (beyond exact text matches).
-For each duplication, provide:
-- Specific file paths and line numbers
-- Classification (Exact Match / Functional Similarity / Ignored Utility)
-- Rationale for extraction and estimated impact
+Identify code duplication and clone patterns in [PROJECT_PATH].
+Cross-reference modules for:
+- Exact line-for-line clones across files
+- Declarative schema/model duplication across ORM tables
+- Scattered inline variations of formatting/parsing routines
+- Competing engine duplications in dependencies
+- Redundant call-site guards
 
-Verify duplications to ensure accuracy before reporting.
+Provide file paths, line numbers, clone classification, and estimated lines saved.
 ```

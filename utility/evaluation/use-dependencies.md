@@ -1,129 +1,107 @@
 # Dependency Usage Module
 
-Identifies custom-written logic that replicates functionality already available in project dependencies or reputable external libraries. Focuses on code reduction while maintaining functional parity.
+Identifies opportunities to reduce custom boilerplate by leveraging existing project dependencies and modern standard libraries, while auditing for dependency bloat, micro-package drag, and toolchain sprawl.
+
+For diagnostic taxonomies and smell mappings, see [Code Smells Matrix](references/code-smells-matrix.md).
 
 ## When to Use
 
 Use this module when you need to:
-- Find custom utility code that duplicates existing dependencies
-- Identify missed opportunities to leverage standard libraries
-- Assess whether custom implementations are justified or should be replaced
-- Calculate code reduction potential through library consolidation
-- Evaluate "dependency bloat"—whether suggested libraries are worth their overhead
-- Improve code maintainability through standardised, battle-tested libraries
+- Identify custom utility code that reinvents existing standard libraries or project dependencies
+- Audit for "Reinventing the Wheel"—hand-rolled parsing, date formatting, or cloning missing edge cases
+- Detect "Micro-Package Dependency Drag"—installing third-party packages for trivial 1-line tasks
+- Identify Multi-Tool Toolchain Sprawl—competing linters, formatters, and build plugins
+- Flag blocker dependency incompatibilities preventing runtime or framework modernization
+- Calculate code reduction metrics (lines deleted vs lines added) while guaranteeing functional parity
 
-## Analysis Approach
+## Key Analysis Areas
 
-### Existing Dependency Scan
-Review `package.json`, `requirements.txt`, `pom.xml` to identify current libraries that might be under-utilised.
+### 1. Reinventing the Wheel (Hand-Rolled Utility Sprawl)
+Custom implementations of utilities that duplicate standard library functions (e.g. `structuredClone`, `Intl.DateTimeFormat`, `URLSearchParams`, Python's `datetime`, `dataclasses`) or battle-tested dependencies already present in `package.json` / `pyproject.toml`.
+- *Common Culprits*: Custom deep clone functions, custom date parsers, bespoke URL query string builders, ad-hoc JSON validators.
 
-### Custom Logic Identification
-Scan for common utility patterns:
-- Date/time manipulation
-- Deep cloning and object merging
-- String parsing and validation
-- Data transformation and mapping
-- Array/object utilities
-- Regular expressions and pattern matching
+### 2. Under-Utilised Project Dependencies
+Existing packages declared in dependencies that are only imported in 1–2 files while other modules write custom code accomplishing the exact same operations.
 
-### Functional Equivalence Verification
-Ensure proposed library replacements are 100% functionally equivalent:
-- All data transformation paths handled identically
-- Edge case behaviour matches
-- Performance characteristics acceptable
-- API design compatible with existing code
+### 3. Micro-Package Dependency Drag
+Third-party external packages installed for trivial tasks (e.g. `is-number`, `left-pad`, single-icon micro-packages). These add supply-chain attack surface, node_modules bloat, and license risks without providing meaningful engineering leverage.
+- *Remediation Principle*: Replace micro-packages with lightweight internal primitive facades.
 
-### Dependency Bloat Assessment
-Debate to ensure suggested libraries:
-- Do not introduce unnecessary external dependencies
-- Provide meaningful code reduction (not trivial 1–2 line replacements)
-- Have acceptable bundle size impact
-- Are widely used and well-maintained
+### 4. Multi-Tool Toolchain Sprawl
+Maintaining fragmented, overlapping tooling configurations (e.g. ESLint + Prettier + standard lint plugins + custom AST scripts). Evaluate whether toolchains can be unified into modern high-performance engines (e.g. Biome, Ruff) to prune configuration friction.
 
-### Code Reduction Metrics
-Calculate:
-- Lines of code deleted
-- Lines of code added (library import)
-- Net reduction
-- Complexity reduction
+### 5. Blocker Dependencies & Ecosystem Lockout
+Auditing dependencies for abandoned or pinned legacy packages that prevent core framework upgrades (e.g. pinning an outdated React or Node version).
 
-## Quality Criteria
+### 6. Functional Parity & Edge Case Auditing
+Before recommending a library replacement, verify that the library preserves 100% behavioral parity across:
+- Edge case handling (e.g. DST transitions, timezone offsets, leap years in dates)
+- Serialization and prototype handling (symbols, undefined, circular references)
+- Bundle size overhead vs lines saved
 
-- **Behavioural Parity** – Confirmed for all proposed replacements
-- **Zero-Effort Integration** – Suggested libraries should be "drop-in" replacements
-- **Less is More** – Only flag items where library significantly simplifies codebase
-- **Functional Comparison** – Prove library handles all current logic paths
-- **No API Changes** – Replacements must not alter public API or function signatures
+---
+
+## Quality Principles
+
+- **Behavioural Parity First** – Never suggest a dependency replacement that alters runtime behaviour or fails edge cases.
+- **Zero Supply Chain Bloat** – Do not recommend adding heavy external dependencies for tasks that can be accomplished cleanly in $<15$ lines of standard library code.
+- **Prefer Standard Libraries** – Prioritise modern standard library features over introducing new third-party packages.
+
+---
 
 ## What This Module Does NOT Do
 
-- Does not suggest migrating to new frameworks
-- Does not suggest libraries for trivial tasks (<5 lines of code)
-- Does not suggest replacing highly proprietary or business-domain-specific logic
-- Does not suggest large libraries for small feature needs
-- Does not modify or implement any changes
-- Does not suggest libraries with known security vulnerabilities or restrictive licenses
+- Does not suggest massive framework migrations (e.g. Next.js to Astro)
+- Does not recommend adding libraries for trivial tasks ($<5$ lines of code)
+- Does not suggest replacing core proprietary business domain logic
+- Does not modify package manifest files
+
+---
 
 ## Report Structure
 
 Each finding includes:
 
-- **Finding Title** – Description of the custom logic being replaced
-- **Location** – File path and line numbers
-- **Current Logic** – Description of the custom implementation
-- **Library Alternative** – Proposed library name and specific function/method
-- **Reasoning** – Why the library is superior (edge case handling, performance, maintainability)
-- **Code Reduction** – Estimated lines of code deleted vs added
-- **Behavioural Parity** – Confirmed / Disputed
+- **Finding Title** – Descriptive title of the utility or dependency issue
+- **Category** – Reinventing the Wheel / Under-Utilised Dependency / Micro-Package Drag / Toolchain Sprawl
+- **Location** – File paths and line numbers of the custom logic or dependency
+- **Current Logic Assessment** – Summary of custom implementation and edge case risks
+- **Standard or Dependency Alternative** – Exact method or library replacement
+- **Net Code Reduction** – Estimated lines deleted vs lines added
+- **Parity & Bundle Assessment** – Impact on bundle size and confirmation of functional equivalence
+
+---
 
 ## Example Findings
 
-**Example 1: Custom Date Formatting Duplicates Day.js**
-- Location: `src/utils/dateFormatter.ts` (lines 1–45)
-- Current Logic: Custom date formatting with locale support and timezone handling
-- Library Alternative: Day.js `format()` and locale plugins (already in `package.json`)
-- Reasoning: Day.js handles edge cases (DST transitions, leap seconds); custom code lacks timezone awareness
-- Code Reduction: 45 lines deleted, 2 lines added (import + usage) = net 43 lines saved
-- Behavioural Parity: Confirmed (tested against 200+ date scenarios)
+**Example 1: Hand-Rolled Deep Clone Duplicating Native structuredClone**
+- **Category**: Reinventing the Wheel
+- **Location**: `src/utils/clone.ts` (lines 1–45)
+- **Current Logic Assessment**: Custom recursive cloning function that fails on Date objects, RegExp instances, and Maps.
+- **Standard Alternative**: Native `structuredClone()` (supported across all modern runtimes).
+- **Net Code Reduction**: 45 lines deleted, 0 lines added; removes fragile recursive edge cases.
+- **Parity & Bundle Assessment**: 100% parity; 0 KB bundle addition (native browser/Node feature).
 
-**Example 2: Duplicate Lodash Utilities in Custom Helpers**
-- Location: `src/utils/objectHelpers.ts` (lines 78–120, deep clone function)
-- Current Logic: Custom deep cloning with circular reference detection
-- Library Alternative: Lodash `_.cloneDeep()` (already in `package.json` v4.17.21)
-- Reasoning: Lodash version is battle-tested, handles obscure edge cases (functions, symbols, getters)
-- Code Reduction: 42 lines deleted, 0 lines added (Lodash already imported) = net 42 lines saved
-- Behavioural Parity: Confirmed
+**Example 2: Micro-Package Dependency Drag for Single Icon Set**
+- **Category**: Micro-Package Dependency Drag
+- **Location**: `package.json` (`react-feather@^2.0.0`, adding 18 MB to `node_modules`)
+- **Current Logic Assessment**: Entire library imported for only 3 icons (`Check`, `ChevronDown`, `X`).
+- **Standard Alternative**: Inline SVGs wrapped in internal primitive icon component.
+- **Net Code Reduction**: Eliminates 1 external dependency; drops bundle size by 35 KB.
+- **Parity & Bundle Assessment**: Confirmed visually identical.
 
-**Example 3: Validation Logic vs Zod**
-- Location: `src/validators/formValidator.ts` (lines 1–120)
-- Current Logic: Manual validation with error accumulation and message formatting
-- Library Alternative: Zod schema validation (not currently in `package.json`—would be new dependency)
-- Reasoning: Zod provides structured validation, better error messages, composable schemas
-- Code Reduction: 120 lines deleted, 25 lines added (Zod setup) = net 95 lines saved; **Bundle Impact**: +15 KB (acceptable for 95-line reduction)
-- Behavioural Parity: Confirmed (all current validations covered by Zod schemas)
-
-**Example 4: Rejected: Custom Formatting is Justified**
-- Location: `src/utils/currencyFormatter.ts` (lines 1–8)
-- Current Logic: Custom currency formatting for company-specific display rules
-- Library Alternative: Numeral.js (considered but rejected)
-- Reasoning: Custom implementation is only 8 lines and enforces proprietary formatting rules (company-specific currency symbol placement); library would require configuration and adds 50 KB; not justified
-- Status: Rejected—custom implementation is simpler and more appropriate
+---
 
 ## Example Invocation
 
 ```
-Analyse [PROJECT_PATH] for custom-written logic that replicates dependencies or standard libraries.
-Scan:
-- Current project dependencies (package.json, requirements.txt, etc.)
-- Custom utility implementations (date, validation, object manipulation, etc.)
-- Commonly duplicated patterns (formatting, parsing, transformation)
+Analyse [PROJECT_PATH] for dependency usage and utility sprawl.
+Audit:
+- Custom utility functions that reinvent standard libraries or existing packages
+- Under-utilised dependencies already in package manifests
+- Micro-package dependencies that should be replaced with internal primitives
+- Competing or fragmented toolchain configurations
+- Blocker dependencies preventing upgrades
 
-For each finding:
-- Verify 100% functional equivalence
-- Calculate code reduction (lines deleted vs added)
-- Assess bundle impact
-- Debate dependency bloat concerns
-
-Provide specific recommendations with behavioural parity confirmation.
-Flag disputed findings explicitly.
+Verify 100% behavioural parity and calculate net code reduction for each finding.
 ```
