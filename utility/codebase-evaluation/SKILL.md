@@ -1,5 +1,5 @@
 ---
-name: evaluation
+name: codebase-evaluation
 description: Use when evaluating codebases for code quality, architectural smells, cognitive complexity, test coverage gaps (CRAP score), circular dependencies, dead code, duplication, or security posture.
 ---
 
