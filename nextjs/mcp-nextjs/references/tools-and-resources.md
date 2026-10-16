@@ -17,20 +17,21 @@ server.registerTool(
     description?: string;
     inputSchema: StandardSchemaV1 | ZodTypeAny;
   },
-  handler: (args: InferInput<typeof inputSchema>, extra: RequestContext) => Promise<CallToolResult>
+  handler: (args: InferInput<typeof inputSchema>, ctx: ServerContext) => Promise<CallToolResult>
 ): RegisteredTool
 ```
 
 ### Key Differences in MCP SDK v2 & Zod v4
 1. **Full Schema Object**: In v2, `inputSchema` takes a complete Zod object schema (`z.object({ ... })`) conforming to the Standard Schema specification, rather than a raw Zod shape.
 2. **Empty Arguments**: For tools requiring no input parameters, supply `z.object({})`.
-3. **Return Format**: Handlers return an object with a `content` array containing items of `type: "text"` or `type: "image"`, plus an optional `isError: true` flag.
+3. **Execution Context**: The second parameter is `ctx: ServerContext`. If `withMcpAuth` was applied, authentication info is available at `ctx.http?.authInfo`.
+4. **Return Format**: Handlers return an object with a `content` array containing items of `type: "text"` or `type: "image"`, plus an optional `isError: true` flag.
 
 ### Complete Tool Example
 
 ```typescript
 // lib/mcp/tools/projects.ts
-import type { McpServer } from "@modelcontextprotocol/server";
+import type { McpServer, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { projectDatabaseMap } from "@/database/projects";
 
@@ -47,7 +48,7 @@ export function registerProjectTools(server: McpServer): void {
         limit: z.number().int().positive().optional().default(10),
       }),
     },
-    async ({ category, tech, limit }) => {
+    async ({ category, tech, limit }, ctx: ServerContext) => {
       let projects = Object.values(projectDatabaseMap);
 
       if (category) {
@@ -78,7 +79,7 @@ export function registerProjectTools(server: McpServer): void {
       description: "Retrieve total project and skill counts.",
       inputSchema: z.object({}),
     },
-    async () => {
+    async (_args, ctx: ServerContext) => {
       return {
         content: [
           {
@@ -94,7 +95,7 @@ export function registerProjectTools(server: McpServer): void {
 
 ---
 
-## 2. Returning Standard Tool Responses
+## 2. Returning Standard Tool Responses & Handling Results
 
 Always normalize responses to prevent client crashes:
 
@@ -116,24 +117,96 @@ export function formatToolResponse(data: unknown, isError = false): McpToolRespo
     ...(isError ? { isError: true } : {}),
   };
 }
-```
 
-### Handling Domain Errors Gracefully
-Never throw unhandled errors inside a tool handler if the error is a user-facing validation issue or missing item. Return structured error feedback:
-
-```typescript
-async ({ projectKey }) => {
-  const project = projectDatabaseMap[projectKey];
-  if (!project) {
-    return formatToolResponse({ error: `Project '${projectKey}' not found.` }, true);
+export function formatActionResult<T>(result: { success: boolean; data?: T; error?: string }): McpToolResponse {
+  if (!result.success) {
+    return formatToolResponse({ error: result.error ?? "Action failed" }, true);
   }
-  return formatToolResponse(project);
+  return formatToolResponse(result.data);
 }
 ```
 
 ---
 
-## 3. Registering Resources (`server.registerResource`)
+## 3. Server Action Reuse via `AsyncLocalStorage` (Zero-Duplication Pattern)
+
+In Next.js applications, business logic, validation, and database operations typically live in Server Actions (`actions/*`). Duplicating this logic inside MCP tool modules creates massive technical debt.
+
+Using Node's native `AsyncLocalStorage` (`node:async_hooks`), you can execute existing Server Actions inside MCP requests with zero modification:
+
+```mermaid
+flowchart LR
+    Tool["MCP Tool\n(lib/mcp/tools/*.ts)"] -->|Calls| Action["Existing Server Action\n(actions/cars/get-cars.ts)"]
+    Action -->|Calls| Factory["createClient() / getDb()"]
+    Factory -->|Checks ALS store| ALS["AsyncLocalStorage\n(Bound Token / Guest Client)"]
+    Factory -->|Fallback if outside MCP| Cookies["next/headers cookies()"]
+```
+
+### Implementation
+
+1. **Create the Storage Context**:
+```typescript
+// lib/db/storage.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { DatabaseClient } from "@/lib/db/client";
+
+const mcpStorage = new AsyncLocalStorage<DatabaseClient>();
+
+export function runWithMcpClient<T>(client: DatabaseClient, fn: () => Promise<T>): Promise<T> {
+  return mcpStorage.run(client, fn);
+}
+
+export function getMcpClient(): DatabaseClient | undefined {
+  return mcpStorage.getStore();
+}
+```
+
+2. **Hook Into Client Creation**:
+```typescript
+// lib/db/client.ts
+import { getMcpClient } from "./storage";
+
+export async function createClient() {
+  // If running inside an MCP request, return the request's bound client
+  const mcpClient = getMcpClient();
+  if (mcpClient) return mcpClient;
+
+  // Otherwise, use standard Next.js cookie session
+  return createCookieClient();
+}
+```
+
+3. **Wrap Route Handler**:
+```typescript
+// lib/mcp/server.ts
+const scopedHandler = async (req: Request): Promise<Response> => {
+  const authContext = req.auth?.extra as { client?: DatabaseClient } | undefined;
+  const client = authContext?.client ?? createPublicClient();
+
+  return runWithMcpClient(client, () => baseHandler(req));
+};
+
+export const mcpHandler = withMcpAuth(scopedHandler, verifyMcpToken, { required: false });
+```
+
+4. **Delegate Directly in Tools**:
+```typescript
+// lib/mcp/tools/cars.ts
+server.registerTool(
+  "search_cars",
+  {
+    description: "Search car inventory",
+    inputSchema: carSearchSchema,
+  },
+  async (args, ctx) => {
+    // Calls existing Server Action directly with zero logic duplication!
+    const result = await getCars(args);
+    return formatActionResult(result);
+  },
+);
+```
+
+## 4. Registering Resources (`server.registerResource`)
 
 Resources provide contextual static or dynamic documents (e.g. documentation, files, schemas) that clients can read via `resources/read`.
 
@@ -189,7 +262,7 @@ server.registerResource(
 
 ---
 
-## 4. Registering Prompts (`server.registerPrompt`)
+## 5. Registering Prompts (`server.registerPrompt`)
 
 Prompts are predefined prompt templates that clients can surface to users.
 
@@ -221,7 +294,7 @@ server.registerPrompt(
 
 ---
 
-## 5. Domain-Based Modular Registration
+## 6. Domain-Based Modular Registration
 
 Never define all tools in the Next.js `route.ts`. Organize by domain in `lib/mcp/tools/`:
 
@@ -251,7 +324,7 @@ export function registerAllTools(server: McpServer): void {
 
 ---
 
-## 6. Flexible Argument Normalization for LLM Inputs
+## 7. Flexible Argument Normalization for LLM Inputs
 
 LLMs often supply parameters formatted as conversational or display titles (e.g., `skill: "Spring Boot"`, `"React.js"`, `"Next JS"`) rather than internal database keys or kebab-case slugs (e.g., `"spring-boot"`, `"react-js"`, `"next-js"`).
 
@@ -304,7 +377,7 @@ async ({ skill }) => {
 
 ---
 
-## 7. Server Branding and Icons (SEP-973)
+## 8. Server Branding and Icons (SEP-973)
 
 Clients like Google Gemini (Connected / Custom Apps), Claude Desktop, and VS Code Copilot render brand icons for connected MCP servers based on the **SEP-973** metadata standard in `serverInfo` during the `initialize` handshake.
 

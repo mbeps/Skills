@@ -107,12 +107,111 @@ describe("MCP Route Handler: /api/mcp", () => {
     const response = await POST(request);
     expect(response.status).toBe(406);
   });
+
+  it("handles OPTIONS CORS preflight with 204", async () => {
+    const { OPTIONS } = await import("@/app/api/mcp/route");
+    const response = await OPTIONS();
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+  });
+
+  it("handles HEAD health probes with 200", async () => {
+    const { HEAD } = await import("@/app/api/mcp/route");
+    const response = await HEAD();
+    expect(response.status).toBe(200);
+  });
+
+  it("normalizes requests missing Content-Type to avoid 415 errors", async () => {
+    const request = new Request("http://localhost:3000/api/mcp", {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/event-stream",
+        // Content-Type omitted
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+  });
 });
 ```
 
 ---
 
-## 3. Manual Debugging with `curl`
+## 3. Unit Testing Token Verification (`verifyMcpToken`)
+
+Test auth logic directly to ensure no regressions between Guest, User, and Admin tiers:
+
+```typescript
+// __tests__/mcp/auth.test.ts
+import { describe, expect, it } from "vitest";
+import { OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
+import { verifyMcpToken } from "@/lib/mcp/auth";
+
+describe("verifyMcpToken", () => {
+  it("returns undefined for unauthenticated requests (Guest mode)", async () => {
+    const req = new Request("http://localhost:3000/api/mcp", { method: "POST" });
+    const authInfo = await verifyMcpToken(req, undefined);
+    expect(authInfo).toBeUndefined();
+  });
+
+  it("throws OAuthError(InvalidToken) on explicit invalid Bearer token", async () => {
+    const req = new Request("http://localhost:3000/api/mcp", {
+      method: "POST",
+      headers: { Authorization: "Bearer invalid-token" },
+    });
+
+    await expect(verifyMcpToken(req, "invalid-token")).rejects.toThrow(OAuthError);
+  });
+
+  it("throws OAuthError on ?auth=required when unauthenticated", async () => {
+    const req = new Request("http://localhost:3000/api/mcp?auth=required", { method: "POST" });
+    await expect(verifyMcpToken(req, undefined)).rejects.toThrowError("Authentication required");
+  });
+});
+```
+
+---
+
+## 4. Testing OAuth Discovery Endpoints
+
+```typescript
+// __tests__/api/oauth/discovery.test.ts
+import { describe, expect, it } from "vitest";
+import { GET as getProtectedResource } from "@/app/.well-known/oauth-protected-resource/[[...resource]]/route";
+import { GET as getAuthServer } from "@/app/.well-known/oauth-authorization-server/[[...resource]]/route";
+
+describe("OAuth Discovery Endpoints", () => {
+  it("advertises offline_access in protected resource metadata", async () => {
+    const req = new Request("http://localhost:3000/.well-known/oauth-protected-resource/api/mcp");
+    const res = await getProtectedResource(req);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.scopes_supported).toContain("offline_access");
+    expect(data.authorization_servers.length).toBeGreaterThan(0);
+  });
+
+  it("returns registration_endpoint in authorization server metadata", async () => {
+    const res = await getAuthServer();
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.registration_endpoint).toBeDefined();
+    expect(data.scopes_supported).toContain("offline_access");
+  });
+});
+```
+
+---
+
+## 5. Manual Debugging with `curl`
 
 When testing a running development server (`yarn dev` / `next dev`):
 
@@ -133,22 +232,38 @@ curl -i -X POST http://localhost:3000/api/mcp \
   }'
 ```
 
+### Discovery Endpoints Probe
+```bash
+# RFC 9728 Protected Resource Metadata
+curl -i http://localhost:3000/.well-known/oauth-protected-resource/api/mcp
+
+# RFC 8414 Authorization Server Metadata
+curl -i http://localhost:3000/.well-known/oauth-authorization-server
+
+# JWKS Keys
+curl -i http://localhost:3000/.well-known/jwks.json
+```
+
 ---
 
-## 4. Common Errors and Solutions
+## 6. Common Errors and Solutions
 
 | Error Code / Symptom | Root Cause | Solution |
 | :--- | :--- | :--- |
+| **`415 Unsupported Media Type`** | Client omitted `Content-Type: application/json` on POST request. | Normalize incoming request headers in the route handler before calling `mcpHandler`. |
 | **`406 Not Acceptable`** | Missing required `Accept` header. | Client must send `Accept: application/json, text/event-stream`. |
-| **`405 Method Not Allowed` on GET** | Stateless Streamable HTTP does not support GET listeners without SSE channels. | Normal behavior for stateless 2026-07-28 servers. Use POST for RPC commands. |
-| **`TS2339: Property ... does not exist`** | Schema shape mismatch or accessing properties outside inferred Zod types. | Ensure types imported match database records, and `inputSchema` uses `z.object({...})`. |
-| **Client hangs on connection** | Client expecting stdio instead of Streamable HTTP. | Wrap HTTP endpoint with `mcp-remote` bridge (`npx -y mcp-remote <URL>`). |
+| **`405 Method Not Allowed` on GET/HEAD** | Missing route handlers for probe methods. | Implement dedicated `OPTIONS` (204) and `HEAD` (200) exports in `route.ts`. |
+| **`HTTP 500 Error generating ID token`** | Supabase GoTrue project uses legacy symmetric `HS256` key. OIDC ID token generation requires asymmetric keys. | Rotate JWT keys to `ES256` or `RS256` in Supabase Dashboard (**Project Settings > JWT Signing Keys**). |
+| **"Account linking is required" in Gemini** | Discovery metadata omitted `"offline_access"` scope, so no `refresh_token` was returned. | Add `"offline_access"` to `scopes_supported` in RFC 9728 and RFC 8414 discovery endpoints. |
+| **Silent Auth Downgrade to Guest** | `verifyToken` returned `undefined` on invalid bearer token with `{ required: false }`. | Throw `OAuthError(OAuthErrorCode.InvalidToken)` when a bearer token is present but invalid/expired. |
+| **Server Component crash: `Attempted to call buttonVariants()`** | Pure function exported from a file with `"use client"` imported in SSR error/not-found page. | Extract pure helper functions to a separate file without `"use client"` (e.g. `button-variants.ts`). |
+| **Arcjet WAF blocks MCP clients (403)** | Bot detection (`detectBot`) triggers on automated CLI or agent probes. | Bypass `detectBot` for `/api/mcp` while keeping WAF `shield` active. |
 | **Tool returns empty list (`total: 0`)** | LLM passed natural language string (e.g. `"Spring Boot"`) against strict slug matching (`"spring-boot"`). | Implement flexible input normalization (`resolveItemKey`) to match canonical IDs. |
 | **LLM says "I do not have direct access..."** | Client UI intercepted tool call with an unapproved confirmation dialog (`Allow` / `Deny`). | User must click `Allow` in client UI before the tool request is dispatched to the server. |
 
 ---
 
-## 5. Client Tool Permission Interception
+## 7. Client Tool Permission Interception
 
 When integrating with conversational AI clients (such as Gemini or Claude), clients typically require explicit user permission before executing tools that fetch external data.
 

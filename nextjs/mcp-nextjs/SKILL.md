@@ -1,6 +1,6 @@
 ---
 name: mcp-nextjs
-description: Use when building, exposing, securing, or debugging a Model Context Protocol (MCP) server inside a Next.js (App Router, TypeScript) application — covers mcp-handler, @modelcontextprotocol/server v2, Streamable HTTP routes, tool/resource/prompt definitions, authentication, client connectivity (Claude, Gemini, Copilot), and Vitest testing.
+description: Use when building, exposing, securing, or debugging a Model Context Protocol (MCP) server inside a Next.js (App Router, TypeScript) application, connecting AI clients (Claude, Gemini, Cursor, Copilot) via Streamable HTTP, implementing OAuth 2.1 authentication, or writing Vitest tests for MCP tools.
 ---
 
 # MCP + Next.js
@@ -114,9 +114,13 @@ lib/
 | :--- | :--- | :--- |
 | **Tool Registration** | `server.registerTool("name", { inputSchema: z.object({...}) }, handler)` | [Tools & Resources](references/tools-and-resources.md) |
 | **No-arg Tools** | Pass `inputSchema: z.object({})` | [Tools & Resources](references/tools-and-resources.md) |
+| **Server Action Reuse** | `runWithMcpClient(client, () => baseHandler(req))` via `AsyncLocalStorage` | [Tools & Resources](references/tools-and-resources.md) |
 | **Resources** | `server.registerResource("name", "uri://...", meta, handler)` | [Tools & Resources](references/tools-and-resources.md) |
-| **Authentication** | `withMcpAuth(handler, verifyToken, { required: true })` | [Auth & Security](references/authentication-and-security.md) |
+| **Authentication** | `withMcpAuth(handler, verifyMcpToken, { required: false })` | [Auth & Security](references/authentication-and-security.md) |
+| **Universal OAuth 2.1** | RFC 9728, RFC 8414, RFC 7591 DCR, and Supabase GoTrue IdP | [OAuth 2.1 & OIDC](references/oauth-and-oidc.md) |
+| **CORS & Probes** | Export `OPTIONS` (204 CORS) and `HEAD` (200 probe) in `route.ts` | [Auth & Security](references/authentication-and-security.md) |
 | **Claude Desktop** | `npx -y mcp-remote http://localhost:3000/api/mcp` | [Client Config](references/client-configuration.md) |
+| **Gemini Connected Apps** | Discover via `/.well-known/oauth-protected-resource/api/mcp` + `offline_access` | [Client Config](references/client-configuration.md) |
 | **VS Code Copilot** | Add `"type": "http"` entry in `.vscode/mcp.json` | [Client Config](references/client-configuration.md) |
 | **Testing Route** | Send `POST` with `Accept: application/json, text/event-stream` | [Testing & Debugging](references/testing-and-debugging.md) |
 
@@ -127,40 +131,49 @@ lib/
 ### 1. `406 Not Acceptable` Error
 - **Symptom**: Client requests to `/api/mcp` fail with HTTP 406.
 - **Cause**: The MCP Streamable HTTP specification mandates that the client `Accept` header contains both `application/json` and `text/event-stream`.
-- **Fix**: In tests and client configurations, always specify:
-  ```http
-  Accept: application/json, text/event-stream
-  ```
+- **Fix**: In tests and client configurations, always specify `Accept: application/json, text/event-stream`. In route handlers, normalize `Accept` if client passes `*/*`.
 
-### 2. `405 Method Not Allowed` on GET
-- **Symptom**: Calling `GET /api/mcp` returns 405 error with message `Method not allowed`.
-- **Cause**: The 2026-07-28 stateless MCP protocol operates over stateless POST requests. GET endpoints for persistent session listeners answer 405 when running in stateless mode.
-- **Fix**: Send JSON-RPC requests via POST.
+### 2. `415 Unsupported Media Type` on Probes
+- **Symptom**: Automated client health probes or gateway requests fail with HTTP 415.
+- **Cause**: `@modelcontextprotocol/server` strictly validates `Content-Type: application/json` on incoming POST requests.
+- **Fix**: In `app/api/mcp/route.ts`, normalize incoming headers before calling `mcpHandler` if `content-type` is omitted or empty.
 
-### 3. Zod v4 Standard Schema Changes
-- **Symptom**: Type errors or invalid schema definitions when passing raw shapes.
-- **Cause**: `@modelcontextprotocol/server` v2 requires a complete schema object satisfying Standard Schema (`z.object({ ... })`), not a bare object map (`{ field: z.string() }`).
-- **Fix**: Always wrap parameters with `z.object({ ... })`.
+### 3. Missing `offline_access` Causes Gemini Account Linking Failure
+- **Symptom**: Google Gemini reports: *"Account linking is required to use this custom app. Please try again."*
+- **Cause**: Gemini mandates a `refresh_token` in the OAuth token response. If the OAuth server is not asked for `offline_access`, it returns only an access token.
+- **Fix**: Advertise `"offline_access"` in `scopes_supported` in RFC 9728 (`/.well-known/oauth-protected-resource`) and RFC 8414 metadata.
 
-### 4. Monolithic Route Files
-- **Symptom**: `app/api/mcp/route.ts` bloated with thousands of lines of database logic and schemas.
-- **Fix**: Decompose into domain files (`lib/mcp/tools/*.ts`) and aggregate via `registerAllTools(server)`.
+### 4. Supabase GoTrue HTTP 500 `Error generating ID token`
+- **Symptom**: Token exchange fails with HTTP 500 when Gemini or Claude connects via OAuth.
+- **Cause**: GoTrue enforces asymmetric keys (`ES256` or `RS256`) for signing OIDC `id_token`. Legacy Supabase projects using symmetric `HS256` shared secret throw an internal error.
+- **Fix**: Open Supabase Dashboard (**Project Settings > JWT Signing Keys**) and migrate/rotate to `ES256` or `RS256` asymmetric keys.
 
-### 5. Strict Slug / Key Mismatches on LLM Inputs
+### 5. Silent Auth Downgrade on Invalid Bearer Tokens
+- **Symptom**: Calling tools with an expired or forged token runs as Guest instead of returning 401.
+- **Cause**: In `withMcpAuth` with `{ required: false }`, returning `undefined` from `verifyToken` treats the request as unauthenticated.
+- **Fix**: If an `Authorization: Bearer <token>` header is present but the token is invalid, throw `new OAuthError(OAuthErrorCode.InvalidToken, "...")`. Only return `undefined` when no auth header was provided.
+
+### 6. Server Component SSR Crash from `"use client"` Helpers (`buttonVariants`)
+- **Symptom**: Next.js 16 throws `Error: Attempted to call buttonVariants() from the server but buttonVariants is on the client` during SSR of 404 or error pages.
+- **Cause**: Pure functions (like CVA variants) exported from files with `"use client"` cannot be invoked during Server Component rendering.
+- **Fix**: Extract pure CVA helper functions to a separate directive-free `.ts` file (`components/ui/button-variants.ts`).
+
+### 7. Arcjet WAF Bot Detection Blocking MCP Clients
+- **Symptom**: MCP clients receive HTTP 403 Forbidden on `/api/mcp`.
+- **Cause**: Automated CLI clients (`curl`, `mcp-remote`, Claude, Gemini) trigger bot heuristics in WAF middleware (`detectBot`).
+- **Fix**: Bypass `detectBot` for `/api/mcp` and `/.well-known/*` while keeping WAF `shield` active.
+
+### 8. Strict Slug / Key Mismatches on LLM Inputs
 - **Symptom**: Queries for valid items return empty results (`total: 0`).
-- **Cause**: LLMs generate natural-language strings (e.g. `"Spring Boot"`, `"React.js"`) rather than internal kebab-case keys (`"spring-boot"`).
+- **Cause**: LLMs generate natural-language strings (e.g. `"Spring Boot"`, `"Mercedes Benz"`) rather than internal kebab-case keys (`"spring-boot"`, `"mercedes-benz"`).
 - **Fix**: Implement an input normalizer in tool handlers to resolve natural language and aliases to internal database keys before filtering.
-
-### 6. Client Tool Permission Interception
-- **Symptom**: LLM displays a fallback disclaimer (*"I do not have direct access..."*) when referencing the MCP server.
-- **Cause**: The client intercepted the tool call with a user permission prompt (`Allow` / `Deny`). The tool does not execute until approved.
-- **Fix**: Verify client UI for pending permission cards before suspecting server or tool bugs.
 
 ---
 
 ## Detailed References
 
-- [Tools, Resources, and Prompts Guide](references/tools-and-resources.md) — Comprehensive API syntax and schema examples.
-- [Authentication and Security Guide](references/authentication-and-security.md) — Token validation, CIMD, and RFC 9728 challenges.
-- [Client Configuration Guide](references/client-configuration.md) — Connecting Claude Desktop, Gemini CLI, VS Code Copilot, Cursor, and Windsurf.
-- [Testing and Debugging Guide](references/testing-and-debugging.md) — Vitest test suites, curl commands, and troubleshooting common HTTP codes.
+- [Tools, Resources, and Prompts Guide](references/tools-and-resources.md) — API contracts, Zod schemas, and `AsyncLocalStorage` Server Action reuse.
+- [Authentication and Security Guide](references/authentication-and-security.md) — `withMcpAuth` v2, dual-mode auth, and strict RFC 9728 error handling.
+- [OAuth 2.1 and OpenID Connect Guide](references/oauth-and-oidc.md) — Universal OAuth 2.1, RFC 7591 Dynamic Client Registration, Supabase GoTrue IdP, and consent UI.
+- [Client Configuration Guide](references/client-configuration.md) — Connecting Google Gemini, Claude Desktop/Web, VS Code Copilot, Cursor, and Windsurf.
+- [Testing and Debugging Guide](references/testing-and-debugging.md) — Vitest test recipes for tools, route handlers, probes, discovery endpoints, and curl inspection.
