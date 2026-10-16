@@ -31,13 +31,34 @@ Third-party external packages installed for trivial tasks (e.g. `is-number`, `le
 Maintaining fragmented, overlapping tooling configurations (e.g. ESLint + Prettier + standard lint plugins + custom AST scripts). Evaluate whether toolchains can be unified into modern high-performance engines (e.g. Biome, Ruff) to prune configuration friction.
 
 ### 5. Blocker Dependencies & Ecosystem Lockout
-Auditing dependencies for abandoned or pinned legacy packages that prevent core framework upgrades (e.g. pinning an outdated React or Node version).
+Auditing dependencies for abandoned or pinned legacy packages that prevent core framework upgrades (e.g. strict peer dependency ranges blocking React, Next.js, or Node upgrades). Evaluating whether the blocking package is an under-utilized, dead, or non-essential feature (e.g. an isolated calendar widget) that can be pruned or replaced with lightweight primitives to immediately unblock the entire ecosystem.
 
 ### 6. Functional Parity & Edge Case Auditing
 Before recommending a library replacement, verify that the library preserves 100% behavioral parity across:
 - Edge case handling (e.g. DST transitions, timezone offsets, leap years in dates)
 - Serialization and prototype handling (symbols, undefined, circular references)
 - Bundle size overhead vs lines saved
+
+### 7. Toolchain & Runtime Engine Drift (CI/CD vs Local Asymmetry)
+Auditing whether test runner packages (e.g. `vitest`), linters, and compilers invoked in CI scripts are explicitly pinned in `devDependencies` rather than ambiently resolved, and checking that runtime engine declarations (`engines.node`, `engines.npm`) in `package.json` match CI container matrix versions to prevent pipeline crashes.
+
+### 8. Experimental Compiler Flags & Deployment Runner Deadlock
+Auditing project manifests and framework configuration files (e.g. `next.config.js`, `tsconfig.json`) for experimental compiler flags (such as `experimental.useTypeScriptCli`) or major compiler pre-releases (e.g. TypeScript 7) that are unsupported by production build runners (Vercel, AWS Amplify, Docker Alpine images). Auditing blocked dependency upgrades (e.g. date pickers or UI components holding back React/Next updates) to evaluate if unneeded dependencies can be pruned to unblock the toolchain.
+
+### 9. Toolchain Exclusion Negation Syntax Divergence
+Auditing linter and formatter file matching configuration (e.g. `biome.json`, `.eslintrc`, Prettier ignore) for inverted or missing negation syntax. In file pattern arrays, omitting `!` (e.g. `"__tests__"` instead of `"!__tests__"`) inverts exclusion logic and subjects test files or build artifacts to strict production rules.
+
+### 10. CI/CD Workflow Action Secret Injection Parity
+Auditing CI/CD workflow configuration files (e.g. `.github/workflows/*.yml`) against application environment schemas (`lib/env.ts`) and `.env.example`. When new dependencies or services (e.g. database clients, auth providers, storage adapters) are introduced, failing to inject required environment variables into automated workflow steps causes CI/CD runs to crash even when code builds cleanly locally.
+
+### 11. Lifecycle Hook Omission for Code Generation Engines
+Auditing package manifests (`package.json`) and build pipelines for schema compilers, ORMs, or interface generation engines (e.g. Prisma, GraphQL Codegen, Protobuf, OpenAPI, tRPC) that lack automatic generation triggers in package lifecycle hooks (`postinstall: "prisma generate"` or `prepare`). Clean installs, containerized docker builds, or remote CI/CD deployment runners will compile with missing, incomplete, or stale client artifacts unless hooks are explicitly declared.
+
+### 12. Test Environment Process State Isolation & Server Context Mocking
+Auditing test suites and configurations for test runner dependencies (e.g. Vitest, Jest) that mutate `process.env` globally across parallel test files without deterministic environment restoration (`vi.stubEnv` with automatic `unstubAllEnvs`), or failing to mock framework server contexts (e.g. request headers, cookies, server action contexts) in test setup environments, resulting in cross-test pollution and non-deterministic test failures.
+
+### 13. Deep-Branch Unimported Dependencies & Scoped Import Fragility
+Auditing modules for standard library or external dependencies (e.g. `math`, `re`, `statistics`, financial formula packages) imported lazily inside deep conditional branches, or omitted because authors assumed module-level availability. Incomplete top-level imports pass standard unit tests on common paths but trigger fatal `NameError` or `ReferenceError` crashes in production when rare branches (e.g. IRR calculations, straight-line depreciation, esoteric regex filters) are triggered. Auditing to guarantee all branch dependencies are declared at module top-level or protected by 100% leaf branch coverage tests.
 
 ---
 
