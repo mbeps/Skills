@@ -1287,3 +1287,23 @@ Use this reference to accelerate root-cause identification and ensure fixes addr
 - **Architectural Solution**:
   - Implement copy-on-write or transactional rollback: perform mutations on isolated copies and commit to the primary store/disk only after all pipeline steps succeed.
   - Explicitly verify and test output persistence: assert that if `output_file` is specified, the file exists and contains the transformed state.
+
+### Protocol Revision Negotiation Rejection & Legacy Transport Exclusion
+- **Mechanism**: Modern server handlers enforce strict revision compliance (e.g. Model Context Protocol / MCP handlers configured with `legacy: "reject"` requiring modern `_meta` envelope claims on every request). When widely deployed client ecosystems (Gemini, Claude, ChatGPT, Cursor) initiate connections using established standard protocol handshakes (e.g. JSON-RPC `initialize` with `"protocolVersion": "2024-11-05"` without modern envelopes), the strict server rejects the handshake with HTTP 400 Bad Request (`Unsupported protocol version: 2024-11-05`).
+- **Observable Failure**: Client applications display generic connection failures (e.g. "We had trouble connecting to this server. Contact the server provider for help"), while server telemetry shows immediate HTTP 400 Bad Request responses on the `POST /api/mcp` `initialize` handshake.
+- **Root Cause**: Premature enforcement of strict modern-only protocol envelopes without supporting backward-compatible stateless fallback or protocol version negotiation.
+- **Architectural Solution**:
+  - Default protocol handlers to backward-compatible stateless serving (e.g. `legacy: "stateless"`) to answer established client versions alongside modern revisions.
+  - Test protocol endpoints against both the modern specification and legacy `initialize` payloads from production client runtimes.
+
+### OAuth 2.1 / RFC 8414 Section 3 Discovery Path & URL Normalization Disparities
+- **Mechanism**:
+  - RFC 8414 Section 3 mandates that when an authorization server issuer contains a path component (e.g. `https://host/api/auth`), discovery requests must insert `/.well-known/oauth-authorization-server` between the host and path (`/.well-known/oauth-authorization-server/api/auth`). External clients adhering to RFC 8414 query this path, while others query the host root (`/.well-known/oauth-authorization-server` or `/.well-known/openid-configuration`). Missing either endpoint causes discovery or account linking to abort.
+  - Base URL environment variables containing unstripped trailing slashes (`https://example.com/`) produce double-slashes (`https://example.com//api/mcp`) when concatenated with sub-paths, corrupting `resource_metadata` in `WWW-Authenticate` headers and breaking client URI parsers.
+  - Asymmetric verb protection: External client probes send `GET` requests to test endpoint authorization before initiating `POST` JSON-RPC/SSE connections. If `GET` is unprotected or returns 404/405, discovery fails.
+- **Observable Failure**: External client account linking fails with errors like "Account linking is required to use this custom app", or connection aborts after OAuth consent approval.
+- **Root Cause**: Incomplete implementation of RFC 8414 discovery variants, unnormalized base URL strings, and verb-asymmetric auth guards.
+- **Architectural Solution**:
+  - Expose both RFC 8414 Section 3 path-inserted endpoints and root well-known discovery routes, forwarding requests directly to the authorization engine.
+  - Centralize base URL resolution with trailing slash normalization (`url.replace(/\/+$/, "")`).
+  - Apply authentication guards symmetrically across both `GET` and `POST` methods on protected endpoints.

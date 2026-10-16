@@ -194,6 +194,9 @@ Use this checklist during Step 2 & Step 3 of bug fixing to uncover hidden failur
 - [ ] **Protocol Diagnostic Error Preservation**: Do API, RPC, and MCP protocol boundaries preserve specific domain validation exception messages and field context rather than masking them behind generic `"Internal error"` envelopes?
 - [ ] **Output Artifact Persistence Verification**: When an operation accepts an output destination (`output_file`), is file existence and content verified before returning a success envelope?
 - [ ] **Transactional Multi-Stage Rollback**: If a multi-stage mutation fails mid-pipeline, are partial in-memory or on-disk modifications rolled back cleanly without dirty state?
+- [ ] **Protocol Revision Negotiation Rejection**: Does an RPC, MCP, or protocol server handler reject established protocol revisions (e.g. `2024-11-05` traffic rejected by strict modern `2026-07-28` handlers with HTTP 400 Bad Request) instead of providing backward-compatible stateless fallback (`legacy: "stateless"`)?
+- [ ] **RFC 8414 Section 3 Discovery Path Insertion & Base URL Trailing Slashes**: For OAuth 2.1 / authorization servers with URL path components (`/api/auth`), are both RFC 8414 Section 3 path-inserted endpoints (`/.well-known/oauth-authorization-server/api/auth`) and root discovery paths (`/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration`) supported? Are base URLs sanitized to prevent trailing slash double-slashes (`//api/mcp`) in `WWW-Authenticate` and `resource_metadata` headers?
+- [ ] **Symmetrical HTTP Verb Protection on Protocol Endpoints**: Do protected protocol or RPC endpoints guard both `GET` and `POST` methods (e.g. with `requireAuth`), preventing unauthenticated information leakage or 404/405 rejections when clients send `GET` authorization probes before opening `POST` sessions?
 
 
 
