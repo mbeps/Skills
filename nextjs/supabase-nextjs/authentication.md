@@ -465,6 +465,54 @@ createServerClient(url, secretKey, {
 
 Docs: [Rate limits](https://supabase.com/docs/guides/auth/rate-limits) · [Sessions](https://supabase.com/docs/guides/auth/sessions).
 
+## Supabase as an OAuth 2.1 & OpenID Connect Server
+
+Supabase Auth includes a built-in, headless OAuth 2.1 server that enables third-party applications and AI assistants (via Model Context Protocol / MCP) to authenticate against your Supabase user base.
+
+### 1. Headless Consent Screen (`/oauth/consent`)
+When an OAuth client initiates authorization at `/auth/v1/oauth/authorize`, Supabase redirects the browser to `${site_url}/oauth/consent?authorization_id=<uuid>`.
+
+Use `@supabase/supabase-js` v2 `supabase.auth.oauth.*` APIs to inspect and resolve consent:
+
+```typescript
+// hooks/use-oauth-consent.ts
+const supabase = createBrowserClient()
+
+// 1. Fetch requesting client details & scopes
+const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId)
+
+// If previously approved, Supabase immediately returns redirect_url:
+if (data && "redirect_url" in data) {
+  window.location.assign(data.redirect_url)
+  return
+}
+
+// 2. User approves authorization
+const { data: approved } = await supabase.auth.oauth.approveAuthorization(authorizationId, {
+  skipBrowserRedirect: true,
+})
+if (approved?.redirect_url) window.location.assign(approved.redirect_url)
+
+// 3. User denies authorization
+const { data: denied } = await supabase.auth.oauth.denyAuthorization(authorizationId, {
+  skipBrowserRedirect: true,
+})
+if (denied?.redirect_url) window.location.assign(denied.redirect_url)
+```
+
+### 2. Asymmetric Key Requirement for OIDC ID Tokens
+> [!CAUTION]
+> If OAuth clients request the `openid` scope, GoTrue **mandates asymmetric signing keys** (`ES256` or `RS256`) to sign OpenID Connect `id_token`s. Legacy Supabase projects using symmetric `HS256` fail during token exchange with HTTP 500 `Error generating ID token`.
+> Rotate to `ES256`/`RS256` keys in **Project Settings > JWT Signing Keys**.
+
+### 3. Preserving Auth Redirect Parameters
+If an unauthenticated user hits `/oauth/consent?authorization_id=...`, they must first be redirected to `/sign-in`.
+Always URL-encode nested query parameters (`encodeURIComponent(redirect)`) and sanitize the destination using a safe redirect check (`clean.startsWith("/") && !clean.startsWith("//")`) to prevent query truncation and open-redirect vulnerabilities.
+
+*For complete MCP server implementation, see `mcp-server.md`.*
+
+---
+
 ## Debugging SSR auth
 
 `SupabaseAuthMissingError` (missing or unreadable session) is the classic SSR failure — in order of likelihood:
@@ -477,6 +525,7 @@ Docs: [Rate limits](https://supabase.com/docs/guides/auth/rate-limits) · [Sessi
 
 - Trusting `getSession()` server-side — it is not re-validated; use `getClaims()` for pages/data and `getUser()` for action guards.
 - Writing cookies from a Server Component — read-only context; refresh sessions in the Proxy and wrap `setAll` in try/catch. Never persist auth state in localStorage on the server.
+- Symmetric `HS256` secret causing HTTP 500 on OAuth token exchange when `openid` scope is requested — migrate to `ES256` asymmetric keys.
 - Missing `/auth/confirm` (PKCE) or `/auth/callback` routes — codes expire after 5 minutes; wire both before enabling the flows.
 - OAuth `redirectTo` not allow-listed in the dashboard — the redirect silently fails.
 - Forgetting `router.refresh()` after sign-in/out, or `signOut()` defaulting to `global` scope — refresh to re-render server components; pass `{ scope: "local" }` for a plain button.

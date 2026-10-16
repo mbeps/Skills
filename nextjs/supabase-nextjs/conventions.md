@@ -42,15 +42,24 @@ export const FILE_LIMITS = {
 
 Fail-fast throw getters are an acceptable fallback. `NEXT_PUBLIC_` prefix **only** for client-safe values; the service-role/secret key must never reach the browser.
 
-## Three client factories
+## Client factories
 
 | Factory | Module                                                  | Context                              | Cookie authority                               |
 | ------- | ------------------------------------------------------- | ------------------------------------ | ---------------------------------------------- |
 | Browser | `lib/supabase/client.ts`                                | Client Components                    | localStorage (no cookie writes)                |
 | Server  | `lib/supabase/server.ts`                                | Server Components / Actions / Routes | read + write, writes silently discarded in RSC |
 | Proxy   | `lib/supabase/middleware.ts` helper, used by `proxy.ts` | every request                        | **full read + write** — refreshes tokens       |
+| Token   | `lib/supabase/token-client.ts`                          | MCP Server / Stateless APIs          | None — scoped to `Authorization: Bearer <jwt>` |
 
-All three typed: `createBrowserClient<Database, "public">` / `createServerClient<Database, "public">`. One import site per side — server code imports the server factory, client code imports the browser factory. Full factories live in `authentication.md` §3. An optional fourth admin/service-role client exists only when RLS bypass is unavoidable — and never in browser code.
+All typed: `createBrowserClient<Database, "public">` / `createServerClient<Database, "public">` / `createSupabaseClient<Database>`. Server code imports the server factory, client code imports the browser factory.
+
+**Stateless Token Client & AsyncLocalStorage:**
+For Model Context Protocol (MCP) servers or stateless routes running over Bearer JWTs:
+1. `createTokenClient(accessToken)` passes `global.headers.Authorization = "Bearer <jwt>"` with `persistSession: false`.
+2. Wrap incoming MCP requests in `runWithMcpSupabase(client, fn)` (`node:async_hooks`).
+3. `createClient()` checks `mcpSupabaseStorage.getStore()` first, returning the bound token client if running within an MCP call. This allows existing Server Actions to execute inside MCP tools with **zero code duplication** while evaluating genuine Postgres RLS! (See `mcp-server.md`).
+
+An optional admin/service-role client (`createAdminClient()`) exists only when RLS bypass is unavoidable — and never in browser code. Always enforce application-level role checks (`ensureAdminUser()`) before invoking the admin client (defense-in-depth).
 
 ## Server actions as the data-access boundary
 

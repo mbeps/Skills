@@ -82,6 +82,12 @@ enabled = true
 rp_id = "example.com"
 rp_origins = ["https://example.com"]
 
+# OAuth 2.1 Server for MCP and custom apps (cross-ref mcp-server.md)
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = true
+
 # Quote bucket names containing hyphens
 [storage.buckets."car-images"]
 public = true
@@ -90,9 +96,9 @@ file_size_limit = "50MiB"
 
 Commands for platform config:
 - `supabase config diff` — inspect configuration differences between local `config.toml` and the remote linked project.
-- `supabase config push` — declaratively apply `config.toml` settings (auth, storage buckets, pooler) to the remote project.
+- `supabase config push` — declaratively apply `config.toml` settings (auth, OAuth server, storage buckets, pooler) to the remote project.
 
-`env(...)` values are auto-substituted from your local `.env` and masked during diff. Restart the local stack after config changes: `supabase stop && supabase start`. Passkey/webauthn blocks cross-ref `authentication.md`.
+`env(...)` values are auto-substituted from your local `.env` and masked during diff. Restart the local stack after config changes: `supabase stop && supabase start`. Passkey/webauthn blocks cross-ref `authentication.md`; OAuth server blocks cross-ref `mcp-server.md`. Note: when using OAuth 2.1 with OIDC (`openid` scope), migrate JWT secret to asymmetric `ES256` keys in Supabase Dashboard (Project Settings > JWT Signing Keys) to prevent HTTP 500 ID token errors.
 
 ## CI / scripting
 
