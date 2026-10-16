@@ -1,13 +1,13 @@
 ---
 name: better-auth-nextjs
-description: Use when building or modifying authentication in a Next.js App Router project with Better Auth — covers setup, email/password, OAuth, passkeys, 2FA, sessions, organizations, admin, and transactional emails.
+description: Use when building or modifying authentication in a Next.js App Router project with Better Auth — covers setup, email/password, OAuth, passkeys, 2FA, sessions, organizations, admin, OAuth 2.1 authorization server, MCP server, and transactional emails.
 ---
 
 # Better Auth + Next.js
 
 Better Auth is a TypeScript-first authentication library. This skill covers its full feature surface in a **Next.js 15+ App Router** monolith: dual server/client configuration, all first-party plugins, database integration via Drizzle, and transactional email hooks.
 
-All patterns are validated against a production codebase using Next.js 16, Better Auth 1.4.x, Drizzle ORM + PostgreSQL, and Postmark for email.
+All patterns are validated against a production codebase using Next.js 16, Better Auth 1.4.x / 1.7.x, Drizzle ORM + PostgreSQL, and Postmark for email.
 
 ---
 
@@ -22,6 +22,7 @@ All patterns are validated against a production codebase using Next.js 16, Bette
 | `session-management.md` | Session listing, per-session revocation, cookie cache strategies, server vs client access |
 | `organizations.md` | Org CRUD, invitations, member management, `setActive`, org-scoped session, RBAC/AC |
 | `admin.md` | User listing, role assignment, banning, impersonation, server-side permission checks |
+| `mcp-and-oauth-provider.md` | OAuth 2.1 provider, MCP server, CIMD, RFC 8414 Section 3 discovery, consent screen, `requireMcpAuth` |
 | `email-hooks.md` | Email hook locations, provider-agnostic send pattern, all transactional email types |
 | `server-client-patterns.md` | `auth.api.*` in Server Components, plugin endpoint casting, `getSession` guard pattern |
 
@@ -30,6 +31,7 @@ All patterns are validated against a production codebase using Next.js 16, Bette
 ## Quick Start
 
 - Install: `npm install better-auth` + `npm install @better-auth/passkey` (if using passkeys)
+- For MCP / OAuth: `npm install @better-auth/mcp @better-auth/cimd @better-auth/oauth-provider @modelcontextprotocol/server`
 - Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`
 - Create `lib/auth/auth.ts` (server config) and `lib/auth/auth-client.ts` (client config) — see `core-setup.md`
 - Mount the catchall route at `app/api/auth/[...all]/route.ts`
@@ -61,6 +63,8 @@ twoFactor()          →     twoFactorClient()
 passkey()            →     passkeyClient()
 admin()              →     adminClient()
 organization()       →     organizationClient()
+mcp()                →     oauthProviderClient()
+oauthProvider()      →     oauthProviderClient()
 ```
 
 > **Warning:** Adding a plugin to only one side silently breaks those features — the client methods will be missing or the server won't accept the requests.
@@ -89,6 +93,10 @@ This handles `/api/auth/sign-in/email`, `/api/auth/callback/github`, `/api/auth/
 | `passkey` | `@better-auth/passkey` | `import { passkey } from "@better-auth/passkey"` | `import { passkeyClient } from "@better-auth/passkey/client"` |
 | `admin` | `better-auth/plugins/admin` | `import { admin } from "better-auth/plugins/admin"` | `import { adminClient } from "better-auth/client/plugins"` |
 | `organization` | `better-auth/plugins/organization` | `import { organization } from "better-auth/plugins/organization"` | `import { organizationClient } from "better-auth/client/plugins"` |
+| `mcp` | `@better-auth/mcp` | `import { mcp } from "@better-auth/mcp"` | `import { oauthProviderClient } from "@better-auth/oauth-provider/client"` |
+| `oauthProvider` | `@better-auth/oauth-provider` | `import { oauthProvider } from "@better-auth/oauth-provider"` | `import { oauthProviderClient } from "@better-auth/oauth-provider/client"` |
+| `cimd` | `@better-auth/cimd` | `import { cimd } from "@better-auth/cimd"` | — (server only) |
+| `jwt` | `better-auth/plugins` | `import { jwt } from "better-auth/plugins"` | — (server only) |
 | `inferAdditionalFields` | `better-auth/client/plugins` | — | `import { inferAdditionalFields } from "better-auth/client/plugins"` |
 
 ---
@@ -102,6 +110,7 @@ This handles `/api/auth/sign-in/email`, `/api/auth/callback/github`, `/api/auth/
 - [session-management.md](session-management.md) — Session management
 - [organizations.md](organizations.md) — Multi-tenant organization support
 - [admin.md](admin.md) — Admin plugin and RBAC
+- [mcp-and-oauth-provider.md](mcp-and-oauth-provider.md) — OAuth 2.1 Provider and MCP server integration
 - [email-hooks.md](email-hooks.md) — Transactional email hooks
 - [server-client-patterns.md](server-client-patterns.md) — Server Component auth patterns
 - Official docs: https://www.better-auth.com/docs
