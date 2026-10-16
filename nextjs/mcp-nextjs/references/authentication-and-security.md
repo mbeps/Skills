@@ -4,14 +4,120 @@ This reference details security patterns, token authorization, Client ID Metadat
 
 ---
 
-## 1. Public vs. Authenticated Endpoints
+## 1. Authentication Middleware Options
 
-- **Public Endpoints**: For open portfolios, documentation hubs, or publicly queryable APIs, serve the MCP route without authentication. The handler remains stateless and scalable.
-- **Authenticated Endpoints**: For private datasets, customer accounts, database mutations, or internal tooling, wrap the handler using `withMcpAuth`.
+Two primary middleware patterns exist for Next.js MCP servers:
+- **`requireMcpAuth` (`@better-auth/mcp`)** — Native middleware for applications using Better Auth as an OAuth 2.1 Provider. Automatically verifies JWKS signatures, checks resource audience binding, extracts `tokenClaims`, and issues RFC 9728 challenges.
+- **`withMcpAuth` (`mcp-handler`)** — Generalized wrapper for custom token verification or external IdPs (e.g. Supabase GoTrue, Auth0).
 
 ---
 
-## 2. Using `withMcpAuth`
+## 2. Using Better Auth `requireMcpAuth` (Recommended for Better Auth)
+
+In Better Auth setups, wrap your Next.js route handler at `app/api/mcp/route.ts` with `requireMcpAuth`:
+
+### Signature
+```typescript
+requireMcpAuth(
+  auth: BetterAuthInstance,
+  handler: (request: Request, tokenClaims?: Record<string, unknown>) => Promise<Response>,
+  options?: {
+    resource?: string; // Canonical URL of the protected resource, e.g. "https://example.com/api/mcp"
+  }
+): (req: Request) => Promise<Response>
+```
+
+### Complete Implementation (`app/api/mcp/route.ts`)
+
+> [!IMPORTANT]
+> **Unified GET & POST Authentication**:
+> Some MCP clients (e.g., Claude's `mcp-remote` bridge and Google Gemini) send `GET` probes before establishing sessions. Guard **both** `POST` and `GET` through `requireMcpAuth`. Bypassing `GET` with a raw 405 Method Not Allowed prevents clients from receiving the RFC 9728 `WWW-Authenticate` challenge required to launch the browser OAuth flow.
+
+```typescript
+// app/api/mcp/route.ts
+export const dynamic = "force-dynamic";
+
+import { auth } from "@/lib/auth/auth";
+import { requireMcpAuth } from "@better-auth/mcp";
+import { mcpServerHandler } from "@/lib/mcp/server";
+import { getMcpResourceUrl } from "@/lib/auth/auth-url";
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD",
+  "Access-Control-Allow-Headers":
+    "Authorization, Content-Type, Accept, mcp-session-id, DPoP",
+  "Access-Control-Max-Age": "86400",
+};
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function HEAD() {
+  return new Response(null, {
+    status: 200,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+const resource = getMcpResourceUrl();
+
+const protectedMcpHandler = requireMcpAuth(
+  auth,
+  async (request, tokenClaims) => {
+    // 1. Normalize missing Content-Type or Accept headers before forwarding to MCP SDK
+    const contentType = request.headers.get("content-type");
+    const accept = request.headers.get("accept");
+    let requestToHandle = request;
+
+    const needsContentType = !contentType || !contentType.toLowerCase().includes("application/json");
+    const needsAccept = !accept || accept === "*/*" || accept.trim() === "";
+
+    if (needsContentType || needsAccept) {
+      const newHeaders = new Headers(request.headers);
+      if (needsContentType) newHeaders.set("content-type", "application/json");
+      if (needsAccept) newHeaders.set("accept", "application/json, text/event-stream");
+      requestToHandle = new Request(request, { headers: newHeaders });
+    }
+
+    // 2. Map verified tokenClaims into authInfo for tool execution context
+    const authInfo = {
+      userId: tokenClaims?.sub as string | undefined,
+      sub: tokenClaims?.sub as string | undefined,
+      clientId: tokenClaims?.client_id as string | undefined,
+      scopes: tokenClaims?.scope ? String(tokenClaims.scope).split(" ") : [],
+    };
+
+    return await mcpServerHandler.fetch(requestToHandle, { authInfo } as any);
+  },
+  { resource },
+);
+
+export async function POST(req: Request) {
+  return withCors(await protectedMcpHandler(req));
+}
+
+export async function GET(req: Request) {
+  return withCors(await protectedMcpHandler(req));
+}
+```
+
+---
+
+## 3. Using `withMcpAuth` (Custom & Dual-Mode Auth)
 
 `mcp-handler` provides `withMcpAuth` to verify Bearer tokens and automatically issue RFC 9728-compliant `WWW-Authenticate` challenges (401/403).
 
@@ -34,7 +140,7 @@ withMcpAuth(
 
 ---
 
-## 3. Strict RFC 9728 Bearer Token Handling & Dual-Mode Auth
+## 4. Strict RFC 9728 Bearer Token Handling & Dual-Mode Auth
 
 When building servers that support both unauthenticated public access and privileged tools (Guest, User, Admin) on a single route:
 

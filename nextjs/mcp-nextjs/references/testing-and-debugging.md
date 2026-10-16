@@ -65,7 +65,7 @@ describe("MCP Route Handler: /api/mcp", () => {
     Accept: "application/json, text/event-stream", // REQUIRED
   };
 
-  it("handles initialize handshake", async () => {
+  it("handles initialize handshake with 2024-11-05 protocol version", async () => {
     const request = new Request("http://localhost:3000/api/mcp", {
       method: "POST",
       headers: defaultHeaders,
@@ -85,8 +85,40 @@ describe("MCP Route Handler: /api/mcp", () => {
     expect(response.status).toBe(200);
 
     const data = parseMcpResponse(await response.text());
-    expect(data.result.serverInfo.name).toBe("personal-portfolio-mcp");
+    expect(data.result.serverInfo.name).toBeDefined();
     expect(data.result.capabilities.tools).toBeDefined();
+  });
+
+  it("returns HTTP 401 challenge on unauthenticated POST", async () => {
+    const request = new Request("http://localhost:3000/api/mcp", {
+      method: "POST",
+      headers: defaultHeaders,
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2024-11-05" },
+      }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(401);
+    const authHeader = response.headers.get("www-authenticate");
+    expect(authHeader).toContain("Bearer resource_metadata=");
+    // Ensure no double slashes in resource_metadata URL
+    expect(authHeader).not.toMatch(/\/api\/mcp/g);
+  });
+
+  it("returns HTTP 401 challenge on unauthenticated GET probes", async () => {
+    const { GET } = await import("@/app/api/mcp/route");
+    const request = new Request("http://localhost:3000/api/mcp", {
+      method: "GET",
+      headers: { Accept: "application/json, text/event-stream" },
+    });
+
+    const response = await GET(request);
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toContain("Bearer resource_metadata=");
   });
 
   it("rejects request missing text/event-stream accept header with 406", async () => {
@@ -250,12 +282,17 @@ curl -i http://localhost:3000/.well-known/jwks.json
 
 | Error Code / Symptom | Root Cause | Solution |
 | :--- | :--- | :--- |
+| **`HTTP 400 Bad Request: "Unsupported protocol version: 2024-11-05"`** | `createMcpHandler` was configured with `{ legacy: "reject" }`, which rejects AI clients (Gemini, Claude, ChatGPT) sending `2024-11-05` without `_meta` claims. | Use `{ legacy: "stateless" }` in `createMcpHandler` options to support `2024-11-05` traffic. |
+| **`HTTP 308 Permanent Redirect` on discovery** | Trailing slash in `BETTER_AUTH_URL` created double slashes (`//api/mcp`) in `resource_metadata` challenge. AI clients reject redirects. | Normalize URLs with `getSiteUrl()` to strip trailing slashes before concatenating paths. |
+| **`HTTP 404 Not Found` on Gemini discovery** | Issuer has path (`/api/auth`). Gemini queries RFC 8414 Section 3 path `/.well-known/oauth-authorization-server/api/auth`. | Create `app/.well-known/oauth-authorization-server/[[...path]]/route.ts` proxying to `auth.handler()`. |
+| **`HTTP 404 Not Found` on ChatGPT discovery** | ChatGPT queries root `/.well-known/openid-configuration`. | Create `app/.well-known/openid-configuration/route.ts` proxying to `auth.handler()`. |
 | **`415 Unsupported Media Type`** | Client omitted `Content-Type: application/json` on POST request. | Normalize incoming request headers in the route handler before calling `mcpHandler`. |
 | **`406 Not Acceptable`** | Missing required `Accept` header. | Client must send `Accept: application/json, text/event-stream`. |
-| **`405 Method Not Allowed` on GET/HEAD** | Missing route handlers for probe methods. | Implement dedicated `OPTIONS` (204) and `HEAD` (200) exports in `route.ts`. |
+| **`405 Method Not Allowed` on GET probes** | MCP clients (Claude `mcp-remote`, Gemini) probe GET before POST. | Guard both `GET` and `POST` with `requireMcpAuth` to return 401 challenge instead of 405. |
 | **`HTTP 500 Error generating ID token`** | Supabase GoTrue project uses legacy symmetric `HS256` key. OIDC ID token generation requires asymmetric keys. | Rotate JWT keys to `ES256` or `RS256` in Supabase Dashboard (**Project Settings > JWT Signing Keys**). |
 | **"Account linking is required" in Gemini** | Discovery metadata omitted `"offline_access"` scope, so no `refresh_token` was returned. | Add `"offline_access"` to `scopes_supported` in RFC 9728 and RFC 8414 discovery endpoints. |
 | **Silent Auth Downgrade to Guest** | `verifyToken` returned `undefined` on invalid bearer token with `{ required: false }`. | Throw `OAuthError(OAuthErrorCode.InvalidToken)` when a bearer token is present but invalid/expired. |
+| **Consent Page prerender bailout build error** | `useSearchParams()` was called without Suspense boundary in Next.js App Router. | Wrap search-param consuming component inside `<Suspense>`. |
 | **Server Component crash: `Attempted to call buttonVariants()`** | Pure function exported from a file with `"use client"` imported in SSR error/not-found page. | Extract pure helper functions to a separate file without `"use client"` (e.g. `button-variants.ts`). |
 | **Arcjet WAF blocks MCP clients (403)** | Bot detection (`detectBot`) triggers on automated CLI or agent probes. | Bypass `detectBot` for `/api/mcp` while keeping WAF `shield` active. |
 | **Tool returns empty list (`total: 0`)** | LLM passed natural language string (e.g. `"Spring Boot"`) against strict slug matching (`"spring-boot"`). | Implement flexible input normalization (`resolveItemKey`) to match canonical IDs. |

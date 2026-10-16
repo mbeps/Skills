@@ -114,66 +114,79 @@ lib/
 | :--- | :--- | :--- |
 | **Tool Registration** | `server.registerTool("name", { inputSchema: z.object({...}) }, handler)` | [Tools & Resources](references/tools-and-resources.md) |
 | **No-arg Tools** | Pass `inputSchema: z.object({})` | [Tools & Resources](references/tools-and-resources.md) |
+| **Auth Context Extraction** | `getMcpUserId(ctx)` inspecting `ctx.authInfo?.userId`, `ctx.http?.authInfo?.userId` | [Tools & Resources](references/tools-and-resources.md) |
 | **Server Action Reuse** | `runWithMcpClient(client, () => baseHandler(req))` via `AsyncLocalStorage` | [Tools & Resources](references/tools-and-resources.md) |
 | **Resources** | `server.registerResource("name", "uri://...", meta, handler)` | [Tools & Resources](references/tools-and-resources.md) |
-| **Authentication** | `withMcpAuth(handler, verifyMcpToken, { required: false })` | [Auth & Security](references/authentication-and-security.md) |
-| **Universal OAuth 2.1** | RFC 9728, RFC 8414, RFC 7591 DCR, and Supabase GoTrue IdP | [OAuth 2.1 & OIDC](references/oauth-and-oidc.md) |
+| **Better Auth Route Guard** | `requireMcpAuth(auth, handler, { resource })` for both GET & POST | [Auth & Security](references/authentication-and-security.md) |
+| **Dual-Mode / Custom Auth** | `withMcpAuth(handler, verifyMcpToken, { required: false })` | [Auth & Security](references/authentication-and-security.md) |
+| **Universal OAuth 2.1** | Better Auth MCP plugin, CIMD, RFC 8414 Section 3, and Supabase GoTrue | [OAuth 2.1 & OIDC](references/oauth-and-oidc.md) |
+| **Protocol Compatibility** | `createMcpHandler(..., { legacy: "stateless" })` for 2024-11-05 clients | [Client Config](references/client-configuration.md) |
 | **CORS & Probes** | Export `OPTIONS` (204 CORS) and `HEAD` (200 probe) in `route.ts` | [Auth & Security](references/authentication-and-security.md) |
 | **Claude Desktop** | `npx -y mcp-remote http://localhost:3000/api/mcp` | [Client Config](references/client-configuration.md) |
 | **Gemini Connected Apps** | Discover via `/.well-known/oauth-protected-resource/api/mcp` + `offline_access` | [Client Config](references/client-configuration.md) |
 | **VS Code Copilot** | Add `"type": "http"` entry in `.vscode/mcp.json` | [Client Config](references/client-configuration.md) |
-| **Testing Route** | Send `POST` with `Accept: application/json, text/event-stream` | [Testing & Debugging](references/testing-and-debugging.md) |
+| **Testing Route** | Send `POST` with `Accept: application/json, text/event-stream` and `protocolVersion` | [Testing & Debugging](references/testing-and-debugging.md) |
 
 ---
 
 ## Common Pitfalls & Mistakes
 
-### 1. `406 Not Acceptable` Error
+### 1. HTTP 400 Bad Request on Client Initialize (`legacy: "reject"`)
+- **Symptom**: AI clients (Gemini, Claude, ChatGPT) fail connecting with HTTP 400: *"Unsupported protocol version: 2024-11-05"*.
+- **Cause**: Setting `{ legacy: "reject" }` enforces modern 2026-07-28 `_meta` envelopes, rejecting standard `2024-11-05` traffic.
+- **Fix**: Use `{ legacy: "stateless" }` in `createMcpHandler` options.
+
+### 2. HTTP 308 Permanent Redirect on Discovery Endpoints
+- **Symptom**: Gemini or `mcp-remote` discovery handshakes fail immediately.
+- **Cause**: Trailing slash in `BETTER_AUTH_URL` created double slashes (`...//api/mcp`) in `resource_metadata`. Vercel returns HTTP 308 redirects which AI clients reject.
+- **Fix**: Sanitize base URLs using `getSiteUrl()` to strip trailing slashes.
+
+### 3. HTTP 404 on RFC 8414 Section 3 Path Insertion Discovery
+- **Symptom**: Google Gemini fails account linking during discovery with 404 errors.
+- **Cause**: When authorization server issuer has a path (`/api/auth`), clients query `/.well-known/oauth-authorization-server/api/auth` (RFC 8414 Section 3).
+- **Fix**: Create `app/.well-known/oauth-authorization-server/[[...path]]/route.ts` proxying requests to the auth handler.
+
+### 4. `406 Not Acceptable` Error
 - **Symptom**: Client requests to `/api/mcp` fail with HTTP 406.
 - **Cause**: The MCP Streamable HTTP specification mandates that the client `Accept` header contains both `application/json` and `text/event-stream`.
-- **Fix**: In tests and client configurations, always specify `Accept: application/json, text/event-stream`. In route handlers, normalize `Accept` if client passes `*/*`.
+- **Fix**: In tests and client configurations, specify `Accept: application/json, text/event-stream`. In route handlers, normalize `Accept` if client passes `*/*`.
 
-### 2. `415 Unsupported Media Type` on Probes
+### 5. `415 Unsupported Media Type` on Probes
 - **Symptom**: Automated client health probes or gateway requests fail with HTTP 415.
 - **Cause**: `@modelcontextprotocol/server` strictly validates `Content-Type: application/json` on incoming POST requests.
 - **Fix**: In `app/api/mcp/route.ts`, normalize incoming headers before calling `mcpHandler` if `content-type` is omitted or empty.
 
-### 3. Missing `offline_access` Causes Gemini Account Linking Failure
+### 6. Missing `offline_access` Causes Gemini Account Linking Failure
 - **Symptom**: Google Gemini reports: *"Account linking is required to use this custom app. Please try again."*
 - **Cause**: Gemini mandates a `refresh_token` in the OAuth token response. If the OAuth server is not asked for `offline_access`, it returns only an access token.
 - **Fix**: Advertise `"offline_access"` in `scopes_supported` in RFC 9728 (`/.well-known/oauth-protected-resource`) and RFC 8414 metadata.
 
-### 4. Supabase GoTrue HTTP 500 `Error generating ID token`
-- **Symptom**: Token exchange fails with HTTP 500 when Gemini or Claude connects via OAuth.
-- **Cause**: GoTrue enforces asymmetric keys (`ES256` or `RS256`) for signing OIDC `id_token`. Legacy Supabase projects using symmetric `HS256` shared secret throw an internal error.
-- **Fix**: Open Supabase Dashboard (**Project Settings > JWT Signing Keys**) and migrate/rotate to `ES256` or `RS256` asymmetric keys.
+### 7. Missing GET Protection Returns 405 Instead of 401 Challenge
+- **Symptom**: Clients sending initial GET or HEAD probes fail to trigger the browser OAuth login.
+- **Cause**: Only `POST` was wrapped with `requireMcpAuth`, leaving `GET` returning raw 405 Method Not Allowed.
+- **Fix**: Route both `GET` and `POST` through `requireMcpAuth`.
 
-### 5. Silent Auth Downgrade on Invalid Bearer Tokens
+### 8. Silent Auth Downgrade on Invalid Bearer Tokens
 - **Symptom**: Calling tools with an expired or forged token runs as Guest instead of returning 401.
 - **Cause**: In `withMcpAuth` with `{ required: false }`, returning `undefined` from `verifyToken` treats the request as unauthenticated.
-- **Fix**: If an `Authorization: Bearer <token>` header is present but the token is invalid, throw `new OAuthError(OAuthErrorCode.InvalidToken, "...")`. Only return `undefined` when no auth header was provided.
+- **Fix**: If an `Authorization: Bearer <token>` header is present but the token is invalid, throw `new OAuthError(OAuthErrorCode.InvalidToken, "...")`.
 
-### 6. Server Component SSR Crash from `"use client"` Helpers (`buttonVariants`)
-- **Symptom**: Next.js 16 throws `Error: Attempted to call buttonVariants() from the server but buttonVariants is on the client` during SSR of 404 or error pages.
-- **Cause**: Pure functions (like CVA variants) exported from files with `"use client"` cannot be invoked during Server Component rendering.
+### 9. Server Component SSR Crash from `"use client"` Helpers (`buttonVariants`)
+- **Symptom**: Next.js throws `Attempted to call buttonVariants() from the server but buttonVariants is on the client` during SSR.
+- **Cause**: Pure functions exported from files with `"use client"` cannot be invoked during Server Component rendering.
 - **Fix**: Extract pure CVA helper functions to a separate directive-free `.ts` file (`components/ui/button-variants.ts`).
 
-### 7. Arcjet WAF Bot Detection Blocking MCP Clients
+### 10. Arcjet WAF Bot Detection Blocking MCP Clients
 - **Symptom**: MCP clients receive HTTP 403 Forbidden on `/api/mcp`.
 - **Cause**: Automated CLI clients (`curl`, `mcp-remote`, Claude, Gemini) trigger bot heuristics in WAF middleware (`detectBot`).
 - **Fix**: Bypass `detectBot` for `/api/mcp` and `/.well-known/*` while keeping WAF `shield` active.
-
-### 8. Strict Slug / Key Mismatches on LLM Inputs
-- **Symptom**: Queries for valid items return empty results (`total: 0`).
-- **Cause**: LLMs generate natural-language strings (e.g. `"Spring Boot"`, `"Mercedes Benz"`) rather than internal kebab-case keys (`"spring-boot"`, `"mercedes-benz"`).
-- **Fix**: Implement an input normalizer in tool handlers to resolve natural language and aliases to internal database keys before filtering.
 
 ---
 
 ## Detailed References
 
-- [Tools, Resources, and Prompts Guide](references/tools-and-resources.md) — API contracts, Zod schemas, and `AsyncLocalStorage` Server Action reuse.
-- [Authentication and Security Guide](references/authentication-and-security.md) — `withMcpAuth` v2, dual-mode auth, and strict RFC 9728 error handling.
-- [OAuth 2.1 and OpenID Connect Guide](references/oauth-and-oidc.md) — Universal OAuth 2.1, RFC 7591 Dynamic Client Registration, Supabase GoTrue IdP, and consent UI.
-- [Client Configuration Guide](references/client-configuration.md) — Connecting Google Gemini, Claude Desktop/Web, VS Code Copilot, Cursor, and Windsurf.
+- [Tools, Resources, and Prompts Guide](references/tools-and-resources.md) — API contracts, Zod schemas, user context extraction, and `AsyncLocalStorage` Server Action reuse.
+- [Authentication and Security Guide](references/authentication-and-security.md) — Better Auth `requireMcpAuth`, unified GET/POST protection, and dual-mode auth.
+- [OAuth 2.1 and OpenID Connect Guide](references/oauth-and-oidc.md) — Native Better Auth OAuth 2.1 provider, RFC 8414 Section 3 discovery, URL normalization, CIMD, and consent UI.
+- [Client Configuration Guide](references/client-configuration.md) — Protocol compatibility (`legacy: "stateless"`), Ngrok tunneling, Google Gemini, Claude, and VS Code Copilot.
 - [Testing and Debugging Guide](references/testing-and-debugging.md) — Vitest test recipes for tools, route handlers, probes, discovery endpoints, and curl inspection.

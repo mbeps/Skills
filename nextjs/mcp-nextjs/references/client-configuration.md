@@ -150,3 +150,54 @@ Most chat interfaces (Claude, Gemini, VS Code Copilot) enforce permission checks
 - **Pending Execution Fallback**: Until `Allow` is clicked, the tool returns nothing. Chat models may print a disclaimer (e.g., *"I do not have access to read..."*) assuming external tools were denied or unavailable.
 - **Always-Allow Settings**: To prevent interruptions during iterative workflows, check your client's settings (e.g. VS Code MCP tool permissions or Gemini Workspace security rules) to grant auto-approval for trusted local endpoints (`localhost:3000`).
 
+---
+
+## 8. Protocol Version Compatibility (`legacy: "stateless"`)
+
+Major AI clients (Google Gemini, Claude Desktop, Claude Web, ChatGPT) currently connect sending MCP protocol version `"2024-11-05"` without modern `2026-07-28` `_meta` envelope claims.
+
+> [!CAUTION]
+> **HTTP 400 Bad Request on Client Initialize (`legacy: "reject"`)**:
+> In `@modelcontextprotocol/server`, configuring `createMcpHandler(..., { legacy: "reject" })` rejects all `2024-11-05` traffic with:
+> `HTTP 400 Bad Request: "Unsupported protocol version: 2024-11-05"`
+> This causes Gemini to fail with the UI error:
+> *"We had trouble connecting to this server. Contact the server provider for help."*
+> **Always use `{ legacy: "stateless" }`** to serve standard `2024-11-05` clients while maintaining compatibility with newer revisions.
+
+```typescript
+// lib/mcp/server.ts
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+
+export const mcpServerHandler = createMcpHandler(
+  () => {
+    const server = new McpServer({
+      name: "my-mcp-server",
+      version: "1.0.0",
+    });
+    // register tools...
+    return server;
+  },
+  { legacy: "stateless" }, // REQUIRED for Gemini, Claude, and ChatGPT
+);
+```
+
+---
+
+## 9. Remote AI Testing with Ngrok & Public Tunnels
+
+When connecting cloud AI clients (Google Gemini Connected Apps, ChatGPT Custom GPTs, Claude Web) to a local Next.js development server:
+
+1. **Start Tunnel**:
+   ```bash
+   ngrok http 3000
+   ```
+2. **Align Base URL**:
+   Set `BETTER_AUTH_URL` to your public HTTPS ngrok URL:
+   ```env
+   BETTER_AUTH_URL=https://<your-subdomain>.ngrok-free.dev
+   ```
+   *If `BETTER_AUTH_URL` remains `http://localhost:3000`, discovery endpoints advertise localhost URLs which cloud AI servers cannot contact.*
+3. **Bypass Ngrok Free Interstitial**:
+   Ngrok free tier serves an HTML warning page on initial browser visits. Automated MCP JSON probes from AI clients should supply `ngrok-skip-browser-warning: true` or request with `Accept: application/json` to bypass this interstitial.
+
+

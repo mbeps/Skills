@@ -1,53 +1,121 @@
 # Universal MCP OAuth 2.1 & OpenID Connect Guide
 
-This guide details how to implement zero-configuration **OAuth 2.1 authentication with Dynamic Client Registration (RFC 7591)** and **OpenID Connect (OIDC)** discovery for Next.js MCP servers using Supabase Auth (GoTrue).
+This guide details how to implement zero-configuration **OAuth 2.1 authentication with Dynamic Client Registration (RFC 7591)**, **Client ID Metadata Documents (CIMD)**, and **OpenID Connect (OIDC)** discovery for Next.js MCP servers.
+
+Two architecture options are supported:
+- **Option 1: Better Auth (Native)** — Fully integrated, TypeScript-first OAuth 2.1 server with Drizzle/Prisma schemas, CIMD profile support, and `@better-auth/mcp`.
+- **Option 2: Supabase GoTrue** — External headless OAuth 2.1 server using Supabase Auth.
 
 ---
 
 ## 1. Architecture Overview
 
-Modern AI clients (Google Gemini, Claude Desktop/Web, Cursor, VS Code Copilot, ChatGPT) implement different revisions of the MCP authorization specification (`2025-03-26`, `2025-06-18`, and `2026-07-28`).
+Modern AI clients (Google Gemini, Claude Desktop/Web, Cursor, VS Code Copilot, ChatGPT) implement different revisions of the MCP authorization specification (`2024-11-05`, `2025-03-26`, and `2026-07-28`).
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Client as MCP Client (Gemini / Claude / Cursor)
+    participant Client as MCP Client (Gemini / Claude / Cursor / ChatGPT)
     participant Next as Next.js App (your-domain.com)
-    participant Auth as Authorization Server (Supabase GoTrue)
+    participant Auth as OAuth 2.1 Provider (Better Auth / GoTrue)
+    participant DB as Database (PostgreSQL / Drizzle)
 
-    Note over Client,Auth: 1. Discovery & Registration (RFC 9728 / RFC 8414 / RFC 7591)
+    Note over Client,Auth: 1. Discovery & Registration (RFC 9728 / RFC 8414 / RFC 7591 / CIMD)
     Client->>Next: GET /.well-known/oauth-protected-resource(/api/mcp)
-    Next-->>Client: 200 OK (authorization_servers, scopes_supported including offline_access)
-    Client->>Next: GET /.well-known/oauth-authorization-server (or openid-configuration)
-    Next-->>Client: 200 OK (endpoints, registration_endpoint)
-    Client->>Next: POST /api/oauth/register (RFC 7591 DCR)
-    Next->>Auth: Forward registration or create client
+    Next-->>Client: 200 OK (authorization_servers, scopes_supported with offline_access)
+    Client->>Next: GET /.well-known/oauth-authorization-server (or /api/auth path)
+    Next-->>Client: 200 OK (endpoints, registration_endpoint, jwks_uri)
+    Client->>Next: POST /api/auth/oauth2/register (DCR or CIMD fetch)
+    Next->>Auth: Register client metadata
     Next-->>Client: 201 Created (client_id, redirect_uris)
 
     Note over Client,Auth: 2. Authorization Code + PKCE & Consent Screen
-    Client->>Auth: Browser Redirect -> /auth/v1/oauth/authorize
-    Auth->>Next: Redirect -> /oauth/consent?authorization_id=<uuid>
-    Next->>Auth: supabase.auth.oauth.getAuthorizationDetails(authorizationId)
+    Client->>Auth: Browser Redirect -> /api/auth/oauth2/authorize
+    Auth->>Next: Redirect -> /oauth/consent?id=<consent_id>
+    Next->>Auth: authClient.oauth2.getConsent({ id })
     Next->>Next: Render consent card; user clicks "Allow Access"
-    Next->>Auth: supabase.auth.oauth.approveAuthorization(authorizationId)
-    Auth-->>Next: { redirect_url: "<callback>?code=...&state=..." }
-    Next->>Client: Browser Redirect -> <callback>
+    Next->>Auth: authClient.oauth2.consent({ accept: true, scope })
+    Auth-->>Client: Browser Redirect -> <callback>?code=...&state=...
 
     Note over Client,Auth: 3. Token Exchange & ID Token Verification
-    Client->>Next: POST /api/oauth/token (code + code_verifier)
-    Next->>Auth: Forward to /auth/v1/oauth/token
-    Auth-->>Client: 200 OK (access_token, refresh_token, id_token signed with ES256)
-    Client->>Next: GET /.well-known/jwks.json (verify id_token)
-    Next-->>Client: 200 OK (public keys)
+    Client->>Next: POST /api/auth/oauth2/token (code + code_verifier)
+    Next->>Auth: Validate PKCE & issue tokens
+    Auth-->>Client: 200 OK (access_token, refresh_token, id_token signed with asymmetric key)
 
     Note over Client,Next: 4. Authenticated MCP Tool Invocation
     Client->>Next: POST /api/mcp (Authorization: Bearer <access_token>)
-    Next-->>Client: 200 OK (Full User & Admin capabilities unlocked)
+    Next->>Auth: requireMcpAuth verifies JWT signature against /api/auth/jwks
+    Next->>DB: Execute tool queries scoped by tokenClaims.sub
+    Next-->>Client: 200 OK (User-scoped tool results)
 ```
 
 ---
 
-## 2. Supabase OAuth 2.1 Server Configuration
+## 2. Option 1: Native Better Auth OAuth 2.1 & MCP Provider
+
+Better Auth provides native plugins to turn your Next.js application into a fully compliant OAuth 2.1 Authorization Server and protected resource host.
+
+### Required Packages
+```bash
+npm install better-auth @better-auth/mcp @better-auth/cimd @better-auth/oauth-provider @modelcontextprotocol/server
+```
+
+### Server Configuration (`lib/auth/auth.ts`)
+```typescript
+import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
+import { mcp } from "@better-auth/mcp";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { getSiteUrl, getMcpResourceUrl } from "@/lib/auth/auth-url";
+
+export const auth = betterAuth({
+  baseURL: getSiteUrl(),
+  plugins: [
+    jwt(), // Required for asymmetric RS256/ES256 JWKS signing
+    mcp({
+      loginPage: "/auth/login",
+      consentPage: "/oauth/consent",
+      resource: getMcpResourceUrl(),
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      // offline_access is mandatory for Gemini refresh tokens
+      scopes: ["openid", "profile", "email", "offline_access"],
+    }),
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28", // Pins MCP draft CIMD profile
+    }),
+  ],
+  // database adapter (e.g. drizzleAdapter)...
+});
+```
+
+### Client Configuration (`lib/auth/auth-client.ts`)
+```typescript
+import { createAuthClient } from "better-auth/react";
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
+
+export const authClient = createAuthClient({
+  plugins: [
+    oauthProviderClient(),
+  ],
+});
+```
+
+### Database Tables (Drizzle ORM)
+Better Auth OAuth Provider requires:
+- `jwks`: Key store for asymmetric token signing.
+- `oauth_client`: Registered clients (supports RFC 7591 dynamic client registration).
+- `oauth_access_token` & `oauth_refresh_token`: Stored token grants.
+- `oauth_consent`: User consent decisions per client and scope set.
+- `oauth_resource` & `oauth_client_resource`: Protected resource bindings.
+
+Run `npx @better-auth/cli generate` or sync schemas to create PostgreSQL migration tables.
+
+---
+
+## 3. Option 2: Supabase OAuth 2.1 Server Configuration
 
 Supabase includes a native, headless OAuth 2.1 server in GoTrue.
 
@@ -85,14 +153,43 @@ In Supabase Cloud Dashboard:
 
 ---
 
-## 4. Metadata & Discovery Route Handlers
+## 4. Metadata & Discovery Route Handlers & URL Normalization
 
-Modern clients query multiple discovery specs. Use Next.js optional catch-all routes `[[...resource]]` to support both origin and path-scoped queries.
+Modern AI clients query multiple discovery specifications:
+- **RFC 9728**: Protected resource metadata (`/.well-known/oauth-protected-resource`)
+- **RFC 8414 Section 3**: Authorization server metadata (`/.well-known/oauth-authorization-server/api/auth`)
+- **Root OIDC / RFC 8414**: Root fallback queries (`/.well-known/openid-configuration` and `/.well-known/oauth-authorization-server`)
 
-### A. RFC 9728 Protected Resource Metadata
+### A. Centralized URL Normalization (`lib/auth/auth-url.ts`)
+
+> [!CAUTION]
+> **Vercel HTTP 308 Redirect Discovery Failure**:
+> When `BETTER_AUTH_URL` or environment variables contain a trailing slash (`https://example.com/`), string concatenation yields double slashes (`https://example.com//api/mcp`).
+> When `@better-auth/oauth-provider` generates `WWW-Authenticate: Bearer resource_metadata="..."`, it advertises the double-slash URL. Vercel issues an **HTTP 308 Permanent Redirect**.
+> Google Gemini, Claude `mcp-remote`, and ChatGPT reject redirects on metadata endpoints and abort the connection. Always strip trailing slashes:
+
+```typescript
+// lib/auth/auth-url.ts
+export function getSiteUrl(): string {
+  return (process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
+
+export function getMcpResourceUrl(): string {
+  return `${getSiteUrl()}/api/mcp`;
+}
+
+export function sanitizeUrl(url: string): string {
+  return url.replace(/([^:]\/)\/+/g, "$1").replace(/\/+$/, "");
+}
+```
+
+### B. RFC 9728 Protected Resource Metadata Handler
 ```typescript
 // app/.well-known/oauth-protected-resource/[[...resource]]/route.ts
-import { generateProtectedResourceMetadata, getPublicUrl, metadataCorsOptionsRequestHandler } from "mcp-handler";
+import { NextResponse } from "next/server";
+import { getSiteUrl, getMcpResourceUrl } from "@/lib/auth/auth-url";
+
+export const dynamic = "force-dynamic";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -100,26 +197,29 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
 };
 
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export async function GET(req: Request) {
-  const publicUrl = getPublicUrl(req);
-  publicUrl.pathname = publicUrl.pathname.replace(/^\/\.well-known\/[^/]+/, "");
-  const resource = publicUrl.pathname === "/"
-    ? publicUrl.toString().replace(/\/$/, "")
-    : publicUrl.toString();
+  const url = new URL(req.url);
+  const siteUrl = getSiteUrl();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/+$/, "");
+  let resource = getMcpResourceUrl();
+  const pathname = url.pathname.replace(/^\/\.well-known\/oauth-protected-resource\/?/, "");
+  if (pathname) {
+    resource = `${siteUrl}/${pathname.replace(/^\/+/, "")}`;
+  }
 
-  const metadata = generateProtectedResourceMetadata({
-    authServerUrls: [`${supabaseUrl}/auth/v1`],
-    resourceUrl: resource,
-    additionalMetadata: {
-      // offline_access is MANDATORY for Google Gemini to issue a refresh_token
-      scopes_supported: ["openid", "email", "profile", "offline_access"],
-      bearer_methods_supported: ["header"],
-    },
-  });
+  const metadata = {
+    resource,
+    authorization_servers: [`${siteUrl}/api/auth`],
+    // offline_access is MANDATORY for Google Gemini to issue a refresh_token
+    scopes_supported: ["openid", "profile", "email", "offline_access"],
+    bearer_methods_supported: ["header"],
+  };
 
-  return new Response(JSON.stringify(metadata), {
+  return NextResponse.json(metadata, {
     headers: {
       ...CORS_HEADERS,
       "Cache-Control": "public, max-age=3600",
@@ -127,173 +227,179 @@ export async function GET(req: Request) {
     },
   });
 }
-
-export const OPTIONS = metadataCorsOptionsRequestHandler();
 ```
 
-### B. RFC 8414 Authorization Server Metadata
+### C. RFC 8414 Section 3 Path Insertion Proxy
+When an authorization server URL has a path component (e.g. `https://host/api/auth`), **RFC 8414 Section 3** requires clients to insert `/.well-known/oauth-authorization-server` between host and path:
+`/.well-known/oauth-authorization-server/api/auth`
+
+Clients also query the root fallback `/.well-known/oauth-authorization-server`. Forward both to Better Auth:
+
 ```typescript
-// app/.well-known/oauth-authorization-server/[[...resource]]/route.ts
-import { NextResponse } from "next/server";
+// app/.well-known/oauth-authorization-server/[[...path]]/route.ts
+import { auth } from "@/lib/auth/auth";
+import { getSiteUrl } from "@/lib/auth/auth-url";
 
-export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/+$/, "");
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
+export const dynamic = "force-dynamic";
 
-  return NextResponse.json({
-    issuer: `${supabaseUrl}/auth/v1`,
-    authorization_endpoint: `${supabaseUrl}/auth/v1/oauth/authorize`,
-    token_endpoint: `${supabaseUrl}/auth/v1/oauth/token`,
-    registration_endpoint: `${siteUrl}/api/oauth/register`,
-    jwks_uri: `${siteUrl}/.well-known/jwks.json`,
-    userinfo_endpoint: `${supabaseUrl}/auth/v1/oauth/userinfo`,
-    response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code", "refresh_token"],
-    code_challenge_methods_supported: ["S256", "plain"],
-    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "client_secret_basic"],
-    scopes_supported: ["openid", "email", "profile", "offline_access"],
-    id_token_signing_alg_values_supported: ["ES256", "RS256"],
-  }, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, max-age=3600",
-    },
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+};
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
+  return new Response(res.status === 204 || res.status === 304 ? null : res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
   });
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const siteUrl = getSiteUrl();
+
+  const targetUrl = url.pathname.endsWith("/api/auth")
+    ? req.url
+    : `${siteUrl}/.well-known/oauth-authorization-server/api/auth${url.search}`;
+
+  const res = await auth.handler(new Request(targetUrl, req));
+  return withCors(res);
 }
 ```
 
-### C. Domain JWKS Proxy
-Clients frequently query `/.well-known/jwks.json` on the Next.js host domain to verify ID token signatures:
+### D. Root OpenID Configuration Forwarder
+Forward root `/.well-known/openid-configuration` queries to Better Auth's handler:
 
 ```typescript
-// app/.well-known/jwks.json/route.ts
-import { NextResponse } from "next/server";
+// app/.well-known/openid-configuration/route.ts
+import { auth } from "@/lib/auth/auth";
+import { getSiteUrl } from "@/lib/auth/auth-url";
 
-export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/+$/, "");
-  const res = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 600 },
-  });
+export const dynamic = "force-dynamic";
 
-  const data = await res.json();
-  return NextResponse.json(data, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "public, max-age=600",
-    },
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+};
+
+function withCors(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    if (!headers.has(key)) headers.set(key, value);
+  }
+  return new Response(res.status === 204 || res.status === 304 ? null : res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
   });
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const siteUrl = getSiteUrl();
+  const targetUrl = `${siteUrl}/api/auth/.well-known/openid-configuration${url.search}`;
+  const res = await auth.handler(new Request(targetUrl, req));
+  return withCors(res);
 }
 ```
 
 ---
 
-## 5. Dynamic Client Registration (RFC 7591)
+## 5. Dynamic Client Registration (RFC 7591) & CIMD
 
-Automated MCP clients register via `POST /api/oauth/register`:
-
-```typescript
-// app/api/oauth/register/route.ts
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\/+$/, "");
-
-  // 1. Forward to Supabase GoTrue public DCR
-  try {
-    const upstreamRes = await fetch(`${supabaseUrl}/auth/v1/oauth/clients/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (upstreamRes.ok) {
-      const data = await upstreamRes.json();
-      return NextResponse.json(data, { status: 201, headers: { "Access-Control-Allow-Origin": "*" } });
-    }
-  } catch {
-    // Fallback to Admin API if public DCR endpoint is unreachable
-  }
-
-  // 2. Admin client fallback
-  const adminClient = createClient(supabaseUrl, process.env.SUPABASE_SECRET_KEY!);
-  const { data, error } = await adminClient.auth.admin.oauth.createClient({
-    client_name: body.client_name ?? "MCP Client",
-    redirect_uris: body.redirect_uris,
-    grant_types: ["authorization_code", "refresh_token"],
-    response_types: ["code"],
-    scope: "openid email profile offline_access",
-  });
-
-  if (error || !data) {
-    return NextResponse.json({ error: "registration_failed" }, { status: 500 });
-  }
-
-  return NextResponse.json(data, { status: 201, headers: { "Access-Control-Allow-Origin": "*" } });
-}
-```
+Automated MCP clients register dynamically or identify via Client ID Metadata Documents (CIMD):
+- In **Better Auth**, enabling `allowDynamicClientRegistration: true` and the `cimd()` plugin automatically handles both RFC 7591 `POST /api/auth/oauth2/register` and URL-based client identities.
+- In **Supabase GoTrue**, forward `POST /api/oauth/register` to GoTrue DCR or the Supabase Admin API.
 
 ---
 
 ## 6. Next.js OAuth 2.1 Consent UI (`/oauth/consent`)
 
-Supabase redirects the user to `/oauth/consent?authorization_id=<uuid>`.
+When an AI client requests access, the OAuth provider redirects the user to the consent screen (`/oauth/consent`).
 
-### Client Consent Hook (`useOAuthConsent`)
-```typescript
-// hooks/use-oauth-consent.ts
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@/lib/supabase/client";
+### Better Auth Consent Screen (`app/oauth/consent/page.tsx`)
 
-export function useOAuthConsent(authorizationId: string | null) {
+> [!IMPORTANT]
+> **Consent Response Shape**: `authClient.oauth2.consent()` returns `{ redirect: boolean, url: string }` (`OAuthRedirectResult`). Read `res.data?.url` for the redirection destination.
+> **Suspense Boundary**: In Next.js App Router, wrap components reading `useSearchParams()` in `<Suspense>` to prevent build-time prerender bailouts.
+
+```tsx
+// app/oauth/consent/page.tsx
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams, redirect } from "next/navigation";
+import { authClient } from "@/lib/auth/auth-client";
+
+function ConsentContent() {
+  const searchParams = useSearchParams();
+  const consentId = searchParams.get("id");
+  const session = authClient.useSession();
   const [details, setDetails] = useState<any>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "submitting" | "error">("loading");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!authorizationId) return;
-    const supabase = createBrowserClient();
-
-    async function load() {
-      const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-      if (error || !data) {
-        setStatus("error");
-        return;
-      }
-
-      // If user already granted consent, redirect immediately
-      if ("redirect_url" in data) {
-        window.location.assign(data.redirect_url);
-        return;
-      }
-
-      setDetails(data);
-      setStatus("ready");
+    if (!session.isPending && !session.data) {
+      redirect(`/auth/login?redirect=${encodeURIComponent(`/oauth/consent?${searchParams.toString()}`)}`);
     }
+  }, [session.isPending, session.data, searchParams]);
 
-    load();
-  }, [authorizationId]);
+  useEffect(() => {
+    async function load() {
+      if (consentId) {
+        const res = await authClient.oauth2.getConsent({ query: { id: consentId } });
+        if (res.data) setDetails(res.data);
+      }
+    }
+    if (session.data) load();
+  }, [consentId, session.data?.user?.id]);
 
-  const handleApprove = async () => {
-    setStatus("submitting");
-    const supabase = createBrowserClient();
-    const { data } = await supabase.auth.oauth.approveAuthorization(authorizationId!, {
-      skipBrowserRedirect: true,
-    });
-    if (data?.redirect_url) window.location.assign(data.redirect_url);
+  const handleDecision = async (accept: boolean) => {
+    setIsLoading(true);
+    try {
+      const res = await authClient.oauth2.consent({
+        accept,
+        scope: details?.scopes?.join(" "),
+      });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeny = async () => {
-    setStatus("submitting");
-    const supabase = createBrowserClient();
-    const { data } = await supabase.auth.oauth.denyAuthorization(authorizationId!, {
-      skipBrowserRedirect: true,
-    });
-    if (data?.redirect_url) window.location.assign(data.redirect_url);
-  };
+  return (
+    <div>
+      <h2>Authorise {details?.client?.name || "AI Assistant"}</h2>
+      <p>Requested scopes: {details?.scopes?.join(", ")}</p>
+      <button disabled={isLoading} onClick={() => handleDecision(true)}>Allow</button>
+      <button disabled={isLoading} onClick={() => handleDecision(false)}>Deny</button>
+    </div>
+  );
+}
 
-  return { details, status, handleApprove, handleDeny };
+export default function ConsentPage() {
+  return (
+    <Suspense fallback={<div>Loading authorization request...</div>}>
+      <ConsentContent />
+    </Suspense>
+  );
 }
 ```
 
@@ -301,10 +407,13 @@ export function useOAuthConsent(authorizationId: string | null) {
 
 ## 7. Client Quirks & Troubleshooting
 
-| Client | Behavior & Requirement | Fix / Configuration |
+| Client / Failure | Root Cause | Fix / Configuration |
 | :--- | :--- | :--- |
-| **Google Gemini (Connected Apps)** | Proactively executes discovery and mandates a `refresh_token` in the token response. | Must advertise `offline_access` in RFC 9728 & RFC 8414 `scopes_supported`. If missing, Gemini fails with *"Account linking is required to use this custom app."* |
-| **Claude Desktop / Claude Web** | Connects without auth by default; runs public tools cleanly. | Keep `required: false` on `withMcpAuth` so unauthenticated requests succeed as Guest. |
-| **mcp-remote / Cursor** | Probes endpoint and triggers browser login only upon receiving HTTP 401. | Support `/api/mcp?auth=required` to return a 401 challenge on demand. |
-| **Multi-hop Sign-In Loss** | Unauthenticated user hits `/oauth/consent?authorization_id=...`, gets redirected to `/sign-in`. | Always URL-encode nested query parameters (`encodeURIComponent(redirect)`) and sanitize with `getSafeRedirectPath` to prevent open redirects. |
+| **"Account linking is required" in Gemini** | Discovery metadata omitted `"offline_access"` scope, so no `refresh_token` was returned. | Add `"offline_access"` to `scopes_supported` in RFC 9728 and RFC 8414 discovery endpoints. |
+| **HTTP 308 Permanent Redirect on Discovery** | Trailing slash in `BETTER_AUTH_URL` created double slashes (`//api/mcp`). Vercel redirects, which Gemini/Claude reject. | Use `getSiteUrl()` to strip trailing slashes from base and resource URLs. |
+| **HTTP 404 on Gemini Discovery** | Issuer has path (`/api/auth`). Gemini queries RFC 8414 Section 3 path `/.well-known/oauth-authorization-server/api/auth`. | Create `app/.well-known/oauth-authorization-server/[[...path]]/route.ts` proxying to `auth.handler()`. |
+| **HTTP 404 on ChatGPT Discovery** | ChatGPT queries root `/.well-known/openid-configuration`. | Create `app/.well-known/openid-configuration/route.ts` proxying to `auth.handler()`. |
+| **HTTP 500 `Error generating ID token` in GoTrue** | Legacy Supabase uses symmetric `HS256`. OIDC requires asymmetric keys. | Migrate JWT keys to `ES256` or `RS256` in Supabase Project Settings. |
+| **Claude Desktop / Claude Web** | Connects without auth by default; runs public tools cleanly. | Guard endpoint with `requireMcpAuth` or dual-mode auth. Support `/api/mcp?auth=required` to challenge on demand. |
+| **Consent Page prerender bailout build error** | `useSearchParams()` called without Suspense boundary in App Router. | Wrap search-param consuming component inside `<Suspense>`. |
 

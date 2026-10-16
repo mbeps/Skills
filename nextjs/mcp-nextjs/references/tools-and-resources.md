@@ -124,6 +124,71 @@ export function formatActionResult<T>(result: { success: boolean; data?: T; erro
   }
   return formatToolResponse(result.data);
 }
+
+/**
+ * Robustly extracts the authenticated user ID from MCP execution context.
+ * In @modelcontextprotocol/server + requireMcpAuth / withMcpAuth,
+ * authInfo can be nested in ctx.authInfo, ctx.http.authInfo, or ctx.userId.
+ */
+export function getMcpUserId(ctx: unknown): string | undefined {
+  if (!ctx || typeof ctx !== "object") return undefined;
+
+  const context = ctx as {
+    authInfo?: { userId?: string; sub?: string; clientId?: string };
+    http?: { authInfo?: { userId?: string; sub?: string; clientId?: string } };
+    userId?: string;
+    sub?: string;
+  };
+
+  return (
+    context.authInfo?.userId ||
+    context.authInfo?.sub ||
+    context.http?.authInfo?.userId ||
+    context.http?.authInfo?.sub ||
+    context.userId ||
+    context.sub
+  );
+}
+```
+
+### Strict Tenant Isolation & Database Scoping Pattern
+MCP tools must strictly isolate database queries by the authenticated user's ID (`tokenClaims.sub`). Never allow cross-tenant data access:
+
+```typescript
+// lib/mcp/tools/todos.ts
+server.registerTool(
+  "toggle_todo",
+  {
+    title: "Toggle Todo Status",
+    description: "Toggle task completion for the authenticated user.",
+    inputSchema: z.object({ todoId: z.string() }),
+  },
+  async ({ todoId }, ctx) => {
+    const userId = getMcpUserId(ctx);
+    if (!userId) {
+      return formatToolResponse({ error: "Unauthorized: Missing user authentication." }, true);
+    }
+
+    // Always scope lookup to userId
+    const [existing] = await db
+      .select()
+      .from(todo)
+      .where(and(eq(todo.id, todoId), eq(todo.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      return formatToolResponse({ error: "Task not found or permission denied." }, true);
+    }
+
+    const [updated] = await db
+      .update(todo)
+      .set({ isCompleted: !existing.isCompleted })
+      .where(and(eq(todo.id, todoId), eq(todo.userId, userId)))
+      .returning();
+
+    return formatToolResponse({ message: "Task updated", todo: updated });
+  },
+);
 ```
 
 ---
