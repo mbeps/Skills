@@ -117,19 +117,49 @@ export async function GET() {
   // Protected logic here
   return NextResponse.json({ data: 'secret' });
 }
+```
+
+### Defensive Route Handler Pattern (RFC 6749 / OAuth / Public APIs)
+
+If an external probe or misconfigured matcher reaches a Route Handler without middleware headers, `auth()` throws an error. Wrap `auth()` in `try/catch` to guarantee structured HTTP 401 JSON responses instead of uncaught 500 server crashes:
+
+```ts
+// app/api/oauth/consent/route.ts
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  let userId: string | null = null;
+  let sessionId: string | null | undefined = null;
 
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const authContext = await auth();
+    userId = authContext.userId;
+    sessionId = authContext.sessionId;
+  } catch {
+    return Response.json(
+      { error: 'unauthorized', error_description: 'Unable to verify authentication session' },
+      { status: 401 }
+    );
   }
 
-  const body = await request.json();
-  // Create logic here
-  return NextResponse.json({ created: true });
+  if (!userId) {
+    return Response.json(
+      { error: 'unauthorized', error_description: 'User not signed in' },
+      { status: 401 }
+    );
+  }
+
+  // Process authenticated action
+  return Response.json({ success: true, userId, sessionId });
 }
 ```
+
+## Direct Token Verification & Downstream Minting
+
+For external callers (MCP, mobile, background workers) and downstream databases:
+- **Direct Bearer verification:** Use `verifyToken(token, { secretKey })` to validate tokens without cookies.
+- **Downstream session tokens:** Use `createClerkClient().sessions.getToken(sessionId, "convex")` to mint tokens for downstream backends.
+- See `third-party-integrations.md` for full recipes and Convex `customJwt` setup.
 
 ## Server Action Pattern
 
@@ -173,7 +203,7 @@ Note: `redirectToSignIn()` returns a Response in Route Handlers but throws in Se
 ## Common Pitfalls
 
 - **`auth()` is async:** Always `await auth()`. Calling without await returns a Promise, not the auth object.
-- **`auth()` requires middleware:** If `clerkMiddleware()` is not configured, `auth()` returns empty values.
+- **`auth()` throws when middleware is missing:** In modern Clerk and Next.js 16+, calling `await auth()` without `clerkMiddleware()` running upstream in `proxy.ts`/`middleware.ts` throws an unhandled error (`Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware()`). Always ensure `proxy.ts` is configured, and wrap `auth()` in `try/catch` on custom API routes.
 - **Don't use `useUser()` in Server Components:** Use `await currentUser()` instead. Hooks don't work outside Client Components.
 - **Route Handlers need per-method checks:** Each `GET`/`POST`/etc. handler needs its own `await auth()` call. Middleware does not protect API routes automatically.
 - **`redirectToSignIn()` behavior differs:** In Server Components it throws (use try/catch or check `userId` first). In Route Handlers it returns a Response.

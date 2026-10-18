@@ -1,6 +1,6 @@
 ---
 name: clerk-nextjs
-description: Use when building, modifying, or debugging a Clerk-authenticated Next.js TypeScript app — setup via CLI, middleware, auth() / currentUser() helpers, client hooks (useUser, useAuth), route protection, prebuilt components (SignIn, SignUp, UserButton, Show), custom component composition, organizations, webhooks, shadcn/ui theming. Covers App Router only (Next.js 15+).
+description: Use when building, modifying, or debugging a Clerk-authenticated Next.js TypeScript app — setup via CLI or proxy.ts, server auth() / currentUser() helpers, client hooks (useUser, useAuth), route protection, downstream integrations (Convex customJwt, MCP OAuth 2.1, session token minting), prebuilt components, custom auth UI, organizations, webhooks, shadcn/ui theming. Covers App Router only (Next.js 15+).
 ---
 
 # Clerk + Next.js (TypeScript, App Router)
@@ -34,13 +34,16 @@ Use when:
 | Custom components: build your own auth UI | `custom-components.md` | `<Show>` + `useUser()` pattern |
 | Organizations: multi-tenant patterns | `organizations.md` | `has()` guard + org roles |
 | Webhooks: user lifecycle sync | `webhooks.md` | Event types + endpoint setup |
+| Integrations: Convex, MCP, OAuth 2.1, external backends | `third-party-integrations.md` | customJwt, verifyToken, session tokens |
 | Conventions: env, clients, actions, pitfalls | `conventions.md` | Secret key rule + auth boundary |
 
 ## Core Conventions
 
 - **CLI-first setup:** Run `npx -y clerk@latest init` — do not hand-write setup unless it fails.
-- **Middleware file naming:** `proxy.ts` on Next.js 16+, `middleware.ts` on 15 and below. Contents are identical.
+- **Middleware file naming:** `proxy.ts` on Next.js 16+, `middleware.ts` on 15 and below. If missing or misconfigured in Next.js 16, `await auth()` throws an uncaught error (`Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware()`).
 - **Server auth is async:** Always `await auth()`. Never call `auth()` without `await`.
+- **Defensive API route protection:** In custom API/OAuth Route Handlers, wrap `await auth()` in `try/catch` to return standard RFC 6749 HTTP 401 JSON instead of crashing with an uncaught 500 error.
+- **Resilient client JSON parsing:** Client components submitting forms or consent decisions must verify `res.ok` and wrap `res.json()` in `try/catch` with fallback to `res.text()` or status codes, preventing `SyntaxError: Unexpected end of JSON input`.
 - **Secret key never leaves the server:** `CLERK_SECRET_KEY` goes in `.env.local` only. Never import it client-side.
 - **`ClerkProvider` inside `<body>`:** Not wrapping `<html>`. Goes in root `layout.tsx`.
 - **Use `@clerk/nextjs`, not `@clerk/clerk-react`:** The Next.js package bundles framework-specific logic.
@@ -48,6 +51,7 @@ Use when:
 - **`<Show>` for conditional rendering:** Use `<Show when="signed-in">` / `<Show when="signed-out">` instead of manual session checks in JSX.
 - **Organizations:** Check membership with `has()` before accessing `orgId`. Never assume an org exists.
 - **Middleware protects pages, NOT API routes:** Each Route Handler needs its own `await auth()` check. Middleware only intercepts page requests; direct API calls bypass it.
+- **Downstream service tokens:** Use `createClerkClient().sessions.getToken(sessionId, template)` to pass scoped credentials to external databases (e.g. Convex) rather than passing raw master secrets.
 - **Clerk authenticates, it does not replace database-level access control:** RLS / ownership checks still needed for your data layer.
 - **OAuth providers configured in Dashboard, not code:** Enable providers in Clerk Dashboard → OAuth settings. No code change needed.
 - **Clerk handles rate limiting:** Do not add redundant rate limiting on auth endpoints.
@@ -55,5 +59,6 @@ Use when:
 
 ## Files
 
-- **REQUIRED READING:** `setup.md` — CLI workflow, env vars, middleware, provider wiring.
-- **REQUIRED READING:** `conventions.md` — secret key rule, auth boundary, common pitfalls.
+- **REQUIRED READING:** `setup.md` — CLI workflow, env vars, middleware/proxy wiring, and Next.js 16 proxy details.
+- **REQUIRED READING:** `conventions.md` — secret key rule, auth boundary, common pitfalls, and resilient response handling.
+- **REFERENCE:** `third-party-integrations.md` — Convex `customJwt` config, MCP/OAuth 2.1 bridging, and downstream token minting.

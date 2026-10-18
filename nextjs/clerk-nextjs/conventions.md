@@ -156,17 +156,66 @@ export async function GET() {
 </html>
 ```
 
+### ❌ Unguarded `res.json()` on Client Auth Submissions
+
+```tsx
+// BAD - crashes with SyntaxError: Unexpected end of JSON input on 500/504 errors
+const res = await fetch("/api/oauth/consent", { method: "POST", body: JSON.stringify(data) });
+const json = await res.json();
+
+// GOOD - verify res.ok and catch parsing failures gracefully
+const res = await fetch("/api/oauth/consent", { method: "POST", body: JSON.stringify(data) });
+let json: { error?: string; error_description?: string; redirect_url?: string } = {};
+try {
+  json = await res.json();
+} catch {
+  // Edge proxies or 500/504 gateways may return non-JSON or empty bodies
+}
+
+if (!res.ok) {
+  toast.error(json.error_description || json.error || `Server error (${res.status})`);
+  return;
+}
+```
+
+### ❌ Uncaught `auth()` in Custom API & OAuth Routes
+
+```ts
+// BAD - throws unhandled exception if middleware is bypassed or proxy.ts is missing
+export async function POST(req: Request) {
+  const { userId } = await auth(); // throws uncaught error -> empty 500
+}
+
+// GOOD - wrap in try/catch to return structured 401 JSON
+export async function POST(req: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return Response.json({ error: "unauthorized" }, { status: 401 });
+    }
+  } catch {
+    return Response.json(
+      { error: "unauthorized", error_description: "Unable to verify authentication session" },
+      { status: 401 }
+    );
+  }
+}
+```
+
 ## Debugging Checklist
 
 When something isn't working:
 
-1. **Is `clerkMiddleware()` configured?** Check middleware/proxy file exists and matches correct filename for your Next.js version.
-2. **Are env vars set?** Verify `.env.local` has both `CLERK_SECRET_KEY` and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
-3. **Is `ClerkProvider` in the right place?** Must be inside `<body>`, not wrapping `<html>`.
-4. **Are you using the right helper for the context?** Server → `auth()`/`currentUser()`, Client → `useUser()`/`useAuth()`.
-5. **Did you run `clerk doctor`?** `npx -y clerk@latest doctor` catches most config issues.
-6. **Is the matcher excluding what it should?** Static files and webhook endpoints should be skipped.
-7. **Check browser console:** Clerk components log initialization errors with actionable messages.
+1. **Is `clerkMiddleware()` configured?** Next.js 16+ requires `proxy.ts` (not `middleware.ts`). If missing, `auth()` throws `Error: Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware()`.
+2. **Are API routes crashing with 500?** Wrap `await auth()` in a `try/catch` to convert middleware detection errors into 401 responses.
+3. **Are client components throwing `Unexpected end of JSON input`?** Wrap `res.json()` in a `try/catch` and check `res.ok`.
+4. **Is Convex Cloud rejecting deployment?** Ensure `convex/auth.config.ts` uses `type: "customJwt"`, `jwks` (NOT `jwksUri`), `algorithm: "RS256"`, and is typed with `AuthConfig`.
+5. **Are env vars set?** Verify `.env.local` has both `CLERK_SECRET_KEY` and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+6. **Is `ClerkProvider` in the right place?** Must be inside `<body>`, not wrapping `<html>`.
+7. **Are you using the right helper for the context?** Server → `auth()`/`currentUser()`, Client → `useUser()`/`useAuth()`.
+8. **Did you run `clerk doctor`?** `npx -y clerk@latest doctor` catches most config issues.
+9. **Is the matcher excluding what it should?** Static files and webhook endpoints should be skipped.
+10. **Check browser console:** Clerk components log initialization errors with actionable messages.
 
 ## Upgrade Notes
 

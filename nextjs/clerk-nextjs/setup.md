@@ -84,11 +84,24 @@ Or via package runner: `npx -y clerk@latest update --yes`.
 npm install @clerk/nextjs
 ```
 
-### 2. Create Middleware
+### 2. Create Middleware / Proxy File
 
-**`middleware.ts`** (Next.js ≤15) or **`proxy.ts`** (Next.js ≥16):
+- **Next.js 16+**: Create **`proxy.ts`** (or `src/proxy.ts`). Next.js 16 replaces `middleware.ts` with `proxy.ts`.
+- **Next.js ≤15**: Create **`middleware.ts`** (or `src/middleware.ts`).
+
+> [!WARNING]
+> **Missing Middleware / Proxy Runtime Crash**:
+> In Next.js 16+, if `proxy.ts` is missing or named `middleware.ts`, calling `await auth()` on the server throws an uncaught error:
+> ```text
+> Error: Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware(). Please ensure the following:
+> - Your middleware or proxy file exists at ./middleware.(ts|js) or proxy.(ts|js)
+> - clerkMiddleware() is used in your Next.js middleware or proxy file.
+> - Your middleware or proxy matcher is configured to match this route or page.
+> ```
+> In API route handlers or server actions, this terminates the request with an empty HTTP 500 error. Always ensure `proxy.ts` exists and exports `clerkMiddleware()`.
 
 ```ts
+// proxy.ts (Next.js 16+) or middleware.ts (Next.js ≤15)
 import { clerkMiddleware } from '@clerk/nextjs/server';
 
 export default clerkMiddleware();
@@ -97,8 +110,30 @@ export const config = {
   matcher: [
     // Skip Next.js internals and all static files
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|md|mp4|webm|png|jpg|jpeg|svg|gif|ico|woff2)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
   ],
 };
+```
+
+#### Unit Testing the Middleware / Proxy Export
+Ensure `proxy.ts` is tracked and verified in your test suite:
+
+```ts
+// __tests__/proxy.test.ts
+import { describe, expect, it } from "vitest";
+import proxyHandler, { config } from "@/proxy";
+
+describe("Next.js Proxy Middleware", () => {
+  it("exports a default clerkMiddleware handler function", () => {
+    expect(typeof proxyHandler).toBe("function");
+  });
+
+  it("exports matcher configuration excluding static assets", () => {
+    expect(config.matcher).toBeDefined();
+    expect(Array.isArray(config.matcher)).toBe(true);
+  });
+});
 ```
 
 ### 3. Add Provider
