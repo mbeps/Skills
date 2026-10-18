@@ -22,10 +22,17 @@ server.registerTool(
 ```
 
 ### Key Differences in MCP SDK v2 & Zod v4
-1. **Full Schema Object**: In v2, `inputSchema` takes a complete Zod object schema (`z.object({ ... })`) conforming to the Standard Schema specification, rather than a raw Zod shape.
-2. **Empty Arguments**: For tools requiring no input parameters, supply `z.object({})`.
-3. **Execution Context**: The second parameter is `ctx: ServerContext`. If `withMcpAuth` was applied, authentication info is available at `ctx.http?.authInfo`.
-4. **Return Format**: Handlers return an object with a `content` array containing items of `type: "text"` or `type: "image"`, plus an optional `isError: true` flag.
+1. **Schema Shapes**: `@modelcontextprotocol/server`'s `registerTool` accepts a `ZodRawShape` (`{ [key: string]: z.ZodTypeAny }`) directly for `inputSchema`, as well as Standard Schema / `z.object({...})`.
+2. **Empty Arguments**: For tools requiring no input parameters, supply `{}` or `z.object({})`.
+3. **Execution Context**: The second parameter is `ctx: unknown` (or `ServerContext`). When `withMcpAuth` is configured, authentication info is available at `ctx.http?.authInfo` or `ctx.authInfo`.
+4. **Return Format with Index Signature**: Handlers return an object with an index signature (`[x: string]: unknown`), a `content` array containing items of `type: "text"` or `type: "image"`, and an optional `isError: true` flag:
+   ```typescript
+   export interface ToolResult {
+     [x: string]: unknown;
+     content: Array<{ type: "text"; text: string }>;
+     isError?: boolean;
+   }
+   ```
 
 ### Complete Tool Example
 
@@ -123,6 +130,40 @@ export function formatActionResult<T>(result: { success: boolean; data?: T; erro
     return formatToolResponse({ error: result.error ?? "Action failed" }, true);
   }
   return formatToolResponse(result.data);
+}
+
+/**
+ * Higher-order tool handler enforcing authentication and error handling for database operations.
+ */
+export function createAuthenticatedToolHandler<T, TClient>(
+  clientFactory: (token?: string) => TClient,
+  action: (client: TClient, args: T, userId: string) => Promise<unknown>,
+) {
+  return async (args: T, ctx: unknown): Promise<McpToolResponse> => {
+    const userId = getMcpUserId(ctx);
+    if (!userId) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: "Unauthorized: Valid authentication token required." }],
+      };
+    }
+
+    const token = getMcpToken(ctx);
+    const client = clientFactory(token);
+
+    try {
+      const res = await action(client, args, userId);
+      return {
+        content: [{ type: "text", text: JSON.stringify(res ?? { success: true }, null, 2) }],
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error: ${message}` }],
+      };
+    }
+  };
 }
 
 /**

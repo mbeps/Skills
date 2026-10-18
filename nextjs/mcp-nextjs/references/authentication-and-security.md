@@ -279,37 +279,209 @@ export async function verifyMcpToken(
 
 ---
 
-## 5. Accessing Authentication Info inside Tools
+## 5. Clerk Bearer Token Authentication (Direct & Dual-Token Mode)
 
-In `@modelcontextprotocol/server` v2, tool callbacks take `(args, ctx: ServerContext)`. `mcp-handler` injects `req.auth` into `sdkHandler.fetch(req, { authInfo: req.auth })`, which exposes it at **`ctx.http?.authInfo`**:
+When using Clerk as your identity provider, incoming requests can carry either a direct Clerk session JWT or an internal OAuth 2.1 access token minted by your application's OAuth server.
 
 ```typescript
-import type { ServerContext } from "@modelcontextprotocol/server";
+// lib/mcp/auth.ts
+import { createClerkClient, verifyToken } from "@clerk/nextjs/server";
+import { type AuthInfo, OAuthError, OAuthErrorCode } from "@modelcontextprotocol/server";
+import { verifyAccessToken } from "@/lib/mcp/oauth"; // internal OAuth 2.1 token verifier
 
-export function getMcpAuth(ctx: unknown) {
-  const context = ctx as { http?: { authInfo?: AuthInfo }; authInfo?: AuthInfo } | undefined;
-  return context?.http?.authInfo?.extra ?? null;
+export interface McpAuthInfo extends AuthInfo {
+  extra: {
+    userId: string;
+  };
 }
 
-server.registerTool(
-  "delete_project",
-  {
-    description: "Delete a project (admin only)",
-    inputSchema: z.object({ projectId: z.string() }),
-  },
-  async ({ projectId }, ctx: ServerContext) => {
-    const auth = getMcpAuth(ctx);
+export const MCP_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
 
-    if (auth?.role !== "admin") {
+export async function verifyMcpToken(
+  req: Request,
+  bearerToken?: string,
+): Promise<McpAuthInfo | undefined> {
+  const url = new URL(req.url);
+  const isAuthRequired = url.searchParams.get("auth") === "required";
+
+  if (!bearerToken) {
+    if (isAuthRequired) {
+      throw new OAuthError(OAuthErrorCode.InvalidToken, "Authentication required");
+    }
+    return undefined; // Guest mode
+  }
+
+  // 1. Try verifying as an internal OAuth 2.1 access token
+  const oauthPayload = verifyAccessToken(bearerToken);
+  if (oauthPayload) {
+    let clerkToken: string | undefined;
+    if (oauthPayload.sessionId) {
+      try {
+        const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+        const sessionToken = await clerk.sessions.getToken(oauthPayload.sessionId, "convex");
+        clerkToken = sessionToken?.jwt;
+      } catch {
+        // Fall back gracefully to bearerToken
+      }
+    }
+
+    return {
+      token: clerkToken ?? bearerToken,
+      clientId: oauthPayload.clientId,
+      scopes: [...MCP_SCOPES],
+      extra: { userId: oauthPayload.sub },
+    };
+  }
+
+  // 2. Fall back to verifying direct Clerk JWT
+  try {
+    const payload = await verifyToken(bearerToken, {
+      secretKey: process.env.CLERK_SECRET_KEY!,
+    });
+
+    const clientId = (payload as { azp?: string }).azp ?? payload.sub;
+
+    return {
+      token: bearerToken,
+      clientId,
+      scopes: [...MCP_SCOPES],
+      extra: { userId: payload.sub },
+    };
+  } catch {
+    throw new OAuthError(OAuthErrorCode.InvalidToken, "Invalid token");
+  }
+}
+```
+
+---
+
+## 6. Browser GET Navigation Interception (`Accept: text/html`)
+
+Direct browser visits to `/api/mcp` send `GET` requests with `Accept: text/html` without Streamable HTTP headers (`text/event-stream`). By default, the MCP SDK rejects these with HTTP 405 / JSON-RPC `-32000 Method not allowed`.
+
+Intercepting browser requests to return an informative HTML status page provides a great developer experience:
+
+```typescript
+// app/api/mcp/route.ts
+async function handleRequest(req: Request): Promise<Response> {
+  const accept = req.headers.get("accept");
+
+  // Intercept direct browser visits
+  if (req.method === "GET" && accept?.includes("text/html")) {
+    return new Response(
+      `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>MCP Server Endpoint</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #fafafa; }
+    .card { max-width: 480px; padding: 2rem; background: #fff; border-radius: 1rem; border: 1px solid #e5e5e5; text-align: center; }
+    code { background: #f5f5f5; padding: 0.2rem 0.4rem; border-radius: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>MCP Server Endpoint</h1>
+    <p>This endpoint serves Model Context Protocol Streamable HTTP requests for AI assistants.</p>
+    <p>Endpoint URL: <code>${req.url}</code></p>
+  </div>
+</body>
+</html>`,
+      {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      },
+    );
+  }
+
+  // Forward valid MCP requests to authHandler
+  return authHandler(req);
+}
+```
+
+---
+
+## 7. Per-Request Database Client Isolation
+
+> [!CAUTION]
+> **Cross-Request Token Contamination Vulnerability**:
+> Reusing a singleton database client (e.g. `ConvexHttpClient` or ORM client) and calling `client.setAuth(token)` mutates global state. Under concurrent serverless requests, request B can execute queries using request A's authentication token, leading to severe tenant leakage.
+>
+> **Rule:** Always instantiate database clients per-request using a factory function with the request's verified token.
+
+```typescript
+// lib/mcp/db.ts
+import { ConvexHttpClient } from "convex/browser";
+
+export function createConvexClient(token?: string): ConvexHttpClient {
+  const client = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  if (token) {
+    client.setAuth(token);
+  }
+  return client;
+}
+```
+
+---
+
+## 8. Accessing Authentication Info inside Tools
+
+In `@modelcontextprotocol/server` v2, context is passed as the second argument: `(args, ctx: ServerContext)`. Extract the user ID and token safely across both v2 `ctx.http` and legacy context shapes:
+
+```typescript
+// lib/mcp/auth-helpers.ts
+export function getMcpUserId(ctx: unknown): string | undefined {
+  const c = ctx as {
+    http?: { authInfo?: { extra?: { userId?: string }; userId?: string } };
+    authInfo?: { extra?: { userId?: string }; userId?: string };
+  } | null | undefined;
+
+  return (
+    c?.http?.authInfo?.extra?.userId ??
+    c?.authInfo?.extra?.userId ??
+    c?.http?.authInfo?.userId ??
+    c?.authInfo?.userId
+  );
+}
+
+export function getMcpToken(ctx: unknown): string | undefined {
+  const c = ctx as {
+    http?: { authInfo?: { token?: string } };
+    authInfo?: { token?: string };
+  } | null | undefined;
+
+  return c?.http?.authInfo?.token ?? c?.authInfo?.token;
+}
+```
+
+### Authenticated Tool Implementation
+
+```typescript
+server.registerTool(
+  "create_note",
+  {
+    title: "Create Note",
+    description: "Creates a new note for the authenticated user",
+    inputSchema: z.object({ title: z.string() }),
+  },
+  async ({ title }, ctx) => {
+    const userId = getMcpUserId(ctx);
+    const token = getMcpToken(ctx);
+
+    if (!userId) {
       return {
         isError: true,
-        content: [{ type: "text", text: "Forbidden: Admin role required." }],
+        content: [{ type: "text", text: "Unauthorized: Please sign in." }],
       };
     }
 
-    await db.project.delete({ where: { id: projectId } });
+    const db = createConvexClient(token);
+    const noteId = await db.mutation(api.notes.create, { title, userId });
+
     return {
-      content: [{ type: "text", text: `Project ${projectId} deleted.` }],
+      content: [{ type: "text", text: `Note created with ID: ${noteId}` }],
     };
   },
 );
@@ -317,17 +489,17 @@ server.registerTool(
 
 ---
 
-## 6. Universal OAuth 2.1 & OIDC Integration
+## 9. Universal OAuth 2.1 & OIDC Integration
 
-For zero-configuration OAuth 2.1 authentication with Dynamic Client Registration (RFC 7591), Protected Resource Metadata (RFC 9728), and full Supabase GoTrue IdP integration, see the dedicated reference:
+For zero-configuration OAuth 2.1 authentication with Dynamic Client Registration (RFC 7591), Protected Resource Metadata (RFC 9728), Better Auth, Supabase GoTrue, or Clerk, see the dedicated reference:
 👉 **[OAuth 2.1 & OpenID Connect Guide](oauth-and-oidc.md)**
 
 ---
 
-## 7. Security Best Practices
+## 10. Security Best Practices
 
 1. **WAF & Bot Detection Bypass**: If using Web Application Firewalls like Arcjet (`detectBot`), bypass bot challenges for `/api/mcp` while keeping WAF `shield` inspection active. Legitimate MCP clients (`curl`, `mcp-remote`, Claude, Gemini) trigger bot heuristics.
 2. **Input Sanitization**: Always validate tool inputs with Zod schemas. Parameterize database queries.
 3. **Never Return Environment Secrets**: Filter out API keys, private tokens, or connection strings from tool return payloads.
-4. **Defense-in-Depth**: Never rely solely on tool-level auth checks or database RLS if executing privileged external side effects (e.g. deleting S3/Storage buckets via admin service-role clients). Always enforce role verification in TypeScript.
-5. **Never Trust User Metadata for Roles**: User-editable metadata (e.g. Supabase `user_metadata`) can be forged. Always query authoritative database roles or protected claims (`app_metadata`).
+4. **Defense-in-Depth**: Never rely solely on tool-level auth checks or database RLS if executing privileged external side effects. Always enforce role and user ownership verification in TypeScript (`note.userId === userId`).
+5. **Never Trust User Metadata for Roles**: User-editable metadata can be forged. Always query authoritative database roles or protected claims.

@@ -135,10 +135,17 @@ Create `.vscode/mcp.json` at the workspace root:
 
 ## 6. ChatGPT & Custom GPTs
 
-ChatGPT connects to external services using OpenID Connect (OIDC) and OAuth 2.0:
-- Point ChatGPT Actions / OAuth settings to your Next.js domain (`https://your-domain.com`).
-- Discovery endpoints (`/.well-known/openid-configuration`, `/.well-known/jwks.json`, and `/api/oauth/token`) resolve automatically.
-- Authorize via your `/oauth/consent` page.
+ChatGPT connects to external services using OpenID Connect (OIDC) and OAuth 2.1:
+1. **Discovery Handshake**: Point ChatGPT Actions / OAuth settings to your Next.js application domain (`https://your-domain.com`). ChatGPT queries `/.well-known/openid-configuration` at the root domain.
+2. **Dynamic Client Registration (DCR)**: If your application exposes `/api/oauth/register` (RFC 7591), ChatGPT registers a dynamic `client_id` automatically. If DCR is not enabled, ChatGPT displays:
+   *"Enter an OAuth client ID in Advanced OAuth settings."*
+3. **Manual OAuth Configuration** (if not using DCR):
+   - **Client ID & Secret**: Pre-configured string from your `.env.local`
+   - **Authorization URL**: `https://your-domain.com/oauth/authorize`
+   - **Token URL**: `https://your-domain.com/api/oauth/token`
+   - **Scope**: `openid profile email offline_access`
+   - **Token Exchange Method**: Code exchange with PKCE (S256)
+4. **Consent**: When the user triggers an action in ChatGPT, they are redirected to `/oauth/consent` to authorize access.
 
 ---
 
@@ -156,30 +163,53 @@ Most chat interfaces (Claude, Gemini, VS Code Copilot) enforce permission checks
 
 Major AI clients (Google Gemini, Claude Desktop, Claude Web, ChatGPT) currently connect sending MCP protocol version `"2024-11-05"` without modern `2026-07-28` `_meta` envelope claims.
 
+### Client Protocol Matrix
+
+| AI Client | Protocol Version Sent | Transport Type | Handshake Requirement |
+| :--- | :--- | :--- | :--- |
+| **Google Gemini Web / Mobile** | `"2024-11-05"` | Streamable HTTP | Mandatory `"offline_access"` scope; RFC 8414 Section 3 path support |
+| **Claude Desktop (`mcp-remote`)** | `"2024-11-05"` | Streamable HTTP | Support `?auth=required` on URL for on-demand 401 login challenge |
+| **Claude Web / Anthropic** | `"2024-11-05"` | Streamable HTTP | RFC 9728 protected resource discovery |
+| **ChatGPT Custom Actions** | `"2024-11-05"` | Streamable HTTP / JSON-RPC | Root `/.well-known/openid-configuration` & RFC 7591 DCR |
+| **VS Code Copilot / Cursor** | `"2024-11-05"` & `"2026-07-28"` | Direct HTTP | Standard endpoint URL in `.vscode/mcp.json` |
+
 > [!CAUTION]
 > **HTTP 400 Bad Request on Client Initialize (`legacy: "reject"`)**:
 > In `@modelcontextprotocol/server`, configuring `createMcpHandler(..., { legacy: "reject" })` rejects all `2024-11-05` traffic with:
 > `HTTP 400 Bad Request: "Unsupported protocol version: 2024-11-05"`
-> This causes Gemini to fail with the UI error:
-> *"We had trouble connecting to this server. Contact the server provider for help."*
-> **Always use `{ legacy: "stateless" }`** to serve standard `2024-11-05` clients while maintaining compatibility with newer revisions.
+> This causes Gemini to report:
+> *"This URL does not appear to be a valid MCP server. Check the URL."*
+> **Always configure `{ legacy: "stateless" }`** to serve standard `2024-11-05` clients while maintaining compatibility with modern stateless `2026-07-28` revisions.
 
 ```typescript
 // lib/mcp/server.ts
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 
-export const mcpServerHandler = createMcpHandler(
-  () => {
-    const server = new McpServer({
-      name: "my-mcp-server",
-      version: "1.0.0",
-    });
-    // register tools...
-    return server;
-  },
-  { legacy: "stateless" }, // REQUIRED for Gemini, Claude, and ChatGPT
-);
+export function createNotesMcpHandler() {
+  return createMcpHandler(
+    async () => {
+      const server = new McpServer({
+        name: "my-nextjs-mcp",
+        version: "2.0.0",
+      });
+      // register tools...
+      return server;
+    },
+    {
+      legacy: "stateless", // REQUIRED for Gemini, Claude, and ChatGPT
+    },
+  );
+}
 ```
+
+### Sunsetting v1 in the Future
+When all major AI clients upgrade to native MCP v2 (`2026-07-28`), you can drop v1 backward compatibility with a single line change in your server configuration:
+```typescript
+{
+  legacy: "reject", // Enforces strict MCP v2 only
+}
+```
+No database migrations, session store purges, or route handler rewrites will be required.
 
 ---
 

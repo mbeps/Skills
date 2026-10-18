@@ -243,7 +243,121 @@ describe("OAuth Discovery Endpoints", () => {
 
 ---
 
-## 5. Manual Debugging with `curl`
+## 5. Testing OAuth 2.1 Authorization Code & Consent Flows
+
+```typescript
+// __tests__/app/api/oauth/consent.test.ts
+import { describe, expect, it, vi } from "vitest";
+import { POST as handleConsent } from "@/app/api/oauth/consent/route";
+import * as clerkServer from "@clerk/nextjs/server";
+
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: vi.fn(),
+}));
+
+describe("OAuth Consent Route: /api/oauth/consent", () => {
+  it("returns 401 when Clerk middleware context is missing", async () => {
+    vi.mocked(clerkServer.auth).mockRejectedValueOnce(
+      new Error("Clerk: auth() was called but Clerk can't detect usage of clerkMiddleware()...")
+    );
+
+    const req = new Request("http://localhost:3000/api/oauth/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision: "allow", redirect_uri: "https://ai.client/callback" }),
+    });
+
+    const res = await handleConsent(req);
+    expect(res.status).toBe(401);
+    const data = await res.json();
+    expect(data.error).toBe("unauthorized");
+  });
+
+  it("returns 400 when request body is malformed JSON", async () => {
+    vi.mocked(clerkServer.auth).mockResolvedValueOnce({ userId: "user_123" } as any);
+
+    const req = new Request("http://localhost:3000/api/oauth/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{ invalid json",
+    });
+
+    const res = await handleConsent(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe("invalid_request");
+  });
+
+  it("mints authorization code and redirects on valid approval", async () => {
+    vi.mocked(clerkServer.auth).mockResolvedValueOnce({ userId: "user_123" } as any);
+
+    const req = new Request("http://localhost:3000/api/oauth/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        decision: "allow",
+        client_id: "test-client",
+        redirect_uri: "https://ai.client/callback",
+        state: "xyz123",
+      }),
+    });
+
+    const res = await handleConsent(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.redirect_url).toContain("code=");
+    expect(data.redirect_url).toContain("state=xyz123");
+  });
+});
+```
+
+---
+
+## 6. Testing Browser GET Status Page Interception
+
+```typescript
+// __tests__/app/api/mcp/browser-get.test.ts
+import { describe, expect, it } from "vitest";
+import { GET } from "@/app/api/mcp/route";
+
+describe("Browser GET Interception", () => {
+  it("renders HTML status card when client requests text/html", async () => {
+    const req = new Request("http://localhost:3000/api/mcp", {
+      method: "GET",
+      headers: { Accept: "text/html,application/xhtml+xml" },
+    });
+
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("MCP Server");
+  });
+});
+```
+
+---
+
+## 7. Testing Database Client Per-Request Isolation
+
+```typescript
+// __tests__/lib/mcp/db.test.ts
+import { describe, expect, it, vi } from "vitest";
+import { createConvexClient } from "@/lib/mcp/auth";
+import { ConvexHttpClient } from "convex/browser";
+
+describe("Per-Request Database Client Isolation", () => {
+  it("returns a fresh ConvexHttpClient instance per call", () => {
+    const client1 = createConvexClient("token-1");
+    const client2 = createConvexClient("token-2");
+    expect(client1).not.toBe(client2);
+  });
+});
+```
+
+---
+
+## 8. Manual Debugging with `curl`
 
 When testing a running development server (`yarn dev` / `next dev`):
 
@@ -278,29 +392,34 @@ curl -i http://localhost:3000/.well-known/jwks.json
 
 ---
 
-## 6. Common Errors and Solutions
+## 9. Common Errors and Solutions
 
 | Error Code / Symptom | Root Cause | Solution |
 | :--- | :--- | :--- |
 | **`HTTP 400 Bad Request: "Unsupported protocol version: 2024-11-05"`** | `createMcpHandler` was configured with `{ legacy: "reject" }`, which rejects AI clients (Gemini, Claude, ChatGPT) sending `2024-11-05` without `_meta` claims. | Use `{ legacy: "stateless" }` in `createMcpHandler` options to support `2024-11-05` traffic. |
-| **`HTTP 308 Permanent Redirect` on discovery** | Trailing slash in `BETTER_AUTH_URL` created double slashes (`//api/mcp`) in `resource_metadata` challenge. AI clients reject redirects. | Normalize URLs with `getSiteUrl()` to strip trailing slashes before concatenating paths. |
-| **`HTTP 404 Not Found` on Gemini discovery** | Issuer has path (`/api/auth`). Gemini queries RFC 8414 Section 3 path `/.well-known/oauth-authorization-server/api/auth`. | Create `app/.well-known/oauth-authorization-server/[[...path]]/route.ts` proxying to `auth.handler()`. |
-| **`HTTP 404 Not Found` on ChatGPT discovery** | ChatGPT queries root `/.well-known/openid-configuration`. | Create `app/.well-known/openid-configuration/route.ts` proxying to `auth.handler()`. |
+| **Browser GET returns JSON-RPC `-32000 Method not allowed`** | Browser navigation sends `Accept: text/html` without Streamable HTTP headers. | Intercept `Accept: text/html` in `GET` handler and return an HTML status page. |
+| **Clerk `auth()` Crash on Next.js 16 (`proxy.ts` missing)** | Next.js 16 requires `proxy.ts`. Missing file prevents header injection, causing `auth()` to throw uncaught exception. | Create `proxy.ts` exporting `clerkMiddleware()` and wrap `await auth()` in `try/catch` on API routes. |
+| **Client UI `Unexpected end of JSON input`** | Client component called `await res.json()` directly on an empty HTTP 500 error body. | Check `res.ok`, wrap `res.json()` in `try/catch`, and fall back to `res.text()` or status codes. |
+| **ChatGPT Prompts for Manual OAuth Client ID** | Discovery endpoints lack RFC 7591 Dynamic Client Registration. | Expose `/api/oauth/register` endpoint or provide manual client ID/secret in Custom GPT settings. |
+| **Cross-Request Token Contamination in DB Client** | Reusing a singleton database client and calling `.setAuth(token)` mutates global state across requests. | Instantiate a fresh client per-request using a factory (`createConvexClient(token)`). |
+| **`HTTP 308 Permanent Redirect` on discovery** | Trailing slash in base URL created double slashes (`//api/mcp`). Vercel redirects, which AI clients reject. | Normalize URLs with `getSiteUrl()` to strip trailing slashes before concatenating paths. |
+| **`HTTP 404 Not Found` on Gemini discovery** | Issuer has path (`/api/auth`). Gemini queries RFC 8414 Section 3 path `/.well-known/oauth-authorization-server/api/auth`. | Create `app/.well-known/oauth-authorization-server/[[...path]]/route.ts` proxying to auth handler. |
+| **`HTTP 404 Not Found` on ChatGPT discovery** | ChatGPT queries root `/.well-known/openid-configuration`. | Create `app/.well-known/openid-configuration/route.ts` returning root OIDC metadata. |
 | **`415 Unsupported Media Type`** | Client omitted `Content-Type: application/json` on POST request. | Normalize incoming request headers in the route handler before calling `mcpHandler`. |
 | **`406 Not Acceptable`** | Missing required `Accept` header. | Client must send `Accept: application/json, text/event-stream`. |
-| **`405 Method Not Allowed` on GET probes** | MCP clients (Claude `mcp-remote`, Gemini) probe GET before POST. | Guard both `GET` and `POST` with `requireMcpAuth` to return 401 challenge instead of 405. |
-| **`HTTP 500 Error generating ID token`** | Supabase GoTrue project uses legacy symmetric `HS256` key. OIDC ID token generation requires asymmetric keys. | Rotate JWT keys to `ES256` or `RS256` in Supabase Dashboard (**Project Settings > JWT Signing Keys**). |
+| **`405 Method Not Allowed` on GET probes** | MCP clients (Claude `mcp-remote`, Gemini) probe GET before POST. | Guard both `GET` and `POST` with authentication wrapper or return HTML on browser GET. |
+| **`HTTP 500 Error generating ID token`** | Supabase GoTrue project uses legacy symmetric `HS256` key. OIDC requires asymmetric keys. | Rotate JWT keys to `ES256` or `RS256` in Supabase Dashboard (**Project Settings > JWT Signing Keys**). |
 | **"Account linking is required" in Gemini** | Discovery metadata omitted `"offline_access"` scope, so no `refresh_token` was returned. | Add `"offline_access"` to `scopes_supported` in RFC 9728 and RFC 8414 discovery endpoints. |
 | **Silent Auth Downgrade to Guest** | `verifyToken` returned `undefined` on invalid bearer token with `{ required: false }`. | Throw `OAuthError(OAuthErrorCode.InvalidToken)` when a bearer token is present but invalid/expired. |
 | **Consent Page prerender bailout build error** | `useSearchParams()` was called without Suspense boundary in Next.js App Router. | Wrap search-param consuming component inside `<Suspense>`. |
 | **Server Component crash: `Attempted to call buttonVariants()`** | Pure function exported from a file with `"use client"` imported in SSR error/not-found page. | Extract pure helper functions to a separate file without `"use client"` (e.g. `button-variants.ts`). |
 | **Arcjet WAF blocks MCP clients (403)** | Bot detection (`detectBot`) triggers on automated CLI or agent probes. | Bypass `detectBot` for `/api/mcp` while keeping WAF `shield` active. |
-| **Tool returns empty list (`total: 0`)** | LLM passed natural language string (e.g. `"Spring Boot"`) against strict slug matching (`"spring-boot"`). | Implement flexible input normalization (`resolveItemKey`) to match canonical IDs. |
+| **Tool returns empty list (`total: 0`)** | LLM passed natural language string against strict slug matching. | Implement flexible input normalization (`resolveItemKey`) to match canonical IDs. |
 | **LLM says "I do not have direct access..."** | Client UI intercepted tool call with an unapproved confirmation dialog (`Allow` / `Deny`). | User must click `Allow` in client UI before the tool request is dispatched to the server. |
 
 ---
 
-## 7. Client Tool Permission Interception
+## 10. Client Tool Permission Interception
 
 When integrating with conversational AI clients (such as Gemini or Claude), clients typically require explicit user permission before executing tools that fetch external data.
 
