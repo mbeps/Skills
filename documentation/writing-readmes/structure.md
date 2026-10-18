@@ -43,7 +43,19 @@ Example: `- [Next.js](https://nextjs.org/docs): React framework with the App Rou
 
 ## 5. Optional Sections
 
-Add H1 sections before Setting Up Project only when the project needs them, such as Design, Database Schema, or Docker Support. Do not add placeholder or filler sections.
+Add H1 sections before Setting Up Project only when the project needs them, such as Design, Database Schema, Docker Support, or Model Context Protocol (MCP). Do not add placeholder or filler sections.
+
+### Model Context Protocol (MCP) (Optional)
+
+`# Model Context Protocol (MCP)`
+
+Optional. Include only when the project exposes an MCP server for AI assistants (such as Google Gemini, Claude, or ChatGPT). Omit entirely if the project does not provide an MCP server.
+
+Format:
+- **Intro:** 1-2 direct sentences stating endpoint URL (e.g. `/api/mcp`), transport (Streamable HTTP or stdio), supported protocol revisions (e.g. `2024-11-05`, `2026-07-28`), and compatible clients. Omit marketing fluff.
+- **Authorisation & Discovery:** Concise bullets covering Server URL, auth flow (e.g. OAuth 2.1 with PKCE / Dynamic Client Registration), user consent page, and discovery endpoints (`/.well-known/*`). Omit conversational preambles.
+- **Available Tools:** A markdown table: `| Tool | Description | Parameters |`. State tool name in code font, a single-sentence active description, and parameter names with types and optionality.
+- **Related sections:** When MCP is present, also include an MCP feature group in `# Features`, `@modelcontextprotocol/server` under `# Stack`, and official documentation link under `# References`.
 
 ## 6. Setting Up Project
 

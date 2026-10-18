@@ -27,7 +27,7 @@ A README has exactly these parts, in this order:
 | 2 | Features | `# Features` |
 | 3 | Requirements | `# Requirements` |
 | 4 | Stack | `# Stack` |
-| 5 | Optional sections | H1 sections placed before Setting Up Project, only when the project needs them: Design, Database Schema, Docker Support. |
+| 5 | Optional sections | H1 sections placed before Setting Up Project, only when the project needs them: Design, Database Schema, Docker Support, Model Context Protocol (MCP). Omit when not applicable. |
 | 6 | Setting Up Project | `# Setting Up Project` with numbered H2 steps |
 | 7 | Run Application | `# Run Application` plus optional `# Usage` when interactions or endpoints need documenting |
 | 8 | References | `# References`, always last |
