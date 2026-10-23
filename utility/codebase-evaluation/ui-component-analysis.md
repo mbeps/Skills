@@ -180,6 +180,12 @@ Filtering a subcollection by a priority criteria (e.g. `isMainSkill: true` or `f
 ### 55. Post-Submission Form Reset Validation Re-Trigger Deadlocks
 Calling field or form resets post-submission with validation triggers enabled (e.g. `setValue("message", "", { shouldValidate: true })` or resetting fields into pristine empty states that violate minimum length or required constraints). The immediate validation pass fires on empty inputs, re-flagging the field with validation errors (e.g. "String must contain at least 1 character(s)") and disabling submit buttons even though the previous submission succeeded. Reset actions must pass `{ shouldValidate: false }` or use library-native pristine `reset()` methods that do not mark clean empty inputs as dirty errors.
 
+### 56. Component Tree Unguarded `notFound()`
+Calling framework `notFound()` without an immediate `return null;` in component render trees. In unit test runners where `notFound` is mocked as a non-throwing spy (`vi.fn()`), execution continues to subsequent lines and attempts to dereference properties on null/undefined records, crashing test suites with `TypeError: Cannot read properties of null`. Always guard with `notFound(); return null;`.
+
+### 57. React Hook Density Cognitive Inflation
+Declaring 15–30 hooks (state, effect, ref, memo, custom hooks) inline in a single component. Modern complexity linters increment cognitive complexity by $+1$ per hook (`react_hook_count`). Decompose into a 3-tier hook architecture: Service/Data hooks, Interaction/Form hooks, and focused Presentational subcomponents with stable `useCallback` handler references.
+
 ---
 
 ## Quality Principles

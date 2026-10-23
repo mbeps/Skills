@@ -99,10 +99,12 @@ Use this module when you need to:
 - Blinds client applications, automated callers, and AI agents to the actionable cause of failure, preventing autonomous recovery, self-healing loops, or human troubleshooting.
 - *Diagnostic Target*: Auditing protocol error handlers and middleware to ensure domain validation exceptions preserve specific field names, invalid parameters, and actionable diagnostic messages across boundaries.
 
-### 20. Partial State Mutation & In-Place Write Corruption
+### 20. Partial State Mutation, In-Place Write Corruption & Concurrent Archive Collisions
 - File-mutating or state-transforming operations writing directly in-place without loading composite parent containers (destroying unreferenced sibling entities/sheets) or writing without atomic temporary file staging (`tempfile` + `replace`).
 - When network, process, or serialization errors occur mid-stream, files are left truncated to zero bytes or in an irreparably dirty, half-mutated state.
-- *Diagnostic Target*: Auditing storage writers, document editors, and file managers for atomic write staging (`os.replace` / atomic rename) and comprehensive multi-sheet/archive container preservation.
+- In concurrent, multi-threaded, or asynchronous server environments, un-serialized in-place writes targeting the same archive or composite container (ZIP, XLSX, DOCX, HDF5) interleave byte streams, corrupting headers and checksums (e.g. CRC-32 errors), while exposing incomplete byte streams to concurrent readers.
+- Low-level format/container parser exceptions (`BadZipFile`, `EOFError`, `tarfile.ReadError`) bypassing domain exception handlers and crashing protocol routers with unexpected 500 errors.
+- *Diagnostic Target*: Auditing storage writers, document editors, and file managers for atomic write staging (`os.replace` / atomic rename), per-path write concurrency serialization (mutexes/locks), defensive reader parser exception wrapping, and comprehensive multi-sheet/archive container preservation.
 
 ---
 

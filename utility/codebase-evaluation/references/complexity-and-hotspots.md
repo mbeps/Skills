@@ -49,6 +49,22 @@ Where:
 
 When evaluating modules, flag functions where $\text{CRAP} > 30$, highlighting that modifying or refactoring this code poses severe regression hazards until characterisation tests are in place.
 
+### Static-Estimated CRAP Artifacts vs Empirical Coverage Ground Truth
+
+When static analysis tools (e.g. `fallow health` without `--coverage`) calculate CRAP without dynamic test execution data, they infer coverage statically from import graphs:
+- Extracted unexported helpers in tested files receive `coverage_tier: "partial"` (~40–50% estimated coverage).
+- Unexported functions in files without direct test imports receive `coverage_tier: "none"` (0% estimated coverage).
+
+**The Static False-Positive Phenomenon**:
+Under static estimation, a clean, readable helper with cyclomatic complexity 13 and cognitive complexity 2 scores $\text{CRAP} = 13^2 \cdot (1 - 0.45)^3 + 13 = 28.1 + 13 = \mathbf{41.1} > 30$. In real-world audits, up to **50% of reported CRAP violations** are static-coverage artifacts on functions with low cognitive complexity ($\le 15$).
+
+**Evaluator Diagnostic Rules**:
+1. **Differentiate Real Complexity from Static CRAP Artifacts**:
+   - *Real Complexity Hotspot*: Cognitive $\ge 16$ OR Cyclomatic $\ge 20$. Warrants structural remediation.
+   - *Static CRAP Artifact*: Cognitive $\le 15$ AND Cyclomatic $\le 19$, flagged solely because $\text{CRAP} > 30$. Classify as **Low / Informational** unless dynamic coverage confirms zero execution.
+2. **Require Empirical Coverage for Final Audits**: Instruct teams to run analyzers with dynamic coverage JSON (e.g. `fallow health --coverage coverage/coverage-final.json`) to compute true branch-aware CRAP scores before planning refactoring sprints.
+3. **Bound Unexported Helpers in Plans**: When recommending extractions, mandate that newly extracted unexported helpers maintain cyclomatic complexity $\le 8$ and cognitive complexity $\le 10$ so static-estimated CRAP scores remain $\le 30$.
+
 ---
 
 ## 3. The Churn × Complexity Hotspot Matrix
@@ -128,3 +144,28 @@ Use this matrix to audit whether file and function decomposition adheres to opti
 - **File Size**: Typically $50 - 300$ lines of code per file. Files $>500$ LOC should be audited for SRP violations.
 - **Function Size**: Typically $10 - 40$ lines of code. Functions $>50$ LOC should be audited for distinct lifecycle phases (input validation, core execution, mutation, persistence).
 - **Micro-File Explosion**: If a simple feature of 100 LOC is fragmented across 12 files across 6 directory tiers without reuse, flag as over-decomposition.
+
+---
+
+## 6. AST & Toolchain Complexity Heuristics (Avoiding Evaluation False Positives)
+
+Modern static analyzers evaluate AST structures using specific weighting heuristics that evaluators must understand to prevent false-positive diagnostic reports:
+
+### 1. Parameter Destructuring with Default Initializers
+- **Detection Heuristic**: In functions accepting large destructured objects with defaults (`function Component({ a = 1, b = 2, c = 3 }: Props)`), AST complexity algorithms count every default assignment as an independent conditional branch decision point.
+- **Diagnostic Guidance**: When diagnosing a function with cognitive complexity in the 20s or 30s, check if 10+ default assignments reside in the signature. Recommend accepting a typed `props: Props` object and resolving defaults via local constants or nullish coalescing rather than over-engineering internal logic.
+
+### 2. React Hook Density (`react_hook_count`)
+- **Detection Heuristic**: Modern cognitive complexity linters increment cognitive complexity by $+1$ for each React hook called within a component. Components with 15–25 hooks breach cognitive thresholds ($>15$) even with completely flat JSX.
+- **Diagnostic Guidance**: Identify whether complexity stems from control flow or hook density. When hook density is the primary driver, recommend a 3-layer hook decomposition:
+  1. *Data/Service Hook*: Database fetching, stores, capabilities.
+  2. *Interaction Hook*: Selection sets, keyboard handlers, form inputs.
+  3. *Presentational Views*: Focused UI slices receiving parameter bags.
+
+### 3. Triaging "Hidden Coupling" vs Domain View Co-Evolution
+- **Detection Heuristic**: Git-churn correlation tools flag sibling domain views (`ServerCard` $\leftrightarrow$ `PromptCard` $\leftrightarrow$ `SkillCard`) as "hidden coupling" if they are touched in the same feature commits.
+- **Diagnostic Guidance**: Before diagnosing tight coupling, evaluate whether the files represent parallel domain entities that already share a common base primitive (e.g. `ResourceListPage`, `BaseCard`). Parallel domain entities evolving alongside common features is normal co-evolution. Explicitly advise **against** creating leaky umbrella abstractions or merging distinct domain entities.
+
+### 4. Scope Calibration for Test Suites in Health & Unit Size Metrics
+- **Detection Heuristic**: Codebases receiving maximum health score penalties on `unit_size` (`-10.0`) frequently have large test files where `describe()` and `it()` blocks span 60–200 lines.
+- **Diagnostic Guidance**: Check whether $>50\%$ of oversized functions reside in `__tests__/`. If so, report that the production codebase is substantially healthier than the raw score indicates, and recommend configuring analyzer ignore scopes (`health.ignore: ["__tests__/**"]`) to evaluate production units accurately.

@@ -28,6 +28,7 @@ Use this module when you need to:
 $$\text{CRAP}(m) = \text{comp}(m)^2 \cdot (1 - \text{cov}(m))^3 + \text{comp}(m)$$
 - $\text{CRAP} \le 30$: Healthy testing safety net.
 - $\text{CRAP} > 30$: **High-Risk Untested Debt**. Flag as high priority because any modification risks severe regressions.
+- **Static Coverage Caveat**: When tools evaluate CRAP without dynamic test coverage flags (e.g. running without `--coverage`), unexported helpers default to 0–50% estimated coverage. A clean, readable function with cyclomatic complexity 13 and cognitive complexity 2 calculates $\text{CRAP} \approx 41.1 > 30$. Evaluators must cross-reference CRAP findings with Cognitive Complexity ($\ge 16$) to prevent treating static-estimation artifacts as critical defects.
 
 ### 3. Churn × Complexity Hotspot Triaging
 Correlate Cognitive Complexity with git commit churn:
@@ -42,6 +43,8 @@ Correlate Cognitive Complexity with git commit churn:
 - **Deeply Nested Conditionals (Arrow Code)**: Nesting depth $\ge 4$ indentation levels. Indicates missing early guard clauses or uncomposed pipelines.
 - **Long Method / God Function**: Functions exceeding 50 LOC or spanning multiple lifecycle phases (validation, computation, networking, persistence).
 - **Long Parameter Lists**: Functions accepting $\ge 4$ positional arguments, causing parameter ordering bugs.
+- **Parameter Destructuring Default Explosion**: Function signature destructuring 10+ props with default initializers (`{ a = 1, b = 2 }: Props`), artificially inflating AST cognitive and cyclomatic complexity by $+15\text{--}20$ points.
+- **Multi-Branch Conditional Ladder & Chained Fallbacks**: Using 15+ sequential `if/else if` branches, huge switch cases, or chained nullish fallbacks (`a || b || c`) for static mappings instead of declarative lookup tables (`Record<string, ...>`) or variadic fallbacks (`firstNonEmpty`).
 
 ### 2. Domain Modeling & Encapsulation Smells
 - **God Class / Monolithic Object**: Classes with $>10$ public methods or $>500$ LOC handling multiple unrelated responsibilities.
