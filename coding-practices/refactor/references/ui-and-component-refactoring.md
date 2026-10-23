@@ -1473,4 +1473,82 @@ When the toolchain has an automated optimizing compiler enabled (e.g. `reactComp
 - **Flutter**: Keep `BottomNavigationBar` items strictly declarative (`NavigationDestination`); handle sign-out inside user drawer/app-bar avatar.
 - **SwiftUI**: Isolate `TabView` tabs to core destinations; place user settings and logout in NavigationBar toolbar menu.
 
+---
+
+## 26. Layered Hook & View Decomposition (Taming High Hook Density)
+
+**Symptom**: A single view component declares 20–30 hooks (stores, effects, refs, memos, state, and custom hooks) directly within its render function, triggering cognitive complexity violations ($>15$) in static analyzers even with flat JSX.
+
+### The Problem:
+- **Hook Coupling**: State setters, event emitters, query results, and form inputs are intermingled in one scope.
+- **Re-render Thrashing**: Changing a single input state triggers re-evaluation of all inline hooks and callbacks.
+- **Brittle Testing**: Component unit tests must provide complex mocks for dozens of ambient hooks simultaneously.
+
+### The Remediation: 3-Tier Layered Hook Architecture
+Decompose the monolithic hook list into cohesive domain tiers:
+1. **Service / Data Hook** (`use<View>Data`): Data queries, store subscriptions, and server state.
+2. **Interaction Hook** (`use<View>Interaction`): Event callbacks, selection sets, keyboard shortcuts, and form state.
+3. **Presentational Slices**: Sub-components consuming focused parameter bags without global store dependencies.
+
+```diff
+# BEFORE: Monolithic component bundling 25+ disparate hooks inline
+- export function AgentEditorPage({ id }: { id: string }) {
+-   const [agent, setAgent] = useState<Agent | null>(null);
+-   const [name, setName] = useState("");
+-   const [steps, setSteps] = useState<Step[]>([]);
+-   const [selectedTab, setSelectedTab] = useState("general");
+-   const [isSubmitting, setIsSubmitting] = useState(false);
+-   const { models } = useAppStore();
+-   const { runAgent } = useAgentRuns();
+-   const { toast } = useToast();
+-   // ... 18 more useState, useEffect, and useRef hooks inline
+-   return <div>{/* 500 lines of JSX */}</div>;
+- }
+
+# AFTER: Cohesive 3-layer hook decomposition
++ export function AgentEditorPage({ id }: { id: string }) {
++   const { agent, isLoading, models } = useAgentData(id);
++   const { formState, updateField, isDirty } = useAgentForm(agent);
++   const { isRunning, executeRun, activeRun } = useAgentWorkflow(id);
++
++   if (isLoading) return <LoadingSpinner />;
++   if (!agent) { notFound(); return null; }
++
++   return (
++     <div className="flex flex-col gap-6">
++       <AgentEditorHeader agent={agent} isDirty={isDirty} onRun={executeRun} />
++       <AgentEditorTabs formState={formState} updateField={updateField} models={models} />
++       <AgentRunModal activeRun={activeRun} />
++     </div>
++   );
++ }
+```
+
+### Architectural Benefits:
+1. **Clear Mental Model**: Each hook owns one single responsibility (data loading, form editing, execution).
+2. **Granular Unit Testing**: Each hook can be tested in isolation via `@testing-library/react` (`renderHook`) with minimal mock overhead.
+3. **Zero Analyzer Hook-Density Penalty**: Components stay under $\le 5$ cognitive complexity.
+
+---
+
+## 27. Component Tree Not-Found Guarding & Callback Reference Stability
+
+**Symptom**: Calling framework `notFound()` crashes unit test runners when mocked, or extracted sub-hooks trigger infinite render loops when handlers are passed to child `useEffect` hooks.
+
+### The Invariants:
+1. **Guard `notFound()` with `return null;`**:
+   In Next.js App Router, `notFound()` throws an internal error caught by framework boundaries. However, in unit test environments where `notFound()` is mocked as a no-op spy (`vi.fn()`), execution continues into subsequent lines, attempting to dereference properties on `null` and crashing with `TypeError: Cannot read properties of null`.
+   - **Rule**: Always place `return null;` immediately after calling `notFound();`:
+     ```tsx
+     if (!entity) {
+       notFound();
+       return null; // Prevents render crash in test runners with non-throwing mocks
+     }
+     ```
+
+2. **Strict Callback Identity on Hook Handlers**:
+   When extracting state and handlers into custom hooks, any function returned from the hook that is consumed in child `useEffect` dependency arrays or memoized sub-components must be wrapped in `useCallback`.
+   - **Rule**: Exporting raw inline functions (`const handleSend = () => ...; return { handleSend };`) creates a new function reference on every render, triggering infinite effect loops in downstream consumers. Wrap all exported actions in `useCallback`.
+
+
 

@@ -52,7 +52,7 @@ flowchart TD
 9. **Persistence & Contract Parity**: Run dry-run migration diffs to guarantee zero unintended schema drift.
 10. **Hermetic Test Double Isolation**: Use in-memory dummy adapters/mocks to execute tests in sub-seconds without daemon dependencies.
 
-*See [The 100 Golden Rules](references/golden-rules-of-refactoring.md) for the complete rules catalog.*
+*See [The Golden Rules of Refactoring](references/golden-rules-of-refactoring.md) for the complete rules catalog.*
 
 ---
 
@@ -60,12 +60,12 @@ flowchart TD
 
 | Problem Area | Symptoms & Topics | Authoritative Reference |
 |---|---|---|
-| **Diagnostic Catalog** | Index mapping 113 symptoms to root causes and fixes | [Problem-to-Remediation Matrix](references/problem-to-remediation-matrix.md) |
-| **Engineering Invariants** | 100 universal disciplines for data, UI, services, protocols & tooling | [100 Golden Rules](references/golden-rules-of-refactoring.md) |
-| **Code Smells** | 72 smells with before/after diffs: micro-tools, untyped maps, clones | [Code Smells & Fixes](references/code-smells.md) |
-| **UI & Components** | Container-Presenter, memoization stripping, URL state adapters | [UI & Component Refactoring](references/ui-and-component-refactoring.md) |
+| **Diagnostic Catalog** | Index mapping symptoms to root causes and fixes | [Problem-to-Remediation Matrix](references/problem-to-remediation-matrix.md) |
+| **Engineering Invariants** | Universal disciplines for data, UI, services, protocols & tooling | [Golden Rules of Refactoring](references/golden-rules-of-refactoring.md) |
+| **Code Smells** | Smells with before/after diffs: micro-tools, untyped maps, clones | [Code Smells & Fixes](references/code-smells.md) |
+| **UI & Components** | Container-Presenter, 3-tier layered hooks, notFound guards, URL state adapters | [UI & Component Refactoring](references/ui-and-component-refactoring.md) |
 | **Config, Types & Enums** | Schema-validated env, route registries, domain models, gateway parity | [Config & Type Refactoring](references/configuration-and-type-refactoring.md) |
 | **Design Patterns** | Action-Dispatcher, Boundary Guards, Pipelines, Builder, Facades | [Design Patterns](references/design-patterns-for-refactoring.md) |
-| **Complexity & Hotspots** | Cognitive complexity, Churn × Complexity, Granularity Goldilocks zone | [Complexity & Hotspots](references/complexity-and-hotspots.md) |
+| **Complexity & Hotspots** | Cognitive complexity, CRAP bounds on helpers, data-driven flattening, hook density | [Complexity & Hotspots](references/complexity-and-hotspots.md) |
 | **Architecture & Cycles** | Composition root, engine unification, YAGNI pruning, cycle breaking | [Architectural Refactoring](references/architectural-refactoring-and-cycles.md) |
-| **Tooling & Testability** | Noop test adapters, toolchain unification, static analysis modernization | [Tool-Assisted Refactoring](references/tool-assisted-refactoring.md) |
+| **Tooling & Testability** | Scope calibration, test suite exclusion, security overrides, Noop adapters | [Tool-Assisted Refactoring](references/tool-assisted-refactoring.md) |

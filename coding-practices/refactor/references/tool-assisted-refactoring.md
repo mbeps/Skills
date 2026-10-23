@@ -105,6 +105,27 @@ Once a data migration or subsystem retirement completes in production, leaving o
    go vet ./... && deadcode ./...
    ```
 
+### Workflow 7: Scope Calibration, False-Positive Triage & Security Overrides
+Static health and complexity analyzers can produce noisy or misleading metrics if run with default global configurations across uncalibrated file boundaries:
+
+1. **Exclude Test Suites from Health & Unit Size Scoring**:
+   - Test suites naturally contain oversized functions (`describe()` and `it()` blocks with 100+ lines of assertions) that trigger maximum unit-size penalties (`unit_size: -10.0`).
+   - Configure analyzer ignore scopes (e.g. `"health": { "ignore": ["__tests__/**"] }` in `.fallowrc.json`) so health scoring evaluates production code while keeping dead-code and symbol reachability tracking active across test files.
+
+2. **Dynamic Coverage Injection vs Static Estimation Artifacts**:
+   - Running complexity gates without empirical test coverage forces static coverage estimation (assigning ~40–50% `partial` or 0% `none` to unexported helpers).
+   - This creates false-positive CRAP metric violations on simple, low-cognitive functions ($\text{cog} \le 15, \text{cyc} \le 19$).
+   - Configure test runners (e.g. Vitest/Jest) to generate JSON coverage (`coverage/coverage-final.json`) and pass it to analyzers (`fallow health --coverage coverage/coverage-final.json`), or calibrate rule severity (`"complexity-crap": "warn"`) during local development.
+
+3. **Bounded Threshold Overrides for Security Invariants**:
+   - Algorithmic security guards (e.g. RFC 4291 IPv6 SSRF bitmask validators, cryptography routines) rely on linear, self-contained bitmask matching that must remain cohesive for auditability.
+   - Chopping security algorithms into micro-functions introduces indirection and regression risk.
+   - Configure scoped threshold overrides with documented reasons (e.g. `thresholdOverrides` with `maxCognitive: 35, maxCyclomatic: 30` and a mandatory `reason`) paired with inline suppression comments (`// fallow-ignore-next-line complexity`).
+
+4. **Triaging Git-Churn "Hidden Coupling" vs Domain View Co-Evolution**:
+   - Churn correlation tools flag sibling domain views (e.g. `server-card.tsx` $\leftrightarrow$ `prompt-card.tsx` $\leftrightarrow$ `skill-card.tsx`) as "hidden coupling" if they are frequently touched in the same PRs.
+   - If sibling components already share common base primitives (e.g. `BaseCard`, `ResourceListPage`), do NOT force an artificial umbrella abstraction across distinct domain entities. Merging parallel domain entities creates brittle over-abstraction and violates domain boundaries.
+
 ---
 
 ## 3. Dependency Alignment and Manifest Hygiene

@@ -31,6 +31,19 @@ $$\text{CRAP}(m) = \text{comp}(m)^2 \cdot (1 - \text{cov}(m))^3 + \text{comp}(m)
 > [!IMPORTANT]
 > **Rule of Thumb**: Before refactoring a complex function, **write tests first**. Increasing coverage immediately drops the CRAP score and provides a safety harness for subsequent structural extractions.
 
+### The Static-Estimated CRAP Trap for Extracted Helpers
+When decomposing complex functions into unexported file-private helpers without dynamic test coverage flags (e.g. running static analysis tools like `fallow health` without `--coverage`), the analyzer estimates coverage statically from test imports:
+- Extracted unexported helpers in tested files receive `coverage_tier: "partial"` (~40–50% coverage).
+- Unexported helpers in files lacking test imports receive `coverage_tier: "none"` (0% coverage).
+
+Under the CRAP formula, an unexported helper with $\text{cyclomatic} \ge 10$ at $45\%$ coverage yields $\text{CRAP} = 10^2 \cdot (1 - 0.45)^3 + 10 = 26.6 + 10 = 36.6 > 30$, triggering a **brand-new CRAP gate failure**! At $0\%$ coverage, a function with cyclomatic complexity 6 yields $\text{CRAP} = 6^2 + 6 = 42 > 30$.
+
+**The Golden Ceiling for Extracted Helpers**:
+- Enforce **cyclomatic complexity $\le 8$** (ideally $\le 4\text{--}5$) and **cognitive complexity $\le 10$** on all newly extracted unexported helper functions.
+- If a helper requires higher cyclomatic complexity, either:
+  1. Export it and write dedicated unit tests to drive coverage to $100\%$, or
+  2. Flatten the algorithm using data-driven lookup tables (`Record<string, ...>` or `Set<string>`) to collapse cyclomatic paths.
+
 ---
 
 ## 3. The Churn × Complexity Hotspot Matrix
@@ -89,6 +102,24 @@ Functions that simultaneously calculate values and perform database/network muta
 
 ### Step 5: The Orchestrator Rule
 After extraction, the parent orchestrator function should read like an executive summary or table of contents: 15–35 lines that cleanly invokes the extracted sub-functions and passes state forward.
+
+### Step 6: Data-Driven Branch Flattening & Variadic Fallback Reduction
+Long conditional branch ladders (`if/else if` chains checking error codes, file extensions, or MIME substrings) and large switch statements drive cyclomatic complexity into the 20s–40s:
+- **Declarative Dictionaries (`Record<string, ...>`)**: Replace linear `if (code === ...)` branches with module-scope lookup maps mapping keys to static configurations, badges, or concise handler functions.
+- **Set Membership (`Set<string>`)**: Replace compound extension or MIME checks (`ext === "csv" || ext === "xlsx" || ...`) with module-level `Set` constants (`SPREADSHEET_EXTS.has(ext)`), dropping cyclomatic complexity from $>15$ to $\le 2$.
+- **Variadic Fallback Loops (`firstNonEmpty`)**: Chained nullish or falsy fallbacks (`a || b || c || d` or `(x.id || y.id) ?? ""`) increment cyclomatic complexity at every operator. Replace them with a generic variadic helper `firstNonEmpty(...candidates: (T | undefined | null)[]): T | undefined` that loops through candidates, collapsing multi-branch fallbacks to a single loop.
+
+### Step 7: Bounding AST Parameter Destructuring Penalties
+In AST-based complexity linters, destructuring object parameters with default values directly in the function signature (e.g. `function Component({ a = 1, b = 2, c = 3, ... }: Props)`) counts each default assignment as a branching decision point. In large components or helpers with 15–20 props, default parameter destructuring alone can add $+15$ to $+20$ points of artificial cognitive and cyclomatic complexity!
+- **Remediation**: Accept a typed parameter object (`props: ComponentProps` or `params: StepParams`). Access properties via `props.<prop>` or resolve defaults via local bindings, nullish coalescing inside the function body, or small extraction helpers.
+
+### Step 8: Partitioning High Hook-Density Components (Layered Hook Architecture)
+Modern complexity linters evaluate React component cognitive complexity using both AST control flow and total hook count (`react_hook_count`). A monolithic page or component invoking 20–30 hooks (state, effect, ref, memo, custom hooks) triggers cognitive complexity violations ($>15$ or $>20$) even if its JSX and control flow are completely flat.
+- **Remediation**: Apply a 3-layer hook decomposition:
+  1. **Data & Service Layer**: Custom hooks managing database fetching, stores, capabilities, and realtime sync (e.g. `usePageData`, `usePageStream`).
+  2. **Interaction & State Layer**: Custom hooks managing user interaction, drag-and-drop, selection toggles, and form state (e.g. `usePageInteraction`, `usePageForm`).
+  3. **Presentational Slices**: Subcomponents receiving cohesive prop bags without managing global orchestration.
+  *Note*: Maintain strict callback identity (`useCallback`) on all handlers exported by custom hooks to avoid infinite render cascades in consumers.
 
 ---
 
