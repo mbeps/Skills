@@ -23,9 +23,9 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 |---|---|
 | `configuration.md` | Scripts, vitest.config.ts, setup file, jsdom gotchas (ResizeObserver, scrollIntoView), tsconfig/linter/IDE exclusions |
 | `mocking-patterns.md` | Hoisting, chainable DB mock, Next.js modules, SDKs, fetch/SSE, Convex api Proxy |
-| `testing-layers.md` | What to test per layer: schemas, actions, hooks, stores, utils, coverage |
+| `testing-layers.md` | What to test per layer: schemas (Zod v4 defaults), actions, hooks (ref memoization, lifecycle isolation), stores, utils, coverage |
 | `component-testing.md` | Rendering components, DOM assertions (SVG, focus guards), event firing, modal isolation, compound subcomponents, TestWrapper |
-| `advanced-mocks.md` | Fake timers + act(), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, finding gaps in coverage-final.json, unreachable-branch proofs, co-located tests, ESLint & Biome ignore, tsconfig & IDE diagnostics |
+| `advanced-mocks.md` | Fake timers + act() (async microtask flush), Zustand getState(), vi.mocked() re-mocking, provider/sonner/logtape/env mocks, dual-format factories, coverage thresholds, finding gaps in coverage-final.json, unreachable-branch proofs, hook isolation & unmount(), V8 multi-tick binary expressions, co-located tests, ESLint & Biome ignore, tsconfig & IDE diagnostics |
 | `inngest-testing.md` | Inngest v4 durable functions — stepMock.run sync collapse, publishMock realtime status, executor test template, channel mocking |
 | `polar-billing-testing.md` | Polar.sh subscription gating — premiumProcedure bypass, dynamic import/env stubbing, checkout/portal flows |
 | `ai-sdk-testing.md` | Vercel AI SDK — generateText mocking, provider factories (OpenAI/Anthropic/Gemini/OpenRouter), credential decryption at execution time |
@@ -72,6 +72,9 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "branches: 1000 means a stricter gate than 100%" | Threshold values are percentages (0–100). `1000` parses fine but can never be satisfied, so the gate silently never fails. Write `100` |
 | "This branch is unreachable, so I'll add a v8 ignore to reach 100%" | Suppressed coverage is not coverage and hides the dead code. Prove unreachability by execution, then delete the dead code, relax the schema, or lower the threshold with a comment naming the lines |
 | "A test in a multi-file coverage run that I didn't touch is flaky" | Confirm on a clean tree before blaming your change: a scoped `--coverage.include` run reports every unimported file as 0% and inflates the totals, which makes the gap list useless for prioritising |
+| "renderHook instances clean up automatically between assertions" | Unmounted hooks keep active intervals/listeners in the fake timer queue, bleeding callbacks into subsequent scenarios. Capture and call `unmount()` explicitly between test phases |
+| "schema.partial() strips inner .default() values" | Zod v4 preserves `.default(...)` in `.partial()`, filling defaults on `{}` and making `if (data.field !== undefined)` guards permanently true (unreachable branch in V8). Strip defaults explicitly or omit redundant checks |
+| "Advancing fake timers runs all inner async stream handler promises" | Async listeners attached to event emitters dispatch microtasks. Flush microtasks via `await act(async () => { await Promise.resolve(); })` or use `advanceTimersByTimeAsync()` |
 
 ## Red Flags
 
@@ -91,3 +94,6 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 - A `v8 ignore` / `istanbul ignore` added to make a 100% gate pass
 - Trusting a subagent's coverage claim without a `git diff --stat` and a scoped coverage run
 - Reading a scoped run's `coverage-final.json` as the global gap list
+- Omitting `unmount()` on `renderHook` instances across sequential scenarios, leaking timer callbacks
+- Unreachable `!== undefined` guards created by Zod v4 `.partial()` retaining inner `.default()` values
+- Asserting hook or stream state after timer ticks without flushing async microtasks in `act`

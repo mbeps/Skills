@@ -455,6 +455,7 @@ Common causes, each verifiable with a two-line probe:
 | `obj.list \|\| []` where the list was assigned earlier in the same function | the assignment always makes it truthy                                                                                | read the function; the fallback is unreachable         |
 | `f(x) ?? fallback` where a prior `.filter()` already validated `x`          | only valid values survive the filter, so the helper is an identity cast                                              | confirm the filter precedes the call                   |
 | `err instanceof Error ? err.message : String(err)` around a Node builtin    | Node's sync `zlib`/`crypto` functions only ever throw real `Error`                                                   | call the builtin with every malformed input            |
+| `data.field !== undefined` guard after `schema.partial()`                   | In Zod v4, `.partial()` retains inner `.default(...)` declarations, populating defaults on `{}` and making the guard always true | parse `{}` with `schema.partial()` and inspect `parsed.data.field` |
 
 Two traps when you do reach for a builtin error path:
 
@@ -578,6 +579,34 @@ Moving code out of a covered function into a new module drops coverage hard. Ext
 ## 23. createObjectURL in jsdom Node 24
 In Node 24, jsdom's `createObjectURL` accesses `blob._buffer`, which is undefined on native Blobs, throwing unless mocked. When testing artifact export branches, terminate with `return` regardless of whether exporting succeeded or threw — this prevents both unwanted file downloads and CI runtime exceptions.
 
+## 24. Hook Isolation & renderHook Cleanup (Timer Bleed Prevention)
+When running multi-phase tests against custom hooks in a single test case (e.g. testing disconnection, reconnection, or re-initialization), calling `renderHook` multiple times without unmounting earlier instances leaks active background intervals (`setInterval`) or stream listeners into the fake timer queue. Advancing timers in subsequent test phases inadvertently executes callbacks on orphaned hook instances, causing race conditions and desynchronized assertion counts.
+Always capture `const { unmount } = renderHook(...)` and explicitly invoke `unmount()` before remounting or transitioning between test scenarios.
+
+## 25. Untracked Async Event Handlers & Microtask Flushes
+When hooks or stream listeners attach asynchronous callbacks to event emitters (e.g. `stream.on("data", async (chunk) => { await handleChunk(chunk); })`), advancing fake timers triggers the timer callback synchronously, but dispatches the inner handler's promises to the microtask queue. Calling `rerender()` or asserting state immediately after advancing timers runs before these promises settle.
+Flush pending microtasks explicitly within `act`:
+```typescript
+await act(async () => {
+  vi.advanceTimersByTime(INTERVAL_MS);
+  await Promise.resolve(); // flush microtask queue
+});
+```
+Or for deeper async chains:
+```typescript
+await act(async () => {
+  await vi.advanceTimersByTimeAsync(INTERVAL_MS);
+});
+```
+
+## 26. Compound Boolean Expressions & Multi-Tick Timer Branches (V8 binary-expr)
+Compound boolean conditions in interval callbacks or guards (e.g. `isStale && (attemptCount === 1 || elapsedMs > TIMEOUT)`) produce distinct branch arms in V8 AST maps:
+1. `isStale` evaluates to `false` (short-circuit).
+2. `isStale` evaluates to `true` and `attemptCount === 1` is `true` (`elapsedMs` condition short-circuited).
+3. `isStale` evaluates to `true`, `attemptCount !== 1`, and `elapsedMs <= TIMEOUT` (false arm) vs `elapsedMs > TIMEOUT` (true arm).
+
+If tests only verify the initial timer tick where `attemptCount === 1`, the secondary sub-branch (`elapsedMs > TIMEOUT`) records 0 hits in V8 coverage. To reach 100% branch coverage, advance timers past the first tick (so `attemptCount > 1`), simulate an intermediate action, and then test both sub-threshold and post-threshold elapsed times.
+
 ## Red Flags
 
 - Leaking `vi.useFakeTimers()` — every test after yours runs with fake timers
@@ -592,3 +621,5 @@ In Node 24, jsdom's `createObjectURL` accesses `blob._buffer`, which is undefine
 - Mocking the component under test instead of exercising real inputs
 - Assuming `useState` seeds on every render — it only seeds on first mount
 - Ignoring `Lundefined` V8 branches — they are the guard's false path, close with a falsy-condition test
+- Omitting `unmount()` on `renderHook` instances in multi-phase tests, leaking interval timers into later assertions
+- Assuming synchronous timer advancement runs all nested async event handler microtasks

@@ -33,6 +33,23 @@ And for `createChatSchema` (title, projectId, assistantId — `persistMessageSch
 
 Also cover: `strict()` rejects unknown keys, `passthrough()` keeps them, omitted-vs-`undefined` distinctions for optional fields.
 
+### Zod v4 `.partial()` with `.default()`
+In Zod v4, calling `.partial()` on a schema containing `.default(...)` retains those default values:
+```typescript
+const baseSchema = z.object({
+  name: z.string(),
+  status: z.enum(["active", "inactive"]).default("active"),
+});
+const updateSchema = baseSchema.partial();
+// updateSchema.safeParse({}) returns { status: "active" }, NOT {}
+```
+If an action implementation checks `if (data.status !== undefined)`, that guard will always evaluate to `true` when using the parsed result, creating an unreachable branch in V8 coverage. To permit true omission in update schemas, strip defaults before making fields optional:
+```typescript
+const updateSchema = baseSchema.omit({ status: true }).partial().extend({
+  status: z.enum(["active", "inactive"]).optional(),
+});
+```
+
 ## Server actions
 
 Test matrix (verified against the real suite):
@@ -84,6 +101,8 @@ it("shows a success toast and navigates after delete", async () => {
   4. Selector/filter variations: test all discriminator filters (e.g. `'chat' \| 'embedding' \| 'both'`) and parent/child `isEnabled` combinations.
 - Streaming: stub `global.fetch` with a constructed SSE `Response` (§8 of mocking-patterns.md); assert the assembled message args.
 - Failure paths: mock the action/fetch to reject; assert the error toast fired and loading state reset.
+- Ref-container identity & timer persistence: verify that hooks returning object collections of refs memoize their container (or don't destabilize downstream `useCallback`/`useEffect` hooks). Test with `rerender()` to ensure active intervals, polling loops, or watchdog retry counts do not clear and reset on every render.
+- Multi-phase scenario isolation: always capture `const { unmount } = renderHook(...)` and call `unmount()` between sequential scenarios to prevent background timers from bleeding across assertions.
 
 ## Error normalizers & categorizers
 
