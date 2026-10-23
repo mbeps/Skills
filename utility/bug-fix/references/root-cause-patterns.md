@@ -1217,16 +1217,20 @@ Use this reference to accelerate root-cause identification and ensure fixes addr
   - Inspect foreign library serialization patterns: use library-sanctioned removal methods (e.g. `chart.title = None` only if supported, or setting `title.text.body = ...` or omitting elements from serialization) rather than clobbering complex composite objects with primitives.
   - Implement dedicated setter helpers that validate and adapt input values before touching library objects.
 
-### Destructive In-Place Target / Sibling Overwrite
+### Destructive In-Place Target / Sibling Overwrite & Concurrent Archive Write Collision
 - **Mechanism**: When an application modifies or updates a file (such as an Excel workbook, zip archive, multi-table database, or document bundle) in-place:
   - If it loads only the targeted sheet, partition, or entry and writes back to the target file path, the writer creates a new document containing *only* the modified piece, obliterating all sibling sheets, unreferenced archive members, formulas, macros, or external metadata.
   - If the output path equals the input path and an error occurs mid-write, the existing file is truncated or destroyed without recovery.
-- **Observable Failure**: Users lose all sibling worksheets, archive members, or historical data upon performing an update on a single sheet; corrupted zero-byte files on write errors.
-- **Root Cause**: Blindly writing partial representations to target paths without opening and preserving the entire composite document container, and writing in-place without atomic temporary file staging.
+  - In multi-threaded or asynchronous worker environments (e.g. MCP servers, background job pools, web APIs), if two concurrent requests write to the same archive file in-place, their byte streams interleave, corrupting archive central directories and entry checksums (e.g. `BadZipFile: Bad CRC-32 for file '...'`).
+  - Concurrently, any reader reading the file while an in-place write is underway reads partial or truncated bytes (`Truncated file header`, `EOFError`, or `BadZipFile`). If unhandled, low-level parser errors bypass route exception filters, crashing the server handler with unexpected 500 errors.
+- **Observable Failure**: Users lose all sibling worksheets, archive members, or historical data upon performing an update on a single sheet; corrupted zero-byte files on write errors; intermittent `BadZipFile` or CRC-32 errors under concurrent requests; unexpected tool crashes when readers open files during writes.
+- **Root Cause**: Blindly writing partial representations to target paths without opening and preserving the entire composite document container, writing in-place without atomic temporary file staging, lacking per-path write serialization locks, and failing to wrap low-level container parser exceptions into domain error types.
 - **Architectural Solution**:
   - Always load the complete composite document (all sheets, archive members, metadata) before performing mutations.
-  - Stage all disk writes to a temporary file in the same directory (`tempfile.NamedTemporaryFile`) and replace the destination file atomically using `os.replace` / atomic rename only after successful serialization and validation.
-  - Write regression tests specifically verifying sibling sheet/member preservation:
+  - Stage all disk writes to a temporary file in the target directory (`tempfile.NamedTemporaryFile(dir=path.parent, delete=False, suffix=".tmp")`) and replace the destination file atomically using `os.replace` / atomic rename only after successful serialization and validation.
+  - Serialize concurrent writes targeting the same file path using a per-path concurrency lock (e.g. `threading.Lock` keyed by resolved canonical path).
+  - Wrap low-level container/format parser exceptions (`BadZipFile`, `EOFError`, `tarfile.ReadError`) in reader functions into domain validation exceptions (`ValueError`), ensuring protocol boundaries return structured error envelopes rather than unhandled crashes.
+  - Write regression tests specifically verifying sibling sheet/member preservation and concurrent save stability:
     ```python
     # Test verifying sibling sheet retention on targeted edit
     wb = create_workbook_with_sheets(["Data", "Config", "Summary"])
