@@ -98,3 +98,12 @@ fallow dead-code --type-aware
 
 ### Gotcha 4: Workspace Scoping in Monorepos
 In monorepos, passing `--workspace <name>` scopes which findings are *reported*, but Fallow still analyzes the full repository graph to correctly resolve inter-package dependencies.
+
+### Gotcha 5: Test Files & the `unit_size: -10.0` Health Penalty
+Test suites containing multi-step `describe()` and `it()` blocks easily span 100–1,000+ lines. Because Fallow's `health_score` evaluates functions $>60$ LOC across all analyzed files, large test suites will permanently trigger the maximum `-10.0` `unit_size` deduction. Never refactor test structure solely to appease unit sizing; use `"health": { "ignore": ["__tests__/**"] }` in `.fallowrc.json` to exclude test files from complexity analysis and health scoring. They remain fully tracked in `fallow dead-code`.
+
+### Gotcha 6: Static-Estimated CRAP False Positives
+Without an Istanbul or V8 coverage file, `fallow health` estimates branch coverage statically from module imports. Under static estimation, unexported helper functions are assigned 0% (`none`) or 50% (`partial`) coverage. By the CRAP formula ($\text{CRAP} = \text{CC}^2 \cdot (1 - \text{cov}/100)^3 + \text{CC}$), a function with cyclomatic complexity 6 and 0% coverage yields $\text{CRAP} = 42 > 30$. Set `"rules": { "complexity-crap": "warn" }` to prevent static estimation artifacts from failing CI, reserving `"error"` for genuine cognitive and cyclomatic complexity.
+
+### Gotcha 7: Hardcoded `health.coverage` Path Missing OS Error
+Declaring `"health": { "coverage": "coverage/coverage-final.json" }` in `.fallowrc.json` causes Fallow commands to immediately exit with `os error 2` if the file has not yet been generated. For day-to-day development, omit `coverage` from the static config file and pass `--coverage <path>` dynamically when running coverage-backed audits.

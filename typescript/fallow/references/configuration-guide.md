@@ -63,10 +63,20 @@ fallow recommend --format json
     "mode": "mild"
   },
   "health": {
-    "maxCyclomaticComplexity": 20,
-    "maxCognitiveComplexity": 15,
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
     "maxCrap": 30,
-    "maxUnitSize": 60
+    "maxUnitSize": 60,
+    "ignore": ["__tests__/**"],
+    "thresholdOverrides": [
+      {
+        "files": ["lib/security/ip-bitmask.ts"],
+        "functions": ["isBlockedIP"],
+        "maxCognitive": 30,
+        "maxCyclomatic": 25,
+        "reason": "Algorithmic bitmask guard must remain linear and self-contained"
+      }
+    ]
   },
   "rules": {
     "unused-files": "error",
@@ -74,9 +84,15 @@ fallow recommend --format json
     "unused-types": "error",
     "unused-dependencies": "warn",
     "unused-dev-dependencies": "warn",
+    "complexity-crap": "warn",
+    "complexity-cognitive": "error",
+    "complexity-cyclomatic": "error",
     "circular-dependencies": "error",
     "unresolved-imports": "error",
-    "unlisted-dependencies": "error"
+    "unlisted-dependencies": "error",
+    "mixed-client-server-barrel": "error",
+    "misplaced-directive": "error",
+    "dev-dependencies-in-production": "error"
   },
   "typeAware": {
     "enabled": false
@@ -135,6 +151,16 @@ Controls the copy-paste detector (`fallow dupes`):
   - `"strict"`: Exact character/structure match.
   - `"semantic"`: Normalizes identifiers and expressions to detect clone logic where variable names differ.
 
+### `health`
+Controls complexity thresholds, file scoping, and ceiling overrides for `fallow health`:
+- `maxCyclomatic`: Maximum cyclomatic complexity per function before reporting (default 20).
+- `maxCognitive`: Maximum cognitive complexity per function before reporting (default 15).
+- `maxCrap`: Maximum CRAP score before reporting (default 30.0). Governs findings; set to `0` to disable CRAP enforcement.
+- `maxUnitSize`: Maximum function length in lines before reporting as an oversized function (default 60). Note: `health_score` penalties use a fixed calibration curve against `>60` LOC functions across analyzed files.
+- `ignore`: Globs excluded completely from complexity analysis and the `health_score` formula. Essential for excluding test directories (`["__tests__/**", "**/*.test.*"]`) whose large `describe()` blocks would otherwise artificially trigger the `-10.0` `unit_size` deduction. Excluded files remain active in `dead-code` so test imports count as legitimate consumers.
+- `coverage` / `coverageRoot`: Path to Istanbul `coverage-final.json` or raw V8 coverage directory for empirical per-function CRAP calculations. Note: if configured in `.fallowrc.json`, the file must exist on disk during execution; for local environments where coverage is optional, pass `--coverage <path>` on demand instead.
+- `thresholdOverrides`: Array of targeted exceptions for algorithmic guards or bitmask-driven validation that must remain cohesive and linear (`files`, `functions`, `maxCognitive`, `maxCyclomatic`, `maxCrap`, `maxUnitSize`, `reason`).
+
 ### `rules`
 Sets rule severities: `"error"` (fails CI exit code 1), `"warn"` (reports advisories without failing), or `"off"` (silenced completely).
 
@@ -150,6 +176,11 @@ Sets rule severities: `"error"` (fails CI exit code 1), `"warn"` (reports adviso
 | `unlisted-dependencies` | `error` | Imported packages missing from `package.json` |
 | `dev-dependencies-in-production` | `warn` | Packages in `devDependencies` imported in production source |
 | `test-only-dependencies` | `warn` | Packages in `dependencies` only used in test files |
+| `complexity-crap` | `error` | Functions exceeding CRAP threshold (demote to `warn` when running without Istanbul coverage) |
+| `complexity-cognitive` | `error` | Functions exceeding cognitive complexity threshold |
+| `complexity-cyclomatic` | `error` | Functions exceeding cyclomatic complexity threshold |
+| `mixed-client-server-barrel` | `error` | Modules re-exporting both client and server entry points |
+| `misplaced-directive` | `error` | `"use client"` or `"use server"` directives not placed at the very top of files |
 | `private-type-leaks` | `off` | Exported function/type referencing unexported private type |
 
 ---

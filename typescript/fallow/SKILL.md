@@ -74,6 +74,8 @@ flowchart TD
 3. **Never Run `fallow watch`**: Watch mode is interactive and never exits.
 4. **Always `--dry-run` Before `fallow fix`**: Preview deletions with `fallow fix --dry-run`, then apply with `fallow fix --yes` (`--yes` is mandatory in non-TTY environments).
 5. **Zero-Config by Default**: Do not create a config file unless you specifically need custom entries, ignored paths, component library exemptions, or modified rule severities.
+6. **Exclude Test Suites from Health Scoring**: Test files containing large `describe()` blocks heavily skew `unit_size` and change coupling. Use `health.ignore: ["__tests__/**"]` to remove them from health scoring while keeping them active in `dead-code`.
+7. **Calibrate Static-Estimated CRAP in CI**: Without `--coverage <path>`, Fallow estimates branch coverage statically, causing low-complexity unexported helpers to artificially trip CRAP thresholds. Set `"complexity-crap": "warn"` in CI, reserving `"error"` for true cognitive/cyclomatic hotspots.
 
 ---
 
