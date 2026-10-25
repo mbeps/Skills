@@ -2,6 +2,31 @@
 
 Comprehensive naming patterns across all Next.js App Router project artifacts.
 
+## Identifiers
+
+**Pattern:** camelCase for functions and variables; PascalCase for classes, components, types, and enums; SCREAMING_SNAKE_CASE for module-level constants
+
+```typescript
+// ✅ Functions and variables: camelCase
+export function sortByUpdatedAt<T>(items: T[]): T[] { ... }
+const activeChat = chats.find((c) => c.id === chatId);
+
+// ✅ Classes: PascalCase
+export class RateLimitError extends Error { ... }
+
+// ✅ Module-level constants: SCREAMING_SNAKE_CASE
+export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+export const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg']);
+```
+
+**Rules:**
+- Functions, variables, parameters: camelCase (`getComments`, `toolSelection`)
+- Classes: PascalCase (`RateLimitError`, `CommentService`) — never camelCase
+- Components, types, interfaces, enums: PascalCase (matches export rule above)
+- Module-level constants: SCREAMING_SNAKE_CASE (`MAX_IMAGE_SIZE_BYTES`, `ALLOWED_IMAGE_TYPES`)
+
+---
+
 ## Components
 
 **Pattern:** kebab-case file, PascalCase export

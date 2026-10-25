@@ -84,6 +84,8 @@ export interface Song {
 
 ### Shared Constants
 
+**Never create a top-level `constants/` directory.** Place shared values by their scope:
+
 ```typescript
 // ✅ Query constants in actions/_db-selects.ts
 export const SONG_WITH_ALBUM_SELECT = `
@@ -95,12 +97,17 @@ export const SONG_WITH_ALBUM_SELECT = `
   )
 `;
 
-// ✅ Application-wide configuration and asset constants in config/
+// ✅ App-wide configuration and asset constants in config/
 // config/constants.ts
 export const APP_CONFIG = {
   DEFAULT_PAGINATION_LIMIT: 20,
   SUPPORT_EMAIL: 'support@example.com',
 } as const;
+
+// ✅ Domain constants in config/[domain].ts
+// config/attachments.ts
+export const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+export const ALLOWED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg']);
 
 // config/assets.ts (mirrors ROUTES pattern with grouped object fields)
 const IMAGES_BASE = '/images';
@@ -124,5 +131,9 @@ export const GRID_CLASSES = {
   default: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5",
   wide: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
 };
+
+// ❌ NEVER create a top-level constants/ directory
+// constants/uploads.ts  → move app-wide values to config/ (e.g. config/attachments.ts)
+// constants/errors.ts   → move error classes to lib/ (e.g. lib/errors.ts)
 ```
 

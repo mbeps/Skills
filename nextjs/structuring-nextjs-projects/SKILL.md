@@ -237,6 +237,16 @@ graph TD
 | Stores | kebab-case, `[name]-store.ts` | `player-store.ts` |
 | Tests | camelCase + `.test.ts` | `getComments.test.ts` |
 
+### Identifier Naming
+
+| Identifier | Pattern | Example |
+|---|---|---|
+| Functions | camelCase | `getComments()`, `sortByUpdatedAt()` |
+| Variables | camelCase | `activeChat`, `toolSelection` |
+| Classes | PascalCase | `RateLimitError`, `CommentService` |
+| Components / Types / Enums | PascalCase | `CommentForm`, `CommentWithAuthor`, `CarStatus` |
+| Module-level constants | SCREAMING_SNAKE_CASE | `MAX_IMAGE_SIZE_BYTES`, `ALLOWED_IMAGE_TYPES` |
+
 ### Exports Per File
 
 | File Type | Export Pattern | Example |
@@ -319,6 +329,7 @@ Comprehensive guidelines and examples are organized in dedicated reference docum
 | Hardcoding/scattering raw route strings | Hard to maintain and refactor | Centralise routes under `./config` (e.g. `config/routes.ts`) |
 | Scattering env vars or putting `env.ts` in `lib/` | Inconsistent validation and configuration | Centralise in `./config` (e.g. `config/env.ts`) |
 | Hardcoding asset paths or scattering app constants | Difficult maintenance and asset updates | Centralise in `./config` (e.g. `config/assets.ts`, `config/constants.ts`) |
+| Creating a top-level `constants/` directory | Duplicates `config/` and scatters shared values | App-wide constants go in `config/` (e.g. `config/attachments.ts`); domain constants stay with their domain (e.g. `schemas/[domain]/`, `actions/_db-selects.ts`) |
 | Scattering raw `console.log` calls | Unstructured, noisy terminal output | Use structured logger in `lib/logger.ts` (see `logtape-nextjs`) |
 | Forgetting `"use client"` | Server component can't use hooks | Add directive at top |
 | Absolute imports without alias | Breaks on path changes | Always use `@/*` |

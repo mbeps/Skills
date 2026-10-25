@@ -92,12 +92,12 @@ Create `types/music/` or `lib/music/` when types/logic are used by 3+ domains.
 
 ## Special Naming Conventions
 
-| File | Pattern | Reason |
-| --- | --- | --- |
-| DB constants | `_db-selects.ts` | Underscore prefix = internal/helper |
-| Page-specific components | `_components/` | Underscore = not routable in Next.js |
-| Test helpers | `__tests__/helpers/` | Double underscore = test utilities |
-| Supabase types | `types_db.ts` | Matches Supabase CLI output |
+| File                     | Pattern              | Reason                               |
+| ------------------------ | -------------------- | ------------------------------------ |
+| DB constants             | `_db-selects.ts`     | Underscore prefix = internal/helper  |
+| Page-specific components | `_components/`       | Underscore = not routable in Next.js |
+| Test helpers             | `__tests__/helpers/` | Double underscore = test utilities   |
+| Supabase types           | `types_db.ts`        | Matches Supabase CLI output          |
 
 ---
 
@@ -126,8 +126,7 @@ project/
 ├── config/
 │   ├── routes.ts
 │   ├── env.ts
-│   ├── assets.ts
-│   └── constants.ts
+│   └── assets.ts
 ├── docker/
 │   ├── README.md
 │   ├── docker-compose.yml

@@ -81,6 +81,7 @@ providers/
 - Environment variable validation (`env.ts`) must be centralised in `./config` (e.g. `config/env.ts`), validating client and server environment variables via Zod. Refer to the `typescript-environment-variables` skill for full details.
 - Centralise static asset locations and paths (e.g. `config/assets.ts`) following a pattern similar to `ROUTES` in `centralised-routes`: define base path constants, group assets by entity/domain with object fields (e.g. `LOGO.DARK.path`, `LOGO.LIGHT.path`), and export as `as const`.
 - Centralise global site metadata, branding, and app-wide configurations in `./config` (e.g. `config/site.ts`, `config/constants.ts`, `config/prompts.ts`, `config/languages.ts`). Always define the actual, distinct project name (e.g. "Personal Portfolio", "BeatPulse") rather than generic boilerplate like "Next App" or "Create Next App". Domain-specific error classes, exception hierarchies, and procedural utilities belong in `lib/` (e.g. `lib/errors.ts`) or `lib/[domain]/`.
+- **No top-level `constants/` directory.** App-wide constants live in `config/` (e.g. `config/attachments.ts` for upload limits, `config/ui.ts` for layout dimensions). Domain-scoped constants stay with their domain layer (e.g. `schemas/[domain]/`, `actions/_db-selects.ts`). Runtime behaviour such as error classes, loggers, and rate limiting lives in `lib/` (e.g. `lib/errors.ts`, `lib/logger.ts`, `lib/rate-limit.ts`), not `config/`.
 
 ```
 config/
@@ -89,6 +90,7 @@ config/
 ├── site.ts                         # Site metadata, branding, and app info
 ├── ui.ts                           # UI layout dimensions, cookie keys, and keyboard shortcuts
 ├── assets.ts                       # Structured asset registry (e.g. ASSETS.LOGO.DARK.path)
+├── attachments.ts                  # Domain constants (e.g. ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE_BYTES)
 └── [domain].ts                     # Feature/domain configurations (e.g. knowledgebase.ts, rag.ts, prompts.ts)
 ```
 
