@@ -299,6 +299,25 @@ Use this reference to accelerate root-cause identification and ensure fixes addr
   - Decouple client-safe schemas (`NEXT_PUBLIC_*`) from server schemas, checking `typeof window === "undefined"`.
   - Provide a test-runner bypass or dummy fallback map (`SKIP_ENV_VALIDATION=true` with placeholder secrets) for build and test phases.
 
+### Client Build-Time Environment Inlining vs Runtime Backend Fallback (Hybrid Authority Deficit)
+- **Mechanism**: In modern full-stack web frameworks (e.g. Next.js, Vite), public client-side environment variables (`NEXT_PUBLIC_*`, `VITE_*`) are statically replaced with string literals during the client bundle compilation step (`next build`). When client-side components and context providers rely exclusively on these static variables to determine roles, privileges, or administrative access:
+  - If the environment variable was missing from the hosting provider's build dashboard (e.g. Vercel, Netlify, Docker), or if changes to local env files (`.env.local`) were made without re-running the production deployment build, the production client bundle compiles the variable as empty or undefined.
+  - The client application assumes the user is an unprivileged standard user and hides management affordances, even though backend services, databases, or PostgreSQL Vault RPCs are fully configured and grant full permissions.
+- **Observable Failure**: Privileged buttons (e.g. "Delete" or "Edit" on non-owned entities for administrators) fail to appear in production browsers, while server-side actions or database queries succeed or would allow the mutation. Local dev may appear to function if `.env.local` is present locally, while production builds fail silently.
+- **Root Cause**: Relying on static, build-inlined client environment variables as the single point of failure for UI authorization, rather than establishing a dual-tier (hybrid) verification pattern backed by live runtime database/RPC authority.
+- **Architectural Solution**:
+  - Implement dual-tier authority: evaluate in-memory/env variables synchronously for instantaneous initial rendering, and concurrently verify administrative or role claims against an authoritative runtime backend RPC or session endpoint (e.g. `supabase.rpc("is_admin")` or `/api/auth/session`) during profile hydration.
+  - Augment client session state with the authoritative backend result (`user.isAdmin = true`) upon resolution.
+  - Ensure server actions also check backend/RPC authority before denying mutations when server-side environment variables are missing or desynchronized.
+
+### Delimited Environment String Normalization Deficits
+- **Mechanism**: Environment variables containing delimited lists of identifiers (e.g. `ADMIN_USER_IDS="uuid1, uuid2"`, `ALLOWED_ORIGINS="http://localhost:3000, https://app.com"`) are parsed using naive string splitting (`val.split(",")`). Across different operating systems, deployment dashboards, and configuration loaders, strings frequently contain enclosing single or double quotes (`"'value'"`, `"\"value\""`), extra whitespace, or casing variations (uppercase UUID hex characters).
+- **Observable Failure**: Strict set membership lookups (`set.has(userId)`) or exact equality checks silently fail to match valid identifiers because tokens retain literal quote characters (e.g. `"'f66a1370-...'"` !== `'f66a1370...'`) or uppercase letters.
+- **Root Cause**: Assuming environment variables ingested from heterogeneous runtime environments adhere to uniform casing and clean unquoted formatting.
+- **Architectural Solution**:
+  - Defensively sanitize and normalize every delimited token: trim whitespace, strip enclosing single and double quotes (`replace(/^["']|["']$/g, "")`), trim again, and normalize casing (`toLowerCase()` for UUIDs/emails).
+  - Write explicit unit tests asserting that tokens wrapped in nested quotes, leading/trailing whitespace, or uppercase casing parse into normalized canonical entries.
+
 ### Privilege Self-Demotion & Account Self-Lockout in Management UIs
 - **Mechanism**: Role management interfaces or administrative dashboards allow an authenticated administrator to modify their own role (e.g. demote to standard user) or delete their own user account.
 - **Observable Failure**: Administrator accidentally locks themselves out of the management portal, requiring direct database intervention to recover administrative access.
@@ -346,6 +365,20 @@ Use this reference to accelerate root-cause identification and ensure fixes addr
     throw new Error("Cannot remove the last remaining administrator.");
   }
   ```
+
+### Capability-Ownership Conflation in Action Gating (The isOwner Action Trap)
+- **Mechanism**: UI action triggers (e.g. Delete, Edit, Rename dropdown items) or mutation handlers guard operational affordances using raw entity ownership checks or overloaded ownership variables (e.g. `const isOwner = user?.id === item.uploader_id` or `const isOwner = hasPermission(user, "items", "delete", item)`).
+- **Observable Failure**: When role-based access control (RBAC), global administrators, moderators, or multi-tenant permissions are introduced, authorized non-owners cannot see or trigger action buttons for items they have full rights to manage; or codebase refactoring introduces confusing logic where administrators are falsely treated or labeled as entity "owners".
+- **Root Cause**: Conflating entity provenance/authorship (`uploader_id === user.id`) with operational capability (`canPerformAction`).
+- **Architectural Solution**:
+  - Decouple entity ownership from operational capability.
+  - Name and evaluate action guards using explicit capability booleans: `canDelete`, `canUpdate`, `canManage`.
+  - Derive capabilities directly from centralized ABAC/RBAC permission functions:
+    ```ts
+    const canDelete = hasPermission(user, "songs", "delete", song);
+    const canUpdate = hasPermission(user, "songs", "update", song);
+    ```
+  - Gate UI action items and confirmation modals strictly behind capability flags (`{canDelete && <DeleteButton />}`).
 
 ### Recursive Data Structure Depth Exhaustion & Tree Overflow
 - **Mechanism**: Hierarchical, self-referential data structures (threaded comments, nested category trees, reply chains, folder hierarchies) allow arbitrary nesting levels without enforcing maximum depth at the schema or database boundary.

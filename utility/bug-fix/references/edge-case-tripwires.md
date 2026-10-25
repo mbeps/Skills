@@ -67,6 +67,9 @@ Use this checklist during Step 2 & Step 3 of bug fixing to uncover hidden failur
 - [ ] **Defensive Caught Exception Property Access**: Do catch blocks access error details using runtime type narrowing and optional chaining (`error.issues?.[0]?.message ?? error.message`) rather than assuming hardcoded property structures (such as `error.errors[0]`), preventing secondary `TypeError` crashes in error handlers?
 - [ ] **Strict Public Client URL Resolution (No Unsafe Localhost Fallback)**: Does client-side auth or SDK initialization avoid hardcoding `http://localhost:3000` fallbacks that silently redirect production or preview traffic to the end-user's local machine when environment variables are omitted?
 - [ ] **Lazy Browser-Only SDK Instantiation**: Are browser-only SDK clients (Pusher, socket clients, WebRTC) wrapped in lazy singleton getters or Proxies that guard against execution when `typeof window === "undefined"`, preventing Node.js deprecation warnings and SSR hydration crashes?
+- [ ] **Dual-Tier Client Authority & Build-Time Environment Inlining**: When gating UI capabilities via client-side environment variables (`NEXT_PUBLIC_*`), is there an authoritative runtime backend fallback (e.g. session RPC or endpoint check) to prevent missing or stale build-time bundle variables from silently revoking privileges in production?
+- [ ] **Capability vs Ownership Action Gating**: Are action buttons (Delete, Edit, Manage) gated by capability booleans (`canDelete`, `canUpdate`) evaluated via centralized permission functions rather than raw entity ownership checks (`isOwner`, `user.id === entity.uploader_id`), preventing lockout of administrators and collaborators?
+- [ ] **Delimited Environment String Normalization**: Do identifier list parsers defensively trim whitespace, strip enclosing quotes (`"..."` or `'...'`), and normalize case (`toLowerCase()`) before performing set lookups or comparisons?
 
 ---
 
