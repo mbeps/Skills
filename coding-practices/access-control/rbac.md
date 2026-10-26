@@ -53,7 +53,7 @@ Always pass the org explicitly (from the request/URL), never from client input a
 | Medium                       | When                                                                                                                         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | In-code constants            | Small apps; type-checked, zero latency                                                                                       |
-| Config files (JSON/YAML/env) | Non-devs tweak permissions; no DB                                                                                            |
+| Config files (JSON/YAML/env) | Global admin IDs, low-churn roles; sync to DB vault (e.g. Supabase Vault) for RLS parity without privileged keys |
 | Database tables              | Runtime role administration, large user bases                                                                                |
 | JWT/session claims           | Avoids DB hit per request — but roles go stale until token refresh; keep TTL short and re-check critical actions server-side |
 

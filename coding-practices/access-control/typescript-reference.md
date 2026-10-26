@@ -49,11 +49,23 @@ type RolesWithPermissions = {
 }
 
 type Permissions = {
-  comments: { dataType: Comment; action: "view" | "create" | "update" }
-  todos:    { dataType: Todo;    action: "view" | "create" | "update" | "delete" }
+  comments:  { dataType: Comment;  action: "view" | "create" | "update" }
+  todos:     { dataType: Todo;     action: "view" | "create" | "update" | "delete" }
+  playlists: { dataType: Playlist; action: "view" | "create" | "update" | "delete" }
 }
 
 const ROLES = {
+  admin: {
+    comments: { view: true, create: true, update: true },
+    todos:    { view: true, create: true, update: true, delete: true },
+    playlists: {
+      // Admin can manage shared playlists, but personal playlists remain private
+      view:   (user, pl) => !pl.isPersonal || pl.userId === user.id,
+      create: true,
+      update: (user, pl) => !pl.isPersonal || pl.userId === user.id,
+      delete: (_user, pl) => !pl.isPersonal,
+    },
+  },
   moderator: {
     comments: { view: true, create: true, update: true },
     todos: {
@@ -67,6 +79,12 @@ const ROLES = {
       create: true,
       update: (user, comment) => comment.authorId === user.id,
     },
+    playlists: {
+      view:   (user, pl) => pl.userId === user.id,
+      create: true,
+      update: (user, pl) => pl.userId === user.id,
+      delete: (user, pl) => !pl.isPersonal && pl.userId === user.id,
+    },
   },
 } as const satisfies RolesWithPermissions
 
@@ -77,7 +95,7 @@ export function hasPermission<Resource extends keyof Permissions>(
   data?: Permissions[Resource]["dataType"]
 ) {
   return user.roles.some(role => {
-    const permission = (ROLES as RolesWithPermissions)[role][resource]?.[action]
+    const permission = (ROLES as RolesWithPermissions)[role]?.[resource]?.[action]
     if (permission == null) return false          // deny by default
 
     if (typeof permission === "boolean") return permission
@@ -90,6 +108,48 @@ Design notes:
 - `Partial<>` everywhere: roles declare only grants; absence = denial.
 - `satisfies` keeps literal inference while validating the matrix shape.
 - Optional `data`: without it you answer "can they ever do X?" (UI gating); with it, "can they do X to this record?" Predicates deny when data is missing.
+- Personal resources (like `playlists.isPersonal`) retain isolation even for admins to avoid returning multi-user records in single-entity queries.
+
+## 3. UI Component Consumption Pattern
+
+In React / Next.js components, avoid raw `user.id === data.authorId` checks. Check capabilities instead:
+
+```tsx
+export function CommentItem({ comment }: { comment: Comment }) {
+  const { user } = useUser()
+
+  const canUpdate = hasPermission(user, "comments", "update", comment)
+  const canDelete = hasPermission(user, "todos", "delete", comment)
+
+  return (
+    <div>
+      <p>{comment.text}</p>
+      {canUpdate && <button onClick={handleEdit}>Edit</button>}
+      {canDelete && <button onClick={handleDelete}>Delete</button>}
+    </div>
+  )
+}
+```
+
+## 4. Config-Driven Roles & Bundler Pitfalls
+
+When managing administrative roles via environment variables (e.g. `ADMIN_USER_IDS`):
+
+1. **Identifier Normalization**:
+   Environment strings may have surrounding quotes (`"..."`, `'...'`), extra whitespace, or mixed casing. Parse into a lookup set with normalization:
+   ```ts
+   export function parseAdminUserIds(raw: string): ReadonlySet<string> {
+     return new Set(
+       raw
+         .split(",")
+         .map(s => s.trim().replace(/^['"]|['"]$/g, "").toLowerCase())
+         .filter(Boolean)
+     )
+   }
+   ```
+2. **Dual-Tier Hydration (Client Env vs Live DB / RPC)**:
+   Frameworks like Next.js inline public env vars (`NEXT_PUBLIC_*`) at build or dev-server startup. If server environment variables are updated without rebuilding the client bundle, static client checks fail while server RLS passes.
+   **Solution**: Hydrate client user context by combining static env checks with a runtime call (e.g. `supabase.rpc("is_admin")` or session JWT claim) to augment `user.isAdmin`.
 
 ## Porting to Other Languages
 

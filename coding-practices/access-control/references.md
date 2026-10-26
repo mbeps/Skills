@@ -9,6 +9,7 @@
 - **ABAC (Wikipedia)** — S/A/R/E attributes, XACML PEP/PDP/PIP: https://en.wikipedia.org/wiki/Attribute-based_access_control
 - **XACML** (OASIS policy language): https://en.wikipedia.org/wiki/XACML
 - **NGAC** (NIST Next Generation Access Control): https://csrc.nist.gov/projects/next-generation-access-control
+- **PostgreSQL Row Level Security (RLS)** — defense-in-depth and InitPlan evaluation: https://www.postgresql.org/docs/current/ddl-rowsecurity.html
 
 ## ReBAC
 
