@@ -39,6 +39,18 @@ One-off schema migration backfills, CSV import bridges, or data sanitization scr
 ### 7. Side Effect Assessment
 Audit candidate code for side effects (e.g. self-executing module-level expressions, global variable mutations, dynamic reflection calls, telemetry beacons) to evaluate whether removal is 100% safe.
 
+### 8. Phantom State & Dead Property Plumbing
+Props, state variables, or function arguments threaded through multi-layer component trees, hooks, or function signatures (e.g. across 10–15 files) that are permanently inert (static default values, empty arrays) because the UI trigger, form input, or dispatch mutation was removed. Trace the entire parameter lifecycle from producer to consumer: if a prop or state variable has no active mutation site or consumer effect, prune the entire threading plumbing.
+
+### 9. Ignored API Request Parameter Drift
+Client-side network requests serializing parameters that the receiving server endpoint or route handler ignores or has stopped reading (e.g. deprecated query parameters, unhandled JSON body fields). Cross-reference client request payloads against server route validation schemas (Zod) to eliminate dead payload transmission.
+
+### 10. Legacy Single-Select Zombie State Post-Multi-Select Migration
+Lingering single-item selection state, props, or handlers (`selectedItem`, `setSelectedItem`, `onSelectItem`) that became obsolete after adopting multi-resource arrays, mention tokens, or bulk pickers. Audit state managers and pickers for dual-state redundancy.
+
+### 11. Unthrown Error Classes & Orphaned Notification Handlers
+Custom error classes defined or exported with zero `throw new ...` call sites across the repository, along with orphaned catch handlers, error decoders, and toast notifications designed to handle errors that the system never emits.
+
 ---
 
 ## Quality Principles

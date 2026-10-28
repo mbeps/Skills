@@ -25,7 +25,7 @@ Comprehensive codebase evaluation system that assesses code quality, architectur
 - Auditing architecture and API contracts: protocol parity, coarse dispatcher contracts, schema nullability vs optionality, and storage compensation
 - Evaluating implementation quality against clean code standards: parameter destructuring bloat, data-driven branch flattening, and error recovery contracts
 
-*For the complete catalog of 210+ code smells and 159 architectural invariants, see the [Authoritative References](#authoritative-references).*
+*For the complete catalog of 220+ code smells and 165 architectural invariants, see the [Authoritative References](#authoritative-references).*
 
 
 ### Do NOT Apply When
@@ -76,9 +76,9 @@ Evaluations combine empirical static analysis with git history analysis to preve
 
 ## Authoritative References
 
-- **[Code Smells Diagnostic Matrix](references/code-smells-matrix.md)** – Comprehensive catalogue mapping 210+ code smells across 10 evaluation dimensions to detection heuristics, required evidence, and severity ratings.
+- **[Code Smells Diagnostic Matrix](references/code-smells-matrix.md)** – Comprehensive catalogue mapping 220+ code smells across 10 evaluation dimensions to detection heuristics, required evidence, and severity ratings.
 - **[Complexity & Hotspots Reference](references/complexity-and-hotspots.md)** – Deep-dive guide covering Cognitive vs Cyclomatic complexity, empirical vs static-estimated CRAP scores, the Churn × Complexity Hotspot Matrix, AST destructuring penalties, hook density, and Indirection Debt measurement.
-- **[Architectural Invariants Reference](references/architectural-invariants.md)** – Authoritative evaluation criteria adapting 159 Architectural Invariants across data contracts, UI state separation, modularity, tooling, and system boundaries.
+- **[Architectural Invariants Reference](references/architectural-invariants.md)** – Authoritative evaluation criteria adapting 165 Architectural Invariants across data contracts, UI state separation, modularity, tooling, and system boundaries.
 
 ---
 
@@ -93,19 +93,19 @@ Exhaustive health check across all 8 dimensions: Architecture, Code Quality, Des
 Audits module graphs for circular dependencies (`A ↔ B`), peer domain cycles, and indirection debt. Evaluates coarse dispatcher contract drift, API contract degradation into untyped dictionaries, storage compensation transactions, and polyglot boundary decoupling.
 
 ### 3. **Quality Analysis** (`quality-analysis.md`)
-Evaluates implementation quality against clean code standards. Calculates Cognitive Complexity, Cyclomatic Complexity, and CRAP scores. Detects arrow code, parameter destructuring bloat, multi-branch conditional ladders, and concurrency race conditions (TOCTOU, check-then-act upserts).
+Evaluates implementation quality against clean code standards. Calculates Cognitive Complexity, Cyclomatic Complexity, and CRAP scores. Detects arrow code, parameter destructuring bloat, multi-branch conditional ladders, file length ceiling violations (>300 LOC), unmemoized hook callback churn, and concurrency race conditions (TOCTOU, check-then-act upserts).
 
 ### 4. **Code Duplication** (`code-duplication.md`)
 Rigorously identifies exact clones, semantic similarity, declarative ORM schema duplication, scattered inline variations, and competing engine sprawl.
 
 ### 5. **Dead Code Analysis** (`dead-code.md`)
-Traces entry points to identify unreachable logic, unused public exports (export minimization), phantom event dispatchers, zombie code, and ephemeral migration assets.
+Traces entry points to identify unreachable logic, unused public exports (export minimization), phantom event dispatchers, phantom property/state plumbing, ignored API request parameters, legacy single-select zombie state, unthrown error classes, and ephemeral migration assets.
 
 ### 6. **Over-Abstraction Audit** (`over-abstraction.md`)
 Identifies shallow abstraction layers, trivial passthrough wrappers, single-implementation interfaces, speculative infrastructure schema debt, micro-tool catalog sprawl, and excessive granularity.
 
 ### 7. **Codebase Consistency** (`codebase-consistency.md`)
-Audits topological directory architecture, strict file casing, framework route folder purity, 4-tier domain type architecture, validated environment schemas, and canonical site registries.
+Audits topological directory architecture, strict file casing, framework route folder purity, Server Actions directory purity, one-export-per-file hygiene, barrel file bottlenecks vs direct imports, centralized structured logging vs console leakage, symmetrical client/server environment schemas, 4-tier domain type architecture, and canonical site registries.
 
 ### 8. **Security Audit** (`security-audit.md`)
 Audits code-level vulnerabilities, secondary-library sandbox escapes, protocol error masking, missing auth gateway route protections, cross-origin trusted origins, hardcoded localhost fallbacks, and destructive action confirmations.

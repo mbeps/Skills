@@ -99,6 +99,9 @@ Use this matrix during codebase evaluation to diagnose root causes objectively a
 | **Parameter Destructuring Default Explosion** | Function signature destructuring 10+ props with default initializers (`{ a = 1, b = 2 }: Props`) | AST parser counting default assignments as branch decision points, adding $+15\text{--}20$ artificial cognitive complexity | `quality-analysis` | **Medium** |
 | **Multi-Branch Conditional Ladder** | Function using $>15$ sequential `if/else if` or switch branches for static code/MIME/extension matching | Cyclomatic complexity $>20$ driven purely by repetitive equality checks rather than algorithmic variation | `quality-analysis` | **High** |
 | **Chained Nullish Fallback Cascade** | Repetitive `a || b || c || d` fallback expressions creating multiple decision points in AST analyzers | AST cyclomatic complexity incrementing at every operator; function fails complexity gates despite linear intent | `quality-analysis` | **Medium** |
+| **File Length Ceiling & Monolithic Module Debt** | Source files exceeding 300 LOC (or $>500$ LOC in complex domains) coupling networking, state, parsing, and UI | Difficult code reviews, high defect churn, and excessive Cognitive Complexity across multiple lifecycle phases | `quality-analysis`, `architecture-design-analysis` | **High** |
+| **Unmemoized Hook Return Callback Thrashing** | Custom hooks returning unmemoized inline functions consumed in caller `useEffect` dependency arrays | Reference equality broken on every render, triggering infinite re-render loops and high CPU churn | `quality-analysis` | **High** |
+| **Logging Sink Teardown Race Conditions** | Production logging frameworks lacking synchronous mode toggles in test environments | Test runners dropping async log output or hanging during teardown race conditions | `quality-analysis`, `codebase-consistency` | **Medium** |
 
 ---
 
@@ -126,6 +129,10 @@ Use this matrix during codebase evaluation to diagnose root causes objectively a
 | **Speculative Domain Model Bloat** | Interfaces, DTOs, or enums defined for anticipated features that have 0 implementation | Types declared in `types/` with zero production references | `dead-code`, `over-abstraction` | **Medium** |
 | **Orphaned Test Files** | Test files testing deleted or renamed modules, or abandoned mocks | Tests with dead imports or tests skipped permanently | `dead-code` | **Low** |
 | **Refactoring Mock Path Drift** | String literal mock paths (`vi.mock("@/old-path")`) referencing obsolete file locations after renames | Tests silently executing unmocked real implementations or failing with module resolution errors | `dead-code`, `quality-analysis` | **High** |
+| **Phantom Property Threading (Dead State Plumbing)** | Threading unused props/state variables across multi-tier component trees after the UI trigger or mutation site was deleted | Props passed across 5+ component levels with 0 active updates or consumer effects | `dead-code`, `quality-analysis` | **Medium** |
+| **Ignored API Request Parameter Drift** | Client serializing deprecated request parameters that the destination server endpoint or Zod schema ignores | Network request bodies containing parameters omitted from server schemas | `dead-code`, `codebase-consistency` | **Medium** |
+| **Legacy Single-Select Zombie State** | Retaining single-entity selection state (`selectedItem`, `setSelectedItem`) alongside modern multi-select or tokenized mention arrays | Redundant parallel state variables where only array state is consumed | `dead-code`, `quality-analysis` | **Medium** |
+| **Unthrown Error Classes & Orphaned Handlers** | Custom error subclasses and catch/toast handlers declared with 0 throw sites across the repository | Error classes exported with zero instantiation or throwing call sites | `dead-code` | **Low** |
 
 ---
 
@@ -149,6 +156,11 @@ Use this matrix during codebase evaluation to diagnose root causes objectively a
 | **Toolchain Exclusion Negation Inversion** | Negation globs in toolchain configurations (linters, formatters, test runners) matching files meant to be excluded | Configs specifying `"!path"` instead of `"path"` (or vice-versa depending on engine syntax), causing linter to fail on excluded vendor/test files | `codebase-consistency`, `use-dependencies` | **Medium** |
 | **Relative API Endpoint Resolution Across Route Segments** | Client-side HTTP requests using relative strings without a leading root slash (`api/...`) | Resolving relative to nested route subpaths (e.g. `/conversations/[id]/api/...`) returning 404s while root calls succeed | `codebase-consistency`, `architecture-design-analysis` | **High** |
 | **Hardcoded Localhost Hostname Fallback in Client Configurations** | Client-side auth or API client base URLs defaulting to `http://localhost:3000` when environment variables are omitted | Production/staging client network requests routed to the end-user's local device | `codebase-consistency`, `security-audit` | **High** |
+| **Server Action Directory Utility Pollution** | Placing shared action factories, auth guards, or data mappers inside `actions/` or `app/actions/` directories | Non-action files without `"use server"` residing alongside server RPC endpoints | `codebase-consistency`, `architecture-design-analysis` | **High** |
+| **Barrel File Re-Export Bottleneck** | Central barrel files (`schema.ts`, `store/index.ts`) aggregating and re-exporting entire directory trees (`export *`) | AST parsing slowdowns, bundle bloat, circular import deadlocks, and wide relative import drift | `codebase-consistency`, `quality-analysis` | **High** |
+| **Multi-Export Module Grab-Bag & Default Export Inconsistency** | Modules exporting dozens of unrelated functions or mixed default/named component exports | Component naming drift, lack of "One Export per File" isolation in actions/hooks/components | `codebase-consistency` | **Medium** |
+| **Client Environment Schema Omission Bypass** | Client-read runtime flags (`NODE_ENV`, `VITEST`) omitted from `clientEnvSchema`, forcing raw `process.env` lookups | Direct `process.env` calls in client components bypassing centralized Zod validation | `codebase-consistency`, `security-audit` | **High** |
+| **Ad-Hoc Console Logging in Production Code** | Using raw `console.log/warn/error` instead of centralized structured logger in production modules | Scattered unformatted console calls lacking level controls, category tags, or audit sinks | `codebase-consistency` | **Medium** |
 
 
 ---

@@ -73,6 +73,28 @@ Auditing `types/` for monolithic grab-bags (e.g. 500-line `types/index.ts` files
 - **Standardized Canonical Parsing**: Auditing parsers and serializers to ensure standard formats (ISO 8601 timestamps, standard decimal representations) are ingested deterministically without ambiguous locale-guessing heuristics (`dayfirst=True`, local comma inferences) that corrupt canonical strings.
 - **Operator & Syntax Flexibility**: Auditing query, formula, and filter evaluators for consistent syntax normalization. Parsers should uniformly map common syntactic and operator variants (e.g. `=` and `==`, `<>` and `!=`, case-insensitive keyword tokens `and` vs `AND`) into canonical domain enums rather than throwing brittle syntax rejection errors.
 
+### 12. Server Actions Directory Purity & Factory Boundary Isolation
+- **Endpoint-Only Action Directories**: Auditing Server Action directories (e.g. `actions/`, `app/actions/`) to ensure every file contains `"use server"` and functions strictly as a discrete server RPC entry point.
+- **Shared Utilities & Factory Relocation**: Auditing `actions/` directories for higher-order action factories (`create-entity-factory.ts`), authorization guard utilities (`attachment-auth.ts`), and data transformation utilities (`buildChatFromRows`). Placing non-action utilities inside `actions/` creates boundary confusion, exposes helper internals, and triggers bundler errors. All shared factories and domain helpers must reside in dedicated service libraries (`lib/factories/`, `lib/`).
+
+### 13. Export Architecture & Single-Export Hygiene
+- **One Primary Export per File**: Auditing files for single primary export discipline versus multi-export grab-bags. Server actions, custom hooks, and UI components should export a single primary entity, making dependencies transparent and preventing oversized multi-responsibility files.
+- **Named Exports over Default Exports**: Auditing UI component exports to enforce named exports (`export function ComponentName`) over default exports (`export default function ComponentName`). Named exports prevent naming drift during imports, streamline refactoring, and optimize IDE symbol indexing.
+- **Hook Export Isolation**: Ensuring custom hook files only export the hook function. Internal type guards (e.g. `isSkillItem`), helper utilities, and module-level mutable collections (e.g. `hydratedResources` Sets) must be extracted into dedicated co-located utility or store modules to prevent accidental state leaks across consumers.
+
+### 14. Barrel File Bottlenecks & Direct Module Import Pathing
+- **Barrel File Re-Export Hubs**: Auditing for central barrel files (`drizzle/schema.ts`, `types/index.ts`, `store/index.ts`) that aggregate and re-export entire directory trees (`export * from "./schemas/*"`). Global barrel files cause transitive dependency bloat, slower compiler/bundler AST passes, bundle tree-shaking failures, and circular dependency deadlocks.
+- **Direct Module Import Strategy**: Enforcing direct file imports (`import { chat } from "@/drizzle/schemas/chat-schema"`) over barrel files.
+- **Absolute Alias Pathing vs Relative Import Drift**: Auditing cross-module imports to enforce canonical absolute path aliases (`@/...`) for shared models, schemas, and libraries. Deep relative imports (`../../../../schemas/chat`) drift and break during refactors and file relocations.
+
+### 15. Centralized Structured Logging vs Ad-Hoc Console Leakage
+- **Production Console Call Leakage**: Auditing application code (`app/`, `components/`, `lib/`, `actions/`, `hooks/`) for direct `console.log`, `console.warn`, and `console.error` calls. Production code must exclusively route diagnostics through a centralized, structured logging module (`lib/logger.ts`) supporting log levels, category tagging, and audit logging.
+- **Asynchronous vs Synchronous Sink Test Safety**: Auditing logger implementations to ensure logging sinks operate non-blockingly in production runtimes, but switch to synchronous output in test environments (`env.NODE_ENV === "test"` or `env.VITEST`) to prevent test runner teardown race conditions and dropped error output.
+
+### 16. Symmetrical Environment Schema Coverage & Framework Runtime Exceptions
+- **Client Schema Completeness**: Auditing environment schemas to ensure client-safe runtime flags (`NODE_ENV`, `VITEST`) are declared in client schemas (`clientEnvSchema`). When client schemas omit runtime flags that client modules need, developers are forced to bypass schema validation and read raw `process.env`.
+- **Framework Bootstrap Exceptions**: Distinguishing between prohibited application-level `process.env` access and necessary framework bootstrap exceptions (e.g. checking `process.env.NEXT_RUNTIME === "nodejs"` in Next.js `instrumentation.ts` before modules load). Documenting and validating authorized framework exceptions.
+
 ---
 
 ## Quality Principles
