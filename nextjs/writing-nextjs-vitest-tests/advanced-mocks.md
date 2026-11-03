@@ -412,6 +412,8 @@ A ~30-line Node script that prints uncovered lines, uncovered functions, and per
 
 **Caveat**: never read a `coverage-final.json` produced by a *scoped* run (`--coverage.include=...`) as the global picture. A scoped run reports every file it did not import as 0% covered, which inflates the total dramatically. Always drive global work from a full run.
 
+**Caveat**: a pasted or saved report can also be *stale* — a file listed at 0% may already have a co-located test added after the run. Before writing any test for a reported gap, check whether the test file exists and run it scoped; the gap may already be closed.
+
 ### Scoped verification runs
 
 A full suite with coverage takes minutes. While iterating on one module, run only its tests scoped to its sources, with thresholds zeroed so unrelated in-progress work does not fail the run:
@@ -446,15 +448,15 @@ A 100% gate can be blocked by code no test can reach. Before writing a contrived
 
 Common causes, each verifiable with a two-line probe:
 
-| Pattern                                                                     | Why the arm is dead                                                                                                  | How to prove it                                        |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `validated.field ?? null` where the schema is `z.string().optional()`       | `.optional()` is **not** `.nullable()` — Zod rejects `null`, and the `!== undefined` guard filters `undefined` first | `schema.safeParse({ field: null }).success` is `false` |
-| `validated.field ?? fallback` where the schema has `.default(x)`            | Zod applies the default, so the value is never nullish                                                               | parse `{}` and read the field                          |
-| A guard duplicated by a schema `.refine()`                                  | the refine is the logical negation of the guard, so nothing satisfies one and fails the other                        | feed every candidate payload; none reaches the branch  |
-| `x ?? fallback` where `x` is a required non-nullable field                  | the schema guarantees a value                                                                                        | `safeParse` rejects `undefined`, `null`, and omission  |
-| `obj.list \|\| []` where the list was assigned earlier in the same function | the assignment always makes it truthy                                                                                | read the function; the fallback is unreachable         |
-| `f(x) ?? fallback` where a prior `.filter()` already validated `x`          | only valid values survive the filter, so the helper is an identity cast                                              | confirm the filter precedes the call                   |
-| `err instanceof Error ? err.message : String(err)` around a Node builtin    | Node's sync `zlib`/`crypto` functions only ever throw real `Error`                                                   | call the builtin with every malformed input            |
+| Pattern                                                                     | Why the arm is dead                                                                                                              | How to prove it                                                    |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `validated.field ?? null` where the schema is `z.string().optional()`       | `.optional()` is **not** `.nullable()` — Zod rejects `null`, and the `!== undefined` guard filters `undefined` first             | `schema.safeParse({ field: null }).success` is `false`             |
+| `validated.field ?? fallback` where the schema has `.default(x)`            | Zod applies the default, so the value is never nullish                                                                           | parse `{}` and read the field                                      |
+| A guard duplicated by a schema `.refine()`                                  | the refine is the logical negation of the guard, so nothing satisfies one and fails the other                                    | feed every candidate payload; none reaches the branch              |
+| `x ?? fallback` where `x` is a required non-nullable field                  | the schema guarantees a value                                                                                                    | `safeParse` rejects `undefined`, `null`, and omission              |
+| `obj.list \|\| []` where the list was assigned earlier in the same function | the assignment always makes it truthy                                                                                            | read the function; the fallback is unreachable                     |
+| `f(x) ?? fallback` where a prior `.filter()` already validated `x`          | only valid values survive the filter, so the helper is an identity cast                                                          | confirm the filter precedes the call                               |
+| `err instanceof Error ? err.message : String(err)` around a Node builtin    | Node's sync `zlib`/`crypto` functions only ever throw real `Error`                                                               | call the builtin with every malformed input                        |
 | `data.field !== undefined` guard after `schema.partial()`                   | In Zod v4, `.partial()` retains inner `.default(...)` declarations, populating defaults on `{}` and making the guard always true | parse `{}` with `schema.partial()` and inspect `parsed.data.field` |
 
 Two traps when you do reach for a builtin error path:
@@ -463,6 +465,8 @@ Two traps when you do reach for a builtin error path:
 - A "documented" unreachable branch may be one a previous run already pinned with a comment. Re-read the surrounding test before re-attempting it.
 
 Once proven, the choice is the owner's, and it is a real decision: **delete the dead code** (cleanest, and it makes the gate pass honestly), **relax the schema** so the fallback becomes live, or **lower the threshold** with a comment naming the lines. A `?? null` that is unreachable usually means there is no supported way for a client to *clear* the field — that is an API gap, and fixing the schema is the real fix, not a test.
+
+When deleting dead code, expect a knock-on type change: if the dead branch guarded a fallback (e.g. `art.id ? art.id : fallback`), the surviving path may need a narrowed type (`ArtifactData & { id: string }`) on the parameter or the producing function's return type. That narrowing is a type-only change that documents the real runtime contract — `tsc` will point at every caller that needs it.
 
 ### Delegating coverage work to subagents
 

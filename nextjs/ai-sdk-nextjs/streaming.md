@@ -81,6 +81,17 @@ Helpers: `sendMessage`, `regenerate`, `stop`, `resumeStream`, `addToolOutput` (w
 
 A `UIMessage` is `{ id, role: 'system'|'user'|'assistant', metadata?, parts }`. Render by iterating `message.parts` and branching on `part.type` (`'text'`, `'reasoning'`, `'tool-call'`, `'tool-result'`, `'file'`). ai-client streams tool state via `p.type === 'dynamic-tool'` or `p.type.startsWith('tool-')`, reading `p.state` (`'input-available'`/`'output-available'`) and `p.input`/`p.output`.
 
+### Reasoning Stream Invariant
+When computing whether reasoning is actively streaming in custom hooks or UI indicators:
+```ts
+const isStreamingReasoning =
+  isStreaming &&
+  !!streamingReasoning &&
+  !streamingContent &&
+  activeToolCalls.length === 0;
+```
+*Why:* In tool-calling turns, the model often yields reasoning deltas followed immediately by tool invocations before any text content is generated. If `activeToolCalls.length === 0` is omitted, `streamingContent` remains null/empty during tool execution, falsely showing an active "Thinking..." spinner while external tools are running.
+
 ## Error handling
 
 Errors extend the base `AISDKError`. Catch specific subclasses: `APICallError` (not `APIError`), `InvalidPromptError`, `JSONParseError`, `LoadAPIKeyError`, `NoContentGeneratedError`, `NoSuchModelError`, `UnsupportedFunctionalityError`. There is **no** `AbortError` class — detect aborts with `isAbortError(error)` from `@ai-sdk/provider-utils`. Format messages with `getErrorMessage(error)` from `@ai-sdk/provider`.

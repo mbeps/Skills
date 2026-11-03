@@ -94,6 +94,7 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 - A `v8 ignore` / `istanbul ignore` added to make a 100% gate pass
 - Trusting a subagent's coverage claim without a `git diff --stat` and a scoped coverage run
 - Reading a scoped run's `coverage-final.json` as the global gap list
+- Writing a test for a reported 0% file without checking a newer test file already exists — the report may predate recent work
 - Omitting `unmount()` on `renderHook` instances across sequential scenarios, leaking timer callbacks
 - Unreachable `!== undefined` guards created by Zod v4 `.partial()` retaining inner `.default()` values
 - Asserting hook or stream state after timer ticks without flushing async microtasks in `act`

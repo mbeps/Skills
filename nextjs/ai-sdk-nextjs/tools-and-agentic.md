@@ -72,8 +72,8 @@ onEnd: (finish) => {
 ```
 
 ### Property Normalization & Historical Serialization
-- **Schema fields:** AI SDK v7 uses `input` for tool arguments and `output` for results (`tc.input`, `tr.output`), whereas legacy or database schemas often expect `args` and `result`. Map `tc.args ?? tc.input` and `tr.result ?? tr.output` when serializing.
-- **Historical tool call parts:** Provider serializers (like OpenAI) reconstruct message history by reading `part.input`. Setting only `args` on historical `ToolCallPart` objects leaves `part.input` undefined, causing providers to serialize `{}` (empty object) into the prompt. Always set `input: parsedInput` in historical tool parts.
+- **Zero-Compat Canonical Properties:** In AI SDK v7, stream chunks from `streamText().fullStream` strictly provide `chunk.input` for tool invocations and `chunk.output` for tool execution results. Legacy v6 properties (`chunk.args`, `chunk.result`) are removed. Rather than introducing perpetual `tc.args ?? tc.input` or `tr.result ?? tr.output` fallbacks throughout the application, canonicalize persisted database schemas via idempotent migration so runtime code operates on pure canonical properties (`input`/`output` in AI SDK parts, and consistent serialization in metadata).
+- **Historical tool call & result parts:** Provider serializers (like OpenAI) reconstruct message history by reading `part.input` on `ToolCallPart` and `part.output` on `ToolResultPart`. Setting legacy `args` on historical `ToolCallPart` leaves `part.input` undefined, causing providers to serialize `{}` (empty object) into the prompt. Always set pure `input: parsedInput` on `ToolCallPart` and `output: { type: 'text' | 'json', value: parsedOutput }` on `ToolResultPart`.
 
 ## Error handling
 

@@ -7,7 +7,7 @@ description: Use when building or modifying AI chat, streaming, or tool-calling 
 
 Vercel AI SDK v7 streaming, structured output, tool calling, and multi-step agentic flows in Next.js App Router (TypeScript). The v7 wire protocol is the **UI Message Stream** (SSE with JSON parts); the v6 data-stream protocol is removed.
 
-**Core principle:** `streamText` for streaming UIs via `useChat`, `generateText` for non-streaming calls. Client and server `onFinish` differ — only the server function renamed it to `onEnd`.
+**Core principle:** `streamText` for streaming UIs via `useChat`, `generateText` for non-streaming calls. Client and server `onFinish` differ — only the server function renamed it to `onEnd`. FullStream chunks and ModelMessage parts strictly use `input` for tool calls and `output` for tool results.
 
 ## When to Use
 - Adding or changing AI chat routes, `useChat` UI, streaming, or tool calling in a Next.js App Router app.

@@ -19,6 +19,10 @@ This file summarises the renames. For the full migration guide, cross-reference 
 | tool `parameters`                                   | `inputSchema` (old gone)                     |
 | `maxSteps`                                          | **removed** → `stopWhen` + `isStepCount`     |
 | `experimental_transform`                            | still `experimental_transform` (not renamed) |
+| `chunk.args` (`tool-call` stream chunk)             | `chunk.input`                                |
+| `chunk.result` (`tool-result` stream chunk)         | `chunk.output`                               |
+| `ToolCallPart.args`                                 | `ToolCallPart.input`                         |
+| `ToolResultPart.result`                             | `ToolResultPart.output`                      |
 
 ## Key gotchas
 
@@ -28,3 +32,4 @@ This file summarises the renames. For the full migration guide, cross-reference 
 - `initialMessages` → `messages`; `append` → `sendMessage`; `reload` → `regenerate`; `addToolResult` → `addToolOutput`.
 - `streamProtocol` option is gone; `maxSteps` auto-resubmission is replaced by `sendAutomaticallyWhen`/`onFinish`.
 - There is no `streaming:` boolean — use `streamText` vs `generateText`.
+- **Zero-Compat Clean Break over Eternal Shims:** Avoid accumulating defensive fallbacks (`args ?? input`, `result ?? output`) across message assembly and streaming services. Run an idempotent database backfill script to normalize historical message metadata, and write pure v7 properties (`input`/`output`) across all layers.
