@@ -1,40 +1,78 @@
 ---
 name: Wiki Writer.Intro
-description: Creates a user-friendly introduction for the project wiki, focusing on high-level features and benefits without technical jargon.
+description: Generates user-facing project landing and feature pages adhering to ASD-STE100 and British English without technical jargon or implementation code.
 agent: Wiki Writer
 ---
+
 # Introduction
-Your primary objective is to generate a non-technical project introduction and save it to `./wiki/intro.md`.
+
+Generate the project landing page (`Home.md`) and feature documentation (`1.-Features.md`). Focus on high-level capabilities, user benefits, and documentation navigation.
+
+---
 
 # What to do
-* **Write the Overview**: Compose a single, concise paragraph explaining what the project is at a high level. Ensure this paragraph has no heading.
-* **Generate the Features Section**: Create a primary heading # Features.
-* **Categorise Features**: Identify core functionalities and list them using bullet points.
-* **Group by Subheadings**: Where multiple features relate to a single theme (e.g., Security, Social, Content), group them under ## (H2) subheadings.
-* **Simplify Language**: Translate technical implementation details into user-facing benefits (e.g., use "Users can sign in" instead of "OAuth2 integration").
-* **Save Output**: Write the final content exclusively to `./wiki/intro.md`.
+
+1. **Write the Project Overview**:
+   - Compose a single, concise paragraph explaining the project at a high level.
+   - Keep descriptive sentences under 25 words following ASD-STE100.
+   - Do not add any title or heading above this opening paragraph.
+2. **Structure the Features Section**:
+   - Create a primary heading `# Features`.
+   - Group capabilities under `## [Category]` subheadings (e.g. `## Authentication`, `## Workflows`).
+   - Describe features in concise bullet points. Focus on user value rather than internal wiring.
+3. **Build the Wiki Documentation Index**:
+   - Create a primary heading `# Wiki Documentation`.
+   - Provide a complete markdown table listing all wiki pages:
+     `| Section | Page | Description |`
+   - Link each page with relative Markdown syntax: `[Filename](./Filename.md)`.
+   - **Strict Isolation to Current Wiki**: The table must strictly contain only pages belonging to the current wiki repository. Never reference, list, or link to pages from other wikis in this table.
+4. **Use ASD-STE100 & British English**:
+   - Keep sentences short, direct, and active.
+   - Use British English spelling (`categorise`, `optimise`, `centralise`).
+   - Eliminate all welcome filler ("Welcome to the documentation", "This project is designed to...").
+
+---
 
 # What not to do
-* **No Technical Jargon**: Do not mention frameworks, databases, libraries, or architectural patterns.
-* **No Overview Heading**: Do not add a title or heading to the opening paragraph.
-* **No Introductory Fluff**: Do not include "Welcome to the wiki" or similar filler phrases.
-* **No File Bloat**: Avoid long-winded explanations; keep feature descriptions to a single line where possible.
 
-# Context Boundaries
-* **Scope**: This task is limited to creating the contents of `./wiki/intro.md`.
-* **Source**: Base the content on your analysis of the codebase.
-* **Audience**: The target reader is a non-technical stakeholder or end-user.
+- **No Opening Heading**: Do not put a heading or title before the introductory paragraph.
+- **No Introductory Fluff**: Do not include conversational greetings or promotional claims.
+- **No Implementation Code**: Do not include code snippets, database schemas, or API handler implementations.
+- **No Jargon in User Features**: Translate technical mechanisms into user capabilities (e.g. "Users sign in with Google" instead of "OAuth 2.0 PKCE dance").
+- **No Cross-Wiki References in Index**: Do not reference or link to external/other wikis in the `# Wiki Documentation` table.
 
-# Reasoning Constraints
-* **User-Value Logic**: Prioritize "What the user can do" over "What the system performs".
-* **Logical Grouping**: Before writing, cluster features into logical categories to determine if H2 subheadings are required.
-* **Deductive Flow**: Start with the broadest project definition and move into specific functional capabilities.
+---
 
-# Failure Behaviour
-* **Missing Features**: If the codebase analysis provides no clear features, state "No user-facing features identified" and ask the Lead Agent for clarification.
-* **Ambiguous Purpose**: If the project's high-level goal is unclear, draft a placeholder and flag it for user review.
+# Canonical Template: `Home.md`
+
+```markdown
+[Single concise paragraph explaining what the project is at a high level. No title or heading for this paragraph, no "Welcome to...", no promotional filler.]
+
+# Features
+
+## [Category 1]
+- [User-facing capability written in British English]
+- [User-facing capability]
+
+## [Category 2]
+- [User-facing capability]
+- [User-facing capability]
+
+# Wiki Documentation
+
+| Section | Page | Description |
+|---|---|---|
+| Architecture | [2.-Architecture-Overview.md](./2.-Architecture-Overview.md) | System topology, technology stack, and execution flows |
+| Database Design | [3.-Database-Design.md](./3.-Database-Design.md) | Entity relationships, schemas, and normalisation analysis |
+| Authentication | [4.-Authentication.md](./4.-Authentication.md) | Identity providers, session lifecycle, and route security |
+| File Storage | [5.-Storage.md](./5.-Storage.md) | Storage buckets, presigned upload pipeline, and permissions |
+```
+
+---
 
 # Quality Bar
-* **Tone**: Professional, accessible, and direct.
-* **Spelling**: Use British English (e.g., "categorise", "optimised").
-* **Formatting**: Clean Markdown with consistent spacing between sections and bullet points.
+
+- **Sentence Limit**: Procedural steps under 20 words; descriptive text under 25 words.
+- **Tone**: Authoritative, direct, and clear.
+- **Spelling**: 100% British English.
+- **Traceability**: All listed pages must match existing files in the repository wiki.
