@@ -106,3 +106,86 @@ Application services rely on Node.js module-scope variables, `Map`s, or in-memor
 ### Remediation
 - For multi-instance deployments, back coordination primitives with centralized state stores (Redis distributed locks, PostgreSQL advisory locks, or database row statuses).
 - In pragmatic single-deployment architectures, explicitly document the single-process constraint and provide a documented upgrade path for distributed scaling.
+
+---
+
+## 8. Eternal Defensive Shim Accumulation (Schema Migration Avoidance)
+
+### Architectural Flaw
+Runtime services, API decoders, and UI components accumulate indefinite layers of backward-compatibility shims, multi-generation field fallbacks (`a ?? b ?? c`, `args ?? input`, `result ?? output`), and legacy discriminated union variants to support historical database rows, rather than canonicalising stored data in place.
+
+### Failure & Performance Impact
+- Type definitions become bloated with optional legacy fields that obscure current business rules.
+- Bug fixes require updating $N$ parallel fallback paths across services, serializers, and client renderers.
+- Dead branches and deprecated payload shapes resist dead-code elimination and increase bundle size.
+
+### Remediation
+Execute an **In-Place Canonical Data Migration**:
+- Write an idempotent, transactional migration script that maps legacy database payloads to the current canonical schema across environments.
+- Once persisted data conforms to the unified schema, perform a clean-break refactoring: delete all legacy property checks, backward-compatibility shims, and obsolete type branches from application code.
+
+---
+
+## 9. Divergent Live vs Persisted Processing Pipelines
+
+### Architectural Flaw
+The application maintains two separate transformation pipelines for the same domain entity: one for transient, real-time incoming events (e.g. live SSE/WebSocket streams) and another for persisted entities rehydrated from storage (e.g. database rows or S3 snapshots).
+
+### Failure & Performance Impact
+- Subtle parity drift: Live items and persisted items render with inconsistent timestamps, missing metadata, or differing UI component structures.
+- Logic duplication: Business transformations, token accounting, and step extraction logic must be duplicated and synchronised across streaming handlers and persistence loaders.
+
+### Remediation
+Introduce a **Single-Pass State Normalizer**:
+- Funnel both active streaming chunks and persisted database records into a single, pure transformer function that produces a unified domain model (e.g. strongly-typed discriminated union steps).
+- Ensure presentation and consumption layers interact exclusively with the normalized domain model, guaranteeing 100% visual and behavioral parity across live and historical sessions.
+
+---
+
+## 10. Eager Evaluation Churn in Collapsible Hierarchies
+
+### Architectural Flaw
+List or timeline views containing high-cardinality nested items (e.g. traces, log entries, message tool calls) eagerly execute expensive operations—such as deep `JSON.stringify`, code highlighting, token estimation, or markdown AST parsing—across all collapsed nodes during initial mount or stream re-renders.
+
+### Failure & Performance Impact
+- The UI thread blocks and stutters during incoming streaming updates ($O(N)$ serialisation and render cost per stream delta).
+- Heavy DOM nodes and in-memory string trees inflate memory footprint even when 95% of the list remains visually closed.
+
+### Remediation
+Implement a **Deferred Evaluation Boundary**:
+- Defer all heavy formatting, serialization, and syntax parsing exclusively to expansion containers (e.g. `<CollapsibleContent>` or virtualized viewports) that mount only upon user interaction.
+- Keep collapsed summary headers purely dependent on lightweight scalar primitives (e.g. status enum, title, execution duration).
+
+---
+
+## 11. Environment-Forked Client Transport (Dev vs Prod Protocol Split)
+
+### Architectural Flaw
+The application maintains bifurcated client implementations based on environment flags (`isDevMode()`, `NODE_ENV === "development"`), such as querying a local GraphQL playground endpoint in development and a separate REST API in production.
+
+### Failure & Performance Impact
+- 100% of local developer testing and CI runs exercise dev-specific code paths that never run in production.
+- Production REST endpoints remain unexercised until deployment, causing immediate production outages (such as unhandled HTTP 404s on deprecated REST routes).
+- Redundant maintenance overhead: payload normalization, status mapping, and test suites are duplicated across both protocols.
+
+### Remediation
+Enforce **Environment Protocol Parity**:
+- Standardize on a single, shared client implementation across all environments.
+- Verify upstream engine API compatibility across local containers and managed cloud offerings; configure environment differences strictly through base URLs and credentials.
+
+---
+
+## 12. Unverified Multi-Tenant Queue Mutation (Cross-Tenant Execution Leak)
+
+### Architectural Flaw
+Exposing asynchronous background queue interactions (e.g. cancelling or listing jobs) via client actions or endpoints using raw task/run identifiers without verifying tenant ownership against the triggering event payload.
+
+### Failure & Performance Impact
+- Any authenticated user knowing or guessing a run ID can inspect or terminate another tenant's active background jobs.
+- Queue management APIs lacking row-level security (RLS) silently execute unauthorized cross-tenant mutations.
+
+### Remediation
+Implement **Fail-Closed Async Ownership Verification**:
+- Intercept all queue mutations with an ownership check against the triggering event payload (`isMismatchedUser`).
+- If user attribution is missing, unparseable, or mismatched, immediately fail closed (`Unauthorized`) before dispatching mutations to the queue engine.
+

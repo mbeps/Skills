@@ -77,6 +77,10 @@ Audit interconnections where subsystems interface with different operational gua
 - **Race Conditions:** Fan-out jobs prematurely flipping coordinator status before worker completion.
 - **Phantom Durability:** Durable workflows embedding multi-step loops inside a single engine checkpoint.
 - **Protocol Parity:** Unawaited streaming emitters, out-of-order events, or missing tool-result pairs.
+- **Defensive Shim Debt:** Runtime code branching across deprecated payload shapes instead of performing in-place database canonicalization.
+- **Divergent Pipelines:** Distinct processing pipelines for live transient streams versus rehydrated database records.
+- **Environment Transport Split:** Divergent client protocols (GraphQL vs REST) between dev and prod masking production outages.
+- **Unverified Async Queue Mutations:** Exposing background job cancellation or inspection without verifying trigger event payload ownership.
 
 ### Phase 5: Synthesis & Diagnostic Reporting
 Deliver the audit using the [Architecture Diagnostic Report Template](references/architecture-report-template.md):
@@ -108,6 +112,7 @@ Deliver the audit using the [Architecture Diagnostic Report Template](references
 | **Ranking by LOC instead of Criticality** | Massive auxiliary tooling (e.g., test runners, seeders) is less critical than a 200-line transactional auth guard. | Score systems strictly by data integrity risk and blast radius (Tier 1–4). |
 | **Recommending Enterprise Overkill** | Suggesting Kubernetes, Kafka, or microservices for a single-deployment app introduces catastrophic complexity. | Recommend pragmatic, in-process or single-database patterns that preserve simplicity. |
 | **Missing Cross-System Boundaries** | Auditing components in isolation misses dual-write drift, unhandled event timeouts, and queue desync. | Trace data flows across database, cache, storage, and worker boundaries. |
+| **Accumulating Eternal Compatibility Shims** | Hoarding fallback chains (`a ?? b ?? c`) across runtime code degrades maintainability. | Recommend an in-place canonical database migration followed by clean removal of legacy shims. |
 
 ---
 

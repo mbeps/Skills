@@ -20,6 +20,10 @@ Assess whether abstractions, layers, and data structures serve genuine operation
   - Are generic abstraction layers built for hypothetical multi-cloud or multi-database swaps where a single concrete implementation suffices?
 - **Granularity & Single-Use Interfaces:**
   - Are single-line operations split across isolated files to satisfy arbitrary line-count rules rather than domain cohesion?
+- **Defensive Schema Accumulation:**
+  - Are application services and UI models burdened with multi-generation field fallbacks (`a ?? b ?? c`) and legacy union types because historical database records were never migrated to the canonical schema?
+- **Divergent Transformation Pipelines:**
+  - Do transient real-time streams (e.g., SSE/WebSockets) and rehydrated database entities pass through separate data transformers instead of a single, pure domain normalizer?
 
 ### Severity Heuristic
 - **High Severity:** Multiple competing state stores requiring manual synchronisation across boundaries.
@@ -88,3 +92,5 @@ Assess computational throughput, network round-trips, and latency characteristic
   - Does the client synchronously serialise large payloads (e.g., `JSON.stringify` to `sessionStorage`) on every incoming SSE chunk?
 - **Over-Fetching:**
   - Are full multi-megabyte `text` or `jsonb` columns queried when only existence, counts, or byte sizes are needed?
+- **Eager Evaluation in Collapsible Trees:**
+  - Are computationally heavy operations (e.g., deep `JSON.stringify`, syntax highlighting, markdown AST parsing) executed eagerly on collapsed items instead of deferred to expansion containers?
