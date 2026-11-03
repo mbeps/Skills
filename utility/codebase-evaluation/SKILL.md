@@ -25,7 +25,7 @@ Comprehensive codebase evaluation system that assesses code quality, architectur
 - Auditing architecture and API contracts: protocol parity, coarse dispatcher contracts, schema nullability vs optionality, and storage compensation
 - Evaluating implementation quality against clean code standards: parameter destructuring bloat, data-driven branch flattening, and error recovery contracts
 
-*For the complete catalog of 220+ code smells and 165 architectural invariants, see the [Authoritative References](#authoritative-references).*
+*For the complete catalog of 220+ code smells and 168 architectural invariants, see the [Authoritative References](#authoritative-references).*
 
 
 ### Do NOT Apply When
