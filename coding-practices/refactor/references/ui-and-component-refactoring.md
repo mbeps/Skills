@@ -1550,5 +1550,95 @@ Decompose the monolithic hook list into cohesive domain tiers:
    When extracting state and handlers into custom hooks, any function returned from the hook that is consumed in child `useEffect` dependency arrays or memoized sub-components must be wrapped in `useCallback`.
    - **Rule**: Exporting raw inline functions (`const handleSend = () => ...; return { handleSend };`) creates a new function reference on every render, triggering infinite effect loops in downstream consumers. Wrap all exported actions in `useCallback`.
 
+---
+
+## 28. Interactive Trigger Nesting & Hydration Safety (Peer Sibling Decomposition)
+
+**Symptom**: Console hydration warning `"validateDOMNesting(...): <button> cannot appear as a descendant of <button>"` or accidental trigger toggling when users click secondary action buttons (e.g., "Copy", "Download", "Scratchpad") rendered inside a collapsible or dialog header.
+
+### The Problem:
+- Headless trigger primitives (`<CollapsibleTrigger>`, `<DialogTrigger>`) from Radix UI, Base UI, and Shadcn render native `<button>` elements with `aria-expanded` and click listeners.
+- Nesting subsidiary `<button>` or `<a href>` elements inside the trigger creates invalid nested HTML buttons, leading to React hydration mismatches, broken tab-navigation orders, and unintended trigger toggles when the user clicks the inner action.
+
+### The Remediation:
+Extract subsidiary action buttons as flex peer siblings beside `<CollapsibleTrigger>` within a flex row container:
+
+```diff
+# BEFORE: Nested interactive button inside CollapsibleTrigger
+- <CollapsibleTrigger className="flex w-full items-center justify-between">
+-   <TraceLine>
+-     <TraceTitle>{title}</TraceTitle>
+-   </TraceLine>
+-   <button type="button" onClick={handleOpenModal}>
+-     Open Modal
+-   </button>
+- </CollapsibleTrigger>
+
+# AFTER: Peer sibling flex decomposition
++ <div className="flex w-full items-center justify-between gap-2">
++   <CollapsibleTrigger className="min-w-0 flex-1">
++     <TraceLine>
++       <TraceTitle>{title}</TraceTitle>
++     </TraceLine>
++   </CollapsibleTrigger>
++   <Button
++     type="button"
++     variant="outline"
++     size="sm"
++     onClick={handleOpenModal}
++     className="shrink-0"
++   >
++     Open Modal
++   </Button>
++ </div>
+```
+
+---
+
+## 29. Deferred Evaluation in Collapsible / Accordion List Renderers
+
+**Symptom**: Sluggish scrolling, high CPU usage, and slow initial render times in chat threads, run logs, or trace timelines displaying 20–100+ collapsible items.
+
+### The Problem:
+- Developers frequently perform expensive operations (e.g. `estimateTokens(JSON.stringify(args))`, Markdown parsing, syntax highlighting) in the root render scope of each row component.
+- Even when 95% of rows start collapsed, every item eagerly serializes large JSON payloads and runs token counters on every parent state update or streaming tick.
+
+### The Remediation:
+Defer expensive token estimation, syntax highlighting, and serialization to mount exclusively inside `<CollapsibleContent>`:
+
+```diff
+# BEFORE: Eager calculation executed on every render across all collapsed rows
+  export function ToolTraceStep({ args, result, toolName }: ToolTraceStepProps) {
+-   const tokenUsage = estimateTokens(JSON.stringify(args)) + estimateTokens(JSON.stringify(result));
+    return (
+      <Collapsible>
+        <CollapsibleTrigger>
+          <TraceTitle>{toolName}</TraceTitle>
+-         <Badge>{tokenUsage} tokens</Badge>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  }
+
+# AFTER: Deferred mounting inside CollapsibleContent
+  export function ToolTraceStep({ args, result, toolName }: ToolTraceStepProps) {
+    return (
+      <Collapsible>
+        <CollapsibleTrigger>
+          <TraceTitle>{toolName}</TraceTitle>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
++         {/* Mounted and calculated ONLY when actively expanded */}
++         <TraceContextUsage args={args} result={result} />
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  }
+```
+
 
 
