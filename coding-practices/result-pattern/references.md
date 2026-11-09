@@ -8,6 +8,10 @@
 | neverthrow                                | https://github.com/supermacro/neverthrow                                                                   |
 | neverthrow wiki                           | https://github.com/supermacro/neverthrow/wiki                                                              |
 | eslint-plugin-neverthrow                  | https://github.com/mdbetancourt/eslint-plugin-neverthrow                                                   |
+| Next.js Server Actions Error Handling     | https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations#error-handling |
+| React Error Decoder (#441)                | https://react.dev/errors/441                                                                               |
+| Inngest Error Handling & Retries          | https://www.inngest.com/docs/guides/error-handling                                                          |
+| Biome Plugins (GritQL)                    | https://biomejs.dev/linter/plugins/                                                                        |
 | Vavr docs (Either §3.3.4, Try §3.3.2)     | https://docs.vavr.io/                                                                                      |
 | Vavr javadoc 0.11.0                       | https://static.javadoc.io/io.vavr/vavr/0.11.0/                                                             |
 | Java 21 pattern-matching switch (JEP 441) | https://docs.oracle.com/en/java/javase/21/language/pattern-matching-switch-expressions-and-statements.html |
