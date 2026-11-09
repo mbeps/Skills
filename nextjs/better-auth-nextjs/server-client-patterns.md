@@ -286,6 +286,8 @@ export const config = {
 ```
 
 > **Note**: Middleware only checks cookie presence — NOT validity. A tampered or expired cookie still passes middleware. Always validate with `auth.api.getSession()` inside the Server Component.
+>
+> **Public Route & OAuth/MCP Whitelisting**: If using a proxy or global middleware that checks sessions across API paths, always exclude public authentication and discovery prefixes from session redirects: `/auth`, `/api/auth`, `/.well-known`, and public metadata endpoints like `/api/mcp/oauth/client-metadata`. Redirecting these with HTTP 307 breaks external OAuth 2.1 discovery and CIMD validation.
 
 ---
 

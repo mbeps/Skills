@@ -263,6 +263,90 @@ export async function GET(req: Request) {
 }
 ```
 
+### E. RFC 7591 Client ID Metadata Document (CIMD) Endpoint
+When acting as an OAuth 2.1 client or serving client metadata to remote servers, expose a public CIMD endpoint (e.g. `/api/mcp/oauth/client-metadata`) returning standard metadata without requiring authentication:
+
+```typescript
+// app/api/mcp/oauth/client-metadata/route.ts
+import { NextResponse } from "next/server";
+import { getSiteUrl } from "@/lib/auth/auth-url";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const siteUrl = getSiteUrl();
+  const redirectUri = `${siteUrl}/api/mcp/oauth/callback`;
+  const clientUri = `${siteUrl}/api/mcp/oauth/client-metadata`;
+
+  return NextResponse.json({
+    client_name: "My AI Client",
+    client_uri: clientUri,
+    redirect_uris: [redirectUri],
+    grant_types: ["authorization_code", "refresh_token"],
+    response_types: ["code"],
+    token_endpoint_auth_method: "client_secret_post",
+  }, {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, max-age=3600",
+    },
+  });
+}
+```
+
+### F. Middleware & Authentication Proxy Exemption
+If your application uses Next.js middleware or an authentication proxy (e.g. `proxy.ts`) with `auth.api.getSession({ headers: request.headers })` to guard routes, you **must explicitly whitelist** all public OAuth and MCP discovery endpoints in `PUBLIC_PREFIXES`:
+
+```typescript
+// proxy.ts or middleware.ts
+const PUBLIC_PREFIXES = [
+  "/auth",                           // Login, 2FA, password reset
+  "/api/auth",                       // Better Auth handlers
+  "/.well-known",                    // RFC 8414, RFC 9728, OpenID discovery
+  "/api/mcp/oauth/client-metadata",  // Public CIMD (RFC 7591)
+  "/api/mcp",                        // Handled by requireMcpAuth (returns 401 challenge)
+];
+```
+
+> [!CAUTION]
+> If middleware intercepts discovery or CIMD endpoints, it redirects external AI clients (Claude, Google Gemini, ChatGPT) to `/auth/login` with an HTTP 307. AI clients expect JSON discovery metadata and fail immediately when receiving an HTML redirect.
+
+### G. OAuth Callback Session Validation & Tenant Isolation
+OAuth code exchange callbacks (e.g. `/api/mcp/oauth/callback`) must authenticate the user session via Better Auth and ensure strict tenant isolation against CSRF:
+
+```typescript
+// app/api/mcp/oauth/callback/route.ts
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth/auth";
+import { getSiteUrl } from "@/lib/auth/auth-url";
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const siteUrl = getSiteUrl();
+
+  // 1. Verify active session with Better Auth
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.redirect(new URL("/auth/login?error=unauthorized", siteUrl));
+  }
+
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (!code || !state) {
+    return NextResponse.redirect(new URL("/settings/connectors?error=missing_params", siteUrl));
+  }
+
+  // 2. Tenant isolation: Verify state belongs to the active session user
+  const storedCredential = await getOAuthCredentialByState(state);
+  if (!storedCredential || storedCredential.userId !== session.user.id) {
+    return NextResponse.redirect(new URL("/settings/connectors?error=forbidden", siteUrl));
+  }
+
+  // 3. Complete code exchange...
+}
+```
+
 ---
 
 ## 7. Consent Screen UI (`/oauth/consent`)
@@ -441,4 +525,6 @@ export async function GET(req: Request) {
 | **HTTP 404 on ChatGPT Discovery** | Missing root `/.well-known/openid-configuration` route. | Add route at `app/.well-known/openid-configuration/route.ts`. |
 | **Consent Page Build Error** | `useSearchParams()` used without `<Suspense>` boundary in App Router. | Wrap consent content in `<Suspense>`. |
 | **Unauthenticated GET returns 405** | Only `POST` protected with `requireMcpAuth`, leaving `GET` unhandled. | Route both `GET` and `POST` through `requireMcpAuth`. |
+| **Discovery / CIMD Redirects to Login (HTTP 307)** | Next.js middleware/proxy intercepts unauthenticated requests to `/.well-known/*`, `/api/mcp`, or CIMD endpoints. | Whitelist `/.well-known`, `/api/auth`, `/api/mcp`, and CIMD paths in middleware `PUBLIC_PREFIXES`. |
+| **OAuth Callback Session Hijack / State Mismatch** | Callback lacks session verification or does not bind `state` to `userId`. | Validate caller with `auth.api.getSession({ headers: await headers() })` and verify `state.userId === session.user.id`. |
 
