@@ -6,35 +6,69 @@ The `@ai-sdk/react` package exposes hooks for managing streaming conversations, 
 
 ## 1. Interactive Chat with `useChat`
 
-`useChat` manages message history, user input state, optimistic updates, and HTTP streaming automatically for direct route handlers.
+`useChat` manages message history, user input state, optimistic updates, and HTTP streaming automatically for route handlers.
+
+### Modern Transport & Hook Helpers
+
+Configure the transport via `DefaultChatTransport` to customize request headers, body structures, or endpoint paths:
 
 ```tsx
 // components/chat/chat-drawer.tsx
 "use client";
 
+import { useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Send, StopCircle } from "lucide-react";
+import { Bot, User, Send, StopCircle, RefreshCw } from "lucide-react";
 
 export function ChatDrawer({ workflowId }: { workflowId: string }) {
+  const [input, setInput] = useState("");
+
+  const chat = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        prepareSendMessagesRequest: async ({ body }) => ({
+          body: { ...(body ?? {}), workflowId },
+        }),
+      }),
+    [workflowId],
+  );
+
   const {
     messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
+    sendMessage,
+    regenerate,
     stop,
-    reload,
+    resumeStream,
+    addToolOutput,
+    status,
     error,
+    clearError,
   } = useChat({
-    api: "/api/chat",
-    body: { workflowId },
+    chat,
+    onFinish: ({ message, isAbort, isError }) => {
+      // NOTE: Client hook callback stays `onFinish` (server is `onEnd`).
+      if (!isAbort && !isError) {
+        console.log("Turn completed successfully:", message.id);
+      }
+    },
     onError: (err) => {
       console.error("Chat streaming failed:", err);
     },
   });
+
+  const isLoading = status === "submitted" || status === "streaming";
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    sendMessage({ text: input });
+    setInput("");
+  };
 
   return (
     <div className="flex flex-col h-full border rounded-lg bg-background">
@@ -58,6 +92,61 @@ export function ChatDrawer({ workflowId }: { workflowId: string }) {
             </div>
             {message.role === "user" && <User className="w-5 h-5 mt-1 text-muted-foreground" />}
           </div>
+        ))}
+        {isLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Bot className="w-4 h-4 animate-spin" />
+            <span>AI is responding...</span>
+          </div>
+        )}
+      </ScrollArea>
+
+      <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a question..."
+          disabled={isLoading}
+        />
+        {isLoading ? (
+          <Button type="button" variant="destructive" size="icon" onClick={stop}>
+            <StopCircle className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button type="submit" size="icon">
+            <Send className="w-4 h-4" />
+          </Button>
+        )}
+      </form>
+    </div>
+  );
+}
+```
+
+### Hook API Reference & Gotchas
+
+| Feature | Key / Method | Description |
+|---|---|---|
+| **Lifecycle State** | `status` | `'submitted' \| 'streaming' \| 'ready' \| 'error'` |
+| **Sending Messages** | `sendMessage({ text }, { body })` | Dispatches new user message turn |
+| **Retry & Regeneration** | `regenerate()` | Retries generation for the last assistant turn |
+| **Abort Control** | `stop()` | Aborts active client stream |
+| **Stream Recovery** | `resumeStream()` | Reconnects to in-flight generation stream |
+| **Interactive Tools** | `addToolOutput({ toolCallId, output })` | Submits client execution result for human-in-the-loop or client tool |
+| **Approvals** | `addToolApprovalResponse({ toolCallId, approved })` | Submits authorization confirmation for gated tool execution |
+| **Error Clearing** | `clearError()` | Resets active error state |
+
+> [!WARNING]
+> **Client `onFinish` vs Server `onEnd` Gotcha**: In `@ai-sdk/react`, the client-side `useChat` option remains `onFinish`, receiving `{ message, isAbort, isError }`. Only the server-side SDK functions (`streamText`, `generateText`) renamed `onFinish` to `onEnd`. Never rename the client `onFinish` to `onEnd`.
+
+### Rendering `UIMessage.parts`
+A `UIMessage` contains `{ id, role, metadata?, parts }`. Render dynamic multi-part messages by branching on `part.type`:
+- `'text'`: Standard text deltas
+- `'reasoning'`: Internal reasoning/thinking tokens
+- `'tool-call'`: Tool invocation (contains `toolCallId`, `toolName`, `input`)
+- `'tool-result'`: Completed tool payload (contains `toolCallId`, `toolName`, `output`)
+- `'file'`: Attached document or image url/mimeType
+- Dynamic tools stream `state` (`'input-available' | 'output-available'`) and `input`/`output`.
         ))}
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -279,6 +368,22 @@ export function useStreamWatchdog({
 }
 ```
 
+### 2.5 Custom Stream State Reducer (`useStreamState`)
+
+When consuming raw events from Inngest Realtime or custom SSE streams, reduce the incoming event log into accumulated content, reasoning, and active tool invocations:
+
+```tsx
+// hooks/chat/stream/use-stream-state.ts
+export function useStreamState(data: { messages?: Array<{ data?: unknown }> } | undefined) {
+  const [content, setContent] = useState("");
+  const [reasoning, setReasoning] = useState("");
+  const [activeTools, setActiveTools] = useState<any[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const processedRef = useRef<WeakSet<object>>(new WeakSet());
+
+  useEffect(() => {
+    if (!data?.messages) return;
+
     for (const msg of data.messages) {
       if (processedRef.current.has(msg)) continue;
       processedRef.current.add(msg);
@@ -329,6 +434,20 @@ export function useStreamWatchdog({
 ---
 
 ## 3. Rendering Thinking & Reasoning Timelines
+
+### Reasoning Stream Invariant
+When calculating whether the model is actively thinking in UI spinners or custom hooks:
+
+```typescript
+const isStreamingReasoning =
+  isStreaming &&
+  !!streamingReasoning &&
+  !streamingContent &&
+  activeToolCalls.length === 0;
+```
+
+> [!IMPORTANT]
+> **Why this matters:** In tool-calling turns, the model often yields reasoning deltas followed immediately by tool calls before any text content is generated. If `activeToolCalls.length === 0` is omitted, `streamingContent` remains empty during tool execution, falsely showing an active "Thinking..." spinner while external tools are running.
 
 Render separate, collapsible sections for reasoning vs markdown response content:
 

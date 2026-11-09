@@ -27,16 +27,26 @@ const result = await generateText({
   // System instructions (use instructions: string, NOT { role: "system" } in messages)
   instructions: "Always respond concisely in bullet points.",
 
-  // Hyperparameters
-  temperature: 0.7,      // 0.0 (deterministic) to 2.0 (creative)
-  maxTokens: 1000,       // Max generation tokens
-  topP: 0.9,             // Nucleus sampling
+  // Hyperparameters & Sampling
+  temperature: 0.7,          // 0.0 (deterministic) to 2.0 (creative)
+  maxOutputTokens: 1000,     // Max generation tokens (canonical; maxTokens is legacy alias)
+  topP: 0.9,                 // Nucleus sampling
+  topK: 40,                  // Top-k sampling (if supported by provider)
   presencePenalty: 0.0,
   frequencyPenalty: 0.0,
   stopSequences: ["\n\n---\n\n"],
+  seed: 42,                  // Deterministic sampling seed
+
+  // Active tools whitelist (controls availability without reconstructing tool record)
+  activeTools: ["search_knowledge_base"],
+
+  // Provider-specific options (no experimental_ prefix in v7)
+  providerOptions: {
+    openai: { reasoningEffort: "high" },
+  },
 
   // Multi-step tool execution limit
-  // Modern SDK supports stopWhen: isStepCount(maxSteps) or maxSteps
+  // Modern SDK supports stopWhen: isStepCount(maxSteps)
   stopWhen: isStepCount(5),
 
   // Observability & instrumentation
@@ -46,7 +56,7 @@ const result = await generateText({
     recordOutputs: true,
   },
 
-  // Lifecycle callback
+  // Lifecycle callback (or onEnd at conclusion)
   onStepFinish: async ({ text, toolCalls, toolResults, usage, finishReason }) => {
     // Invoked after each step in multi-step execution
   },
@@ -82,16 +92,38 @@ const result = streamText({
     { role: "user", content: "Write a high-performance PostgreSQL query for hierarchical comments." }
   ],
   tools: myTools,
+  activeTools: ["get_metrics"], // Whitelist subset of tools for this turn
   stopWhen: isStepCount(5),
-  maxTokens: 4096,
+  maxOutputTokens: 4096,
 
   onChunk: ({ chunk }) => {
     // Triggered on every delta: text-delta, reasoning-delta, tool-call, etc.
   },
-  onFinish: async ({ text, usage, finishReason, steps }) => {
-    // Triggered once stream completes. Ideal for database persistence
+  // Server-side stream completion callback (onEnd in modern SDK core, onFinish accepted)
+  onEnd: async ({ text, usage, finishReason, steps, toolCalls, toolResults }) => {
+    // Triggered once stream completes. Ideal for database persistence.
+    // NOTE: toolCalls and toolResults aggregate across ALL steps.
+    // finish.finalStep.toolCalls only reflects the very last step.
   },
 });
+```
+
+### Multi-Step Tool Call Aggregation (`finish.toolCalls` vs `finalStep`)
+
+In multi-step turns, `finish.toolCalls` and `finish.toolResults` aggregate across **all steps** of the turn, whereas `finish.finalStep.toolCalls` only reflects tool calls executed during the very last step.
+
+If tools run in step 1 and the assistant generates the final textual summary in step 2 (`finalStep`), reading tool records from `finalStep` discards the earlier tool invocations and results. Always read from `finish.toolCalls` / `finish.toolResults` when persisting conversation history:
+
+```typescript
+onEnd: (finish) => {
+  finishRef.current = {
+    text: finish.text,
+    toolCalls: finish.toolCalls ?? [],
+    toolResults: finish.toolResults ?? [],
+    finishReason: finish.finishReason,
+  };
+},
+```
 ```
 
 ### Stream Consumers & Converters
@@ -141,8 +173,13 @@ for await (const part of result.fullStream) {
 
 Structured output synthesis with compile-time TypeScript validation using Zod.
 
+### Options & Modes
+- `output`: `'object' | 'array' | 'enum' | 'no-schema'` (defines shape of generated data)
+- `mode`: `'auto' | 'json' | 'tool'` (`'auto'` selects best structured strategy supported by the model; `'json'` enforces JSON response format; `'tool'` forces tool call output schema)
+- `schema`: A Zod schema passed directly or wrapped in `zodSchema(z.object(...))` for the SDK's `FlexibleSchema`
+
 ```typescript
-import { generateObject, streamObject } from "ai";
+import { generateObject, streamObject, zodSchema } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
@@ -156,7 +193,9 @@ const taskSchema = z.object({
 // Atomic generation
 const { object } = await generateObject({
   model: openai("gpt-4o"),
-  schema: taskSchema,
+  schema: zodSchema(taskSchema),
+  output: "object",
+  mode: "auto",
   prompt: "Parse this task: Setup Postgres database with pgvector, takes about 45 mins, high priority.",
 });
 
@@ -238,4 +277,53 @@ export async function embedDocumentChunks(
   }
   return embeddings;
 }
+```
+
+---
+
+## 5. Error Handling Hierarchy & Result Invariants
+
+### SDK Error Class Hierarchy
+Errors generated during generation or streaming extend the base class `AISDKError`. Never match on generic string patterns; catch specific subclasses:
+
+| Error Subclass | Cause | Key Properties |
+|---|---|---|
+| `APICallError` | Upstream LLM provider returned an HTTP 4xx/5xx | `statusCode`, `responseBody`, `url`, `isRetryable` |
+| `InvalidPromptError` | Malformed prompt/messages (e.g. system messages inside `messages: []`) | `prompt` |
+| `JSONParseError` | Failed parsing structured response or JSON stream part | `text`, `cause` |
+| `LoadAPIKeyError` | Provider failed to locate an API key at startup | `message` |
+| `NoContentGeneratedError` | Model finished execution without producing any content or tool call | `response` |
+| `NoSuchModelError` | Requested model identifier is not registered in the provider | `modelId`, `modelType` |
+| `UnsupportedFunctionalityError` | Requested feature is unsupported by selected model (e.g. tools on o1-preview) | `functionality` |
+
+### Abort Detection & Message Formatting
+- **Detect Aborts with `isAbortError`:** There is **no** `AbortError` class. Import `isAbortError(error)` from `@ai-sdk/provider-utils`.
+- **Format Errors with `getErrorMessage`:** Import `getErrorMessage(error)` from `@ai-sdk/provider` to extract safe, sanitized error descriptions suitable for telemetry or client feedback.
+
+```typescript
+import { isAbortError } from "@ai-sdk/provider-utils";
+import { getErrorMessage } from "@ai-sdk/provider";
+import { APICallError } from "ai";
+
+try {
+  const result = await generateText({ model, prompt });
+} catch (error) {
+  if (isAbortError(error)) {
+    console.info("Request was intentionally aborted by caller.");
+    return;
+  }
+  if (error instanceof APICallError) {
+    console.error(`Provider failed with status ${error.statusCode}:`, error.responseBody);
+  }
+  const safeMessage = getErrorMessage(error);
+}
+```
+
+### `PromiseLike` Result Fields
+`result.finishReason` and `result.usage` in `streamText` implement `PromiseLike` rather than native `Promise`. When attaching custom error handlers or chaining without `await`, wrap with `Promise.resolve`:
+
+```typescript
+Promise.resolve(result.finishReason).catch((err) => {
+  console.warn("Failed resolving finish reason:", err);
+});
 ```

@@ -80,7 +80,12 @@ flowchart TD
 |---|---|---|---|
 | Single Completion | `generateText({ model, prompt, instructions })` | `{ text, steps, usage }` | Backend evaluations, summary nodes, batch jobs |
 | Realtime Chat Stream | `streamText({ model, messages, instructions })` | `StreamTextResult` + `.toDataStreamResponse()` | Interactive chatbot, conversational UI |
+| UI Message Stream Response | `createUIMessageStreamResponse({ stream })` | `Response` (SSE) | App Router route handler return for UI Message Stream protocol |
+| Custom UI Message Stream | `createUIMessageStream({ execute, onError })` | UI Message Stream writer | Manual SSE streaming with custom messageId start events |
+| Default Chat Transport | `new DefaultChatTransport({ api, prepareSendMessagesRequest })` | Transport instance | Configurable request headers & body transformation for `useChat` |
 | Universal Provider | `buildSdkProvider({ providerName, baseUrl, apiKey })` | OpenAI-compatible provider | Support OpenRouter, Ollama, Groq, DeepSeek, Azure |
+| Model Registry | `createProviderRegistry({ openai, anthropic })` | Registry instance | Dynamic string ID resolution (e.g. `'openai/gpt-4o'`) with middleware |
+| Provider Fallback Router | `customProvider({ languageModels, fallbackProvider })` | Composed provider | Combine multi-vendor models with automatic fallback routing |
 | 12-Layer System Prompt | `buildSystemPrompt(global, project, assistant, opts)` | `string` | Compose user identity, memories, canvas, KB, skills, and orchestrator directives |
 | Subagent Worker Agent | `new ToolLoopAgent({ model, instructions, tools, stopWhen })` | Autonomous agent instance | Execute isolated subtask with step bounding and tool scoping |
 | Subagent Dispatch Tool | `createSubagentDispatchTool(params)` | `{ delegate_task: tool(...) }` | Streams UI deltas via generator, returns bounded summary via `toModelOutput` |
@@ -98,6 +103,8 @@ flowchart TD
 | Fallback Synthesis | `runSynthesisFallbackPass({ finalMessages, completedTools })` | `{ text, reasoning }` | Recover final text answer when model concludes tool calls without text |
 | Background Stream | `inngest.realtime.publish(channel.stream, event)` | Realtime event emission | Stream tokens, reasoning, and tool states from background jobs |
 | Step Limiter | `stopWhen: isStepCount(maxSteps)` | Step stopping condition | Bound multi-step tool execution in `streamText` / `generateText` |
+| Schema Adapter | `zodSchema(zodObject)` | `FlexibleSchema` | Wrap Zod schemas for AI SDK structured output & tool inputs |
+| Dynamic Tool | `dynamicTool({ description, inputSchema, execute })` | Tool definition | Define dynamic runtime tools without ahead-of-time typing |
 | Token Transform | `toModelOutput: ({ output }) => ...` | `{ type: "text", value }` | Keeping heavy UI artifacts out of conversational LLM context |
 | MCP Client | `createMCPClient({ transport })` | MCP client instance | Connect to remote tool/prompt servers over HTTP |
 | Durable Inngest Step | `step.ai.wrap('id', generateText, opts)` | `{ steps, text, usage }` | Workflow DAGs, retry-safe background tasks |
@@ -436,11 +443,25 @@ export function createSubagentDispatchTool({
 | Dangling socket/HTTP connections accumulate on server | MCP client instances not closed after inference finishes | Return `cleanup` callback calling `client.close()` and trigger in `finally` or `onFinish` |
 | SSRF vulnerability on remote MCP redirects | Custom fetch followed 302 redirects to internal/loopback IPs | Validate IP against blocked ranges on **every redirect hop** in `safeMcpFetch` |
 | Long-running generation fails after 15–30s on deployment | Route handler exceeded hosting provider serverless HTTP timeout | Dispatch generation to durable Inngest background function and stream over Inngest Realtime |
+| Multi-step tool calls missing from persisted message history | Read tool calls from `finish.finalStep.toolCalls` instead of `finish.toolCalls` | In multi-step turns, `finish.finalStep.toolCalls` only contains the last step. Persist `finish.toolCalls` and `finish.toolResults` across all steps |
+| Provider prompt serializes `{}` for past tool calls | Reconstructed message history using legacy `args` property | Set pure `input` on `ToolCallPart` and structured `output` on `ToolResultPart` to satisfy provider serializers |
+| Client `useChat` callback renamed to `onEnd` fails to fire | Assumed `onFinish` rename applied to React client hooks | Client `useChat` remains `onFinish({ message, isAbort, isError })`; only server `streamText`/`generateText` renamed to `onEnd` |
+| "Thinking..." spinner continues running during tool calls | UI indicator checked `!streamingContent` without verifying active tool status | Require `activeToolCalls.length === 0` in reasoning stream invariant to stop spinner during external tool execution |
 
 ---
 
 ## References
 
+### Official Documentation
+| Topic | URL |
+|---|---|
+| v7 Migration Guide | https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0 |
+| UI Streaming Data | https://ai-sdk.dev/docs/ai-sdk-ui/streaming-data |
+| useChat Reference | https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat |
+| Chatbot Message Persistence | https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence |
+| LangChain Adapter Streaming | https://ai-sdk.dev/providers/adapters/langchain |
+
+### Skill Documentation Modules
 - [core-api.md](core-api.md) — Detailed function signatures, `isStepCount`, parameters, and return payloads
 - [subagents-and-orchestration.md](subagents-and-orchestration.md) — Hierarchical 2-layer multi-agent architecture (depth limit \(d = 1\)), `ToolLoopAgent`, generator streaming (`async function*`), `toUIMessageStream`, context protection (`toModelOutput`), shared PostgreSQL scratchpad, and guaranteed synthesis fallback
 - [rag-and-knowledgebase.md](rag-and-knowledgebase.md) — Dual-path RAG, recursive semantic chunking, Qdrant collection partitioning, hybrid vector + keyword search, RRF fusion, and durable Inngest pipelines

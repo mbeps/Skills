@@ -29,17 +29,20 @@ export const workflowExtractionSchema = z.object({
 
 ### Generating Strictly Validated Objects
 
+Use `zodSchema()` to wrap schemas for the SDK's `FlexibleSchema`. Configure `output` (`'object' | 'array' | 'enum' | 'no-schema'`) and `mode` (`'auto' | 'json' | 'tool'`):
+
 ```typescript
-import { generateObject } from "ai";
+import { generateObject, zodSchema } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { workflowExtractionSchema } from "@/schemas/workflows/generator";
 
 export async function extractWorkflowFromPrompt(userRequest: string) {
   const { object } = await generateObject({
     model: openai("gpt-4o"),
-    schema: workflowExtractionSchema,
-    prompt: `Parse the following workflow description into our node format: "${userRequest}"`,
+    schema: zodSchema(workflowExtractionSchema),
+    output: "object",
     mode: "auto", // Automatically selects structured outputs if supported by provider
+    prompt: `Parse the following workflow description into our node format: "${userRequest}"`,
   });
 
   return object; // Fully typed as z.infer<typeof workflowExtractionSchema>
@@ -53,6 +56,18 @@ export async function extractWorkflowFromPrompt(userRequest: string) {
 Tools give LLMs the ability to execute code, query databases, or call external APIs during generation.
 
 ### Tool Definition Structure
+
+`tool()` accepts the following configuration fields:
+- `inputSchema`: `FlexibleSchema` — pass a Zod schema directly or wrap with `zodSchema()`.
+- `outputSchema`: Optional schema for tool output validation (required when there is no `execute` function).
+- `execute(input, { abortSignal })`: Async function or generator returning `OUTPUT | AsyncIterable<OUTPUT>`.
+- `toModelOutput`: Function transforming the raw execution return into a concise string/payload for the LLM context.
+- `strict`: Enforce provider structured outputs on tool input schema.
+- `inputExamples`: Representative input payloads guiding model parameter generation.
+- `onInputStart`, `onInputDelta`, `onInputAvailable`: Callbacks for streaming tool argument deltas.
+- `contextSchema`: Context schema when passing execution context.
+
+For dynamically configured tools at runtime (e.g. MCP tools or dynamic database introspection), use `dynamicTool()`.
 
 ```typescript
 import { tool } from "ai";
@@ -108,6 +123,8 @@ export async function askWorkflowAssistant(userPrompt: string) {
     tools: {
       getWorkflowMetrics: getWorkflowMetricsTool,
     },
+    // There is no per-tool `disabled` flag. Filter dynamically with activeTools:
+    activeTools: ["getWorkflowMetrics"],
     stopWhen: isStepCount(5), // Modern SDK bounded multi-step loop
   });
 
@@ -206,4 +223,18 @@ const allTools = {
 ```
 
 For advanced internal tool patterns (context-closing factories, dynamic conditional gating, subagent streaming generators with `readUIMessageStream`, and turn scratchpads), see [internal-tools-architecture.md](internal-tools-architecture.md).
+
+---
+
+## 7. Property Normalization & Historical Serialization Invariant
+
+In modern SDK Core, stream chunks and messages strictly provide canonical properties:
+- `chunk.input` for tool invocations (legacy `chunk.args` removed)
+- `chunk.output` for tool execution results (legacy `chunk.result` removed)
+
+### Provider Serializer Invariant
+Provider serializers (like OpenAI) reconstruct message history by reading `part.input` on `ToolCallPart` and `part.output` on `ToolResultPart`.
+- If legacy `args` is provided on a `ToolCallPart` instead of `input`, `part.input` remains `undefined`, causing providers to serialize `{}` (empty object) into the LLM prompt.
+- Always map database metadata to pure `input: parsedInput` on `ToolCallPart` and `output: { type: 'text' | 'json', value: parsedOutput }` on `ToolResultPart`.
+- Persist canonical `input` and `output` keys in metadata schemas to eliminate repetitive runtime fallback checks (`tc.args ?? tc.input`).
 ```

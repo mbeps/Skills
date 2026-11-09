@@ -56,7 +56,69 @@ export async function POST(req: Request) {
 
 ---
 
-## 3. Dispatched Background Streaming Route Handler
+## 3. UI Message Stream Protocol & Custom Stream Wrappers (`createUIMessageStreamResponse`)
+
+When fine-grained control over the streamed SSE wire protocol is needed (e.g. injecting transient notifications, emitting custom `messageId` start chunks, or sanitizing error payloads), use the **UI Message Stream** constructors:
+
+- `createUIMessageStream({ execute, onError })`: Manual stream builder providing a `writer` with `.write()` and `.merge()`.
+- `createUIMessageStreamResponse({ status, statusText, headers, stream, consumeSseStream })`: Creates the HTTP SSE Response for App Router route handlers.
+- `toUIMessageStream({ stream, tools, sendReasoning, sendSources, sendStart, sendFinish, onError })`: Converts a `streamText().stream` into UI Message Stream chunks.
+- `convertToModelMessages(messages, { tools })`: Converts incoming client `UIMessage[]` to server `ModelMessage[]`.
+
+```typescript
+// app/api/chat/route.ts
+import { openai } from "@ai-sdk/openai";
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+  toUIMessageStream,
+  convertToModelMessages,
+} from "ai";
+
+export const maxDuration = 60;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+  const modelMessages = convertToModelMessages(messages);
+
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      // 1. Emit server-assigned messageId immediately
+      const messageId = crypto.randomUUID();
+      writer.write({ type: "start", messageId });
+
+      // 2. Stream generation with abort forwarding
+      const result = streamText({
+        model: openai("gpt-4o"),
+        messages: modelMessages,
+        abortSignal: req.signal,
+      });
+
+      // 3. Merge stream, suppressing default duplicate start event
+      writer.merge(
+        toUIMessageStream({
+          stream: result.stream,
+          sendStart: false,
+          sendReasoning: true,
+        }),
+      );
+    },
+    onError: (error) => {
+      // Never leak raw provider secrets or unhandled stack traces
+      return "An unexpected error occurred while generating the response.";
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+```
+
+---
+
+## 4. Dispatched Background Streaming Route Handler
 
 For production apps with tools, reasoning models, and subagents, dispatch from the route handler and return immediately:
 
@@ -102,7 +164,7 @@ export async function POST(req: Request) {
 
 ---
 
-## 4. Immediate Stream Cancellation Endpoint
+## 5. Immediate Stream Cancellation Endpoint
 
 Provide a dedicated stop route that aborts the in-process fetch immediately and dispatches a background cancel event:
 
@@ -134,7 +196,7 @@ export async function POST(req: Request) {
 
 ---
 
-## 5. Server Actions with `generateText` / `generateObject`
+## 6. Server Actions with `generateText` / `generateObject`
 
 For workflows triggered by standard React Form Actions, use Server Actions:
 
@@ -164,7 +226,7 @@ export async function generateWorkflowTitleAction(description: string) {
 
 ---
 
-## 6. App Router Configuration Directives
+## 7. App Router Configuration Directives
 
 Place these route segment configs at the top of route files:
 

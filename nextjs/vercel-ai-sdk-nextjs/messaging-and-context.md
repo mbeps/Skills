@@ -544,7 +544,7 @@ function truncateLargeOutput(outputValue: unknown, isJson: boolean, raw: unknown
 
 function formatToolResultPart(tc: any, toolResultsList: any[]): any {
   const tr = toolResultsList.find((r: any) => r.toolCallId === tc.toolCallId);
-  const raw = tr?.result ?? { error: "Tool execution did not return a result" };
+  const raw = tr?.output?.value ?? tr?.output ?? tr?.result ?? { error: "Tool execution did not return a result" };
   const isJson = typeof raw === "object" && raw !== null;
 
   const truncatedText = truncateLargeOutput(raw, isJson, raw);
@@ -572,18 +572,21 @@ export function assembleAssistantToolMessages(m: HistoryMessage): ModelMessage[]
     const meta = JSON.parse(m.metadata);
     if (!Array.isArray(meta.toolCalls) || meta.toolCalls.length === 0) return null;
 
-    // 1. Assistant message with text + tool-call parts
+    // 1. Assistant message with text + tool-call parts (strictly provide `input`)
     const textPart = m.content ? [{ type: "text", text: String(m.content) }] : [];
-    const callParts = meta.toolCalls.map((tc: any) => ({
-      type: "tool-call",
-      toolCallId: tc.toolCallId,
-      toolName: tc.toolName,
-      input: typeof tc.args === "string" ? JSON.parse(tc.args) : tc.args,
-    }));
+    const callParts = meta.toolCalls.map((tc: any) => {
+      const rawInput = tc.input ?? tc.args;
+      return {
+        type: "tool-call",
+        toolCallId: tc.toolCallId,
+        toolName: tc.toolName,
+        input: typeof rawInput === "string" ? JSON.parse(rawInput) : rawInput,
+      };
+    });
 
     const assistantContent = [...textPart, ...callParts];
 
-    // 2. Matching tool message with tool-result parts
+    // 2. Matching tool message with tool-result parts (strictly provide `output`)
     const resultParts = meta.toolCalls.map((tc: any) =>
       formatToolResultPart(tc, meta.toolResults ?? []),
     );
@@ -596,6 +599,10 @@ export function assembleAssistantToolMessages(m: HistoryMessage): ModelMessage[]
     return null;
   }
 }
+```
+
+> [!WARNING]
+> **Provider Serialization Invariant**: Provider serializers (like OpenAI) reconstruct conversation turn history by reading `part.input` on `ToolCallPart` and `part.output` on `ToolResultPart`. Setting legacy `args` on historical `ToolCallPart` leaves `part.input` undefined, which causes providers to serialize `{}` (an empty object) into the LLM prompt. Always normalize historical records to pure `input` on `ToolCallPart` and structured `output` on `ToolResultPart`.
 ```
 
 ---

@@ -50,15 +50,20 @@ export function buildSdkProvider(input: {
 
 ## 2. Dedicated Provider Package Matrix
 
-When you prefer native official SDK adapters:
+Packages are independently versioned and specialized:
 
-| Provider | Package | Factory Import | Default Model Examples |
+| Package | Factory / Primary Export | Role & Framework Exports | Default Model Examples |
 |---|---|---|---|
-| **OpenAI** | `@ai-sdk/openai` | `createOpenAI` | `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini` |
-| **Anthropic** | `@ai-sdk/anthropic` | `createAnthropic` | `claude-sonnet-4-5`, `claude-3-7-sonnet` |
-| **Google Gemini** | `@ai-sdk/google` | `createGoogleGenerativeAI` | `gemini-2.0-flash`, `gemini-1.5-pro` |
-| **OpenRouter** | `@openrouter/ai-sdk-provider` | `createOpenRouter` | Any hosted model (e.g. `anthropic/claude-3.7-sonnet`) |
-| **Ollama / Local** | `@ai-sdk/openai` | `createOpenAI({ baseURL: "http://localhost:11434/v1" })` | `llama3.3`, `qwen2.5-coder`, `deepseek-r1` |
+| `ai` | Core APIs (`generateText`, `streamText`, `tool`, etc.) | Core + framework-agnostic chat state machine (`AbstractChat`, `HttpChatTransport`, `DefaultChatTransport`, `ChatInit`, `createProviderRegistry`, `customProvider`) | — |
+| `@ai-sdk/react` | React client hooks | `useChat`, `useCompletion`, `useObject`, `useRealtime`; re-exports `UIMessage`, `Chat`, `DefaultChatTransport` | — |
+| `@ai-sdk/openai` | `createOpenAI`, `openai` | OpenAI adapter & universal OpenAI-compatible engine | `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini` |
+| `@ai-sdk/anthropic` | `createAnthropic`, `anthropic` | Anthropic Claude adapter | `claude-sonnet-4-5`, `claude-3-7-sonnet` |
+| `@ai-sdk/google` | `createGoogleGenerativeAI`, `google` | Google Gemini adapter | `gemini-2.0-flash`, `gemini-1.5-pro` |
+| `@ai-sdk/openrouter` / `@openrouter/ai-sdk-provider` | `createOpenRouter` | OpenRouter multi-model gateway | Hosted models (e.g. `anthropic/claude-3.7-sonnet`) |
+| `@ai-sdk/openai-compatible` | `createOpenAICompatible` | Standard OpenAI REST endpoint adapter | Any compliant API |
+| `@ai-sdk/mcp` | `createMCPClient` | Model Context Protocol transport & tool discovery | Remote MCP servers |
+| `@ai-sdk/gateway` | Gateway client | Provider gateway & routing | — |
+| **Ollama / Local** | `createOpenAI({ baseURL: "http://localhost:11434/v1" })` | Local keyless LLMs | `llama3.3`, `qwen2.5-coder`, `deepseek-r1` |
 
 ---
 
@@ -176,3 +181,58 @@ const ollama = createOpenAI({
   apiKey: "ollama", // Placeholder string when provider is keyless
 });
 ```
+
+---
+
+## 6. Model Registry & Provider Composition
+
+### Model Registry (`createProviderRegistry`)
+Use `createProviderRegistry` to resolve string model identifiers (e.g. `'openai/gpt-4o'` or `'anthropic/claude-3-7-sonnet'`) dynamically:
+
+```typescript
+import { createProviderRegistry } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+
+export const registry = createProviderRegistry({
+  openai,
+  anthropic,
+});
+
+// Access model by prefix:
+// const model = registry.languageModel('openai/gpt-4o');
+```
+
+The optional second argument configures the ID scheme and middleware:
+```typescript
+const customRegistry = createProviderRegistry(
+  { openai, anthropic },
+  {
+    separator: ":", // custom separator (default: '/')
+    middleware: myModelMiddleware, // wraps all model calls in the registry
+  },
+);
+```
+
+### Provider Composition & Fallbacks (`customProvider`)
+Use `customProvider` to compose distinct providers for language, embedding, and image models, or configure a fallback provider:
+
+```typescript
+import { customProvider } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+
+export const compositeProvider = customProvider({
+  languageModels: {
+    "primary-chat": anthropic("claude-3-7-sonnet-20250219"),
+    "fast-summary": openai("gpt-4o-mini"),
+  },
+  embeddingModels: {
+    "default-embed": openai.embedding("text-embedding-3-small"),
+  },
+  fallbackProvider: openai, // Used when a requested model is missing
+});
+```
+
+> [!NOTE]
+> There is no standalone `fallback()` function in modern SDK core — configure fallbacks using `customProvider({ fallbackProvider })`. If a requested model does not exist and no fallback is specified, `customProvider` throws `NoSuchModelError`.

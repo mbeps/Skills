@@ -478,3 +478,20 @@ export async function consumeModelStream(
   return { accumulatedText, accumulatedReasoning };
 }
 ```
+
+---
+
+## 4. Client Reasoning Stream Invariant
+
+When calculating whether reasoning is actively streaming in custom client hooks or UI indicators:
+
+```typescript
+const isStreamingReasoning =
+  isStreaming &&
+  !!streamingReasoning &&
+  !streamingContent &&
+  activeToolCalls.length === 0;
+```
+
+> [!IMPORTANT]
+> In tool-calling turns, the model often yields reasoning deltas followed immediately by tool invocations before any text content is generated. If `activeToolCalls.length === 0` is omitted, `streamingContent` remains empty during tool execution, falsely displaying an active "Thinking..." spinner while external tools are executing.
