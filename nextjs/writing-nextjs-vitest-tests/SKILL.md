@@ -41,6 +41,9 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 6. **Assert behaviour where possible; for server actions assert the db call args with expect.objectContaining** — the args are the observable contract. *(Why: different queries can return identical shapes.)*
 7. **Every non-trivial unit leaves one test that fails if the logic breaks** — a suite that always passes proves nothing. *(Why: that is the point of the file.)*
 8. **Achieve 100% full test coverage across lines, statements, functions, and branches** — unexercised branches hide runtime regressions and unhandled edge cases. *(Why: full branch coverage guarantees every fallback, error path, and optional branch is validated.)*
+9. **Assert Server Action outcomes against typed Result objects (`{ ok: true, value }` or `{ ok: false, error }`), never `rejects.toThrow()`** — Server Actions wrapped with `defineAction` convert all expected and unexpected exceptions into Result failures at the RPC boundary. *(Why: production Next.js masks thrown errors with generic digests, so actions return Results.)*
+10. **Always export `unstable_rethrow: vi.fn()` in `next/navigation` mocks** — Boundary wrappers call `unstable_rethrow(error)` first in catch blocks to preserve framework navigation; omitting it causes `TypeError: unstable_rethrow is not a function`.
+11. **Mock Server Actions with `Result` return values in component, hook, and store tests** — Return `{ ok: true, value }` or `{ ok: false, error }`. Because `tsconfig.json` excludes `__tests__`, returning raw values or rejecting promises silently breaks tests at runtime without compiler warnings.
 
 ## Common Mistakes
 
@@ -75,6 +78,11 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 | "renderHook instances clean up automatically between assertions" | Unmounted hooks keep active intervals/listeners in the fake timer queue, bleeding callbacks into subsequent scenarios. Capture and call `unmount()` explicitly between test phases |
 | "schema.partial() strips inner .default() values" | Zod v4 preserves `.default(...)` in `.partial()`, filling defaults on `{}` and making `if (data.field !== undefined)` guards permanently true (unreachable branch in V8). Strip defaults explicitly or omit redundant checks |
 | "Advancing fake timers runs all inner async stream handler promises" | Async listeners attached to event emitters dispatch microtasks. Flush microtasks via `await act(async () => { await Promise.resolve(); })` or use `advanceTimersByTimeAsync()` |
+| "Server actions reject with ZodError or Error in tests" | Actions wrapped with `defineAction` return `{ ok: false, error: expect.objectContaining({ code: "..." }) }`; they never reject |
+| "Mocking a server action with a raw DB row or undefined" | Components expecting a Result will read `result.ok === undefined` and fail silently. Always mock `{ ok: true, value: row }` or `{ ok: false, error: ... }` |
+| "next/navigation mock only needs useRouter" | Action catch blocks call `unstable_rethrow(err)`; omitting it throws `TypeError: unstable_rethrow is not a function` |
+| "TypeScript will catch broken server action mocks in tests" | `tsconfig.json` excludes `__tests__` so `next build` passes; test mock signature mismatches must be caught by search (`vi.mock("@/actions/`) and runtime execution |
+| "Inngest step.run returning `{ ok: false }` will trigger a retry" | A returned Result counts as step completion; Inngest will NOT retry. Throw to trigger retries; return Result for permanent/terminal failures |
 
 ## Red Flags
 
@@ -98,3 +106,7 @@ Unit and integration tests for Next.js run under Vitest with jsdom and Testing L
 - Omitting `unmount()` on `renderHook` instances across sequential scenarios, leaking timer callbacks
 - Unreachable `!== undefined` guards created by Zod v4 `.partial()` retaining inner `.default()` values
 - Asserting hook or stream state after timer ticks without flushing async microtasks in `act`
+- Using `.rejects.toThrow()` on Server Actions wrapped with `defineAction`
+- Mocking a Server Action with a bare value or rejected Promise instead of `{ ok: true, value }` or `{ ok: false, error }`
+- Omitting `unstable_rethrow` in `vi.mock("next/navigation")` when the unit touches actions
+- Assuming an Inngest step returning a Result `{ ok: false }` triggers retry attempts

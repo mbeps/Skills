@@ -206,15 +206,39 @@ const mockPush = vi.hoisted(() => vi.fn());
 const mockRefresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   useRouter: vi.fn().mockReturnValue({ push: mockPush, refresh: mockRefresh }),
+  usePathname: vi.fn().mockReturnValue("/"),
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+  unstable_rethrow: vi.fn(), // Critical for Server Action catch blocks
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const mockHeaders = vi.hoisted(() => vi.fn().mockResolvedValue(new Headers()));
 vi.mock("next/headers", () => ({ headers: mockHeaders }));
 ```
 
+**`unstable_rethrow` requirement**: In Next.js 15+, Server Action wrappers (e.g. `defineAction`) call `unstable_rethrow(error)` first in catch blocks so framework navigation (`redirect()`, `notFound()`) bubbles cleanly. If `unstable_rethrow` is missing from the mock, any test that exercises an action error path will throw `TypeError: unstable_rethrow is not a function`.
+
 In Next.js 15+, `headers()` is async (`await headers()`). When asserting that actions pass incoming request headers to session or auth callers, override per-test with `mockHeaders.mockResolvedValueOnce(fakeHeaders)`.
 
 Then assert navigation: `expect(mockPush).toHaveBeenCalledWith("/chat/chat-abc")`.
+
+### 6.1 Mocking Server Actions as Result producers
+
+When testing UI components, stores, or hooks that invoke Server Actions, always mock the action to return a `Result` object:
+
+```typescript
+vi.mock("@/actions/chats/delete-chat", () => ({
+  deleteChat: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+}));
+
+// In tests:
+vi.mocked(deleteChat).mockResolvedValueOnce({
+  ok: false,
+  error: { code: "NOT_FOUND", message: "Chat not found" },
+});
+```
+
+*Gotcha*: Never mock with raw data or rejected promises (`mockRejectedValue`). UI callers check `result.ok`. If the mock returns a raw row, `result.ok` is undefined, causing silent failures. Search `vi.mock("@/actions/` when refactoring actions to Results.
 
 ## 7. Class-constructor SDKs (AWS S3, Postmark)
 

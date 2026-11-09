@@ -611,6 +611,54 @@ Compound boolean conditions in interval callbacks or guards (e.g. `isStale && (a
 
 If tests only verify the initial timer tick where `attemptCount === 1`, the secondary sub-branch (`elapsedMs > TIMEOUT`) records 0 hits in V8 coverage. To reach 100% branch coverage, advance timers past the first tick (so `attemptCount > 1`), simulate an intermediate action, and then test both sub-threshold and post-threshold elapsed times.
 
+## 27. Architecture Invariant Tests with Vitest
+Vitest suites can enforce structural codebase rules and design conventions by inspecting source files at test time using `fs`:
+
+```typescript
+import fs from "fs";
+import path from "path";
+import { describe, expect, it } from "vitest";
+
+const ACTIONS_DIR = path.resolve(__dirname, "../../actions");
+
+// Allowlist for phased refactors; shrinks to empty upon completion
+export const UNMIGRATED_ACTIONS = new Set<string>([]);
+
+function getSourceFiles(dir: string): string[] {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...getSourceFiles(full));
+    else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(full);
+  }
+  return files;
+}
+
+describe("Architecture Invariants", () => {
+  it("enforces all Server Actions use defineAction or entity factories", () => {
+    const files = getSourceFiles(ACTIONS_DIR);
+    for (const filePath of files) {
+      const rel = path.relative(process.cwd(), filePath);
+      if (UNMIGRATED_ACTIONS.has(rel)) continue;
+
+      const content = fs.readFileSync(filePath, "utf-8");
+      const isCompliant =
+        content.includes("defineAction(") ||
+        /createEntityFactory[<(]/.test(content) ||
+        /deleteEntityFactory[<(]/.test(content);
+
+      expect(isCompliant, `${rel} must wrap exported actions`).toBe(true);
+    }
+  });
+});
+```
+
+Benefits:
+- Eliminates reliance on developer memory or code review discipline.
+- Runs in milliseconds as part of standard `pnpm test`.
+- Shrinking allowlists (`UNMIGRATED_ACTIONS`) keep CI green while tracking refactoring progress across phases.
+
 ## Red Flags
 
 - Leaking `vi.useFakeTimers()` — every test after yours runs with fake timers

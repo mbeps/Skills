@@ -52,27 +52,59 @@ const updateSchema = baseSchema.omit({ status: true }).partial().extend({
 
 ## Server actions
 
-Test matrix (verified against the real suite):
+In modern Next.js applications using the Result pattern with higher-order boundary wrappers (e.g. `defineAction`), **Server Actions never throw generic or domain exceptions**. They return typed Result objects (`{ ok: true, value: T } | { ok: false, error: AppError }`). 
+
+Test matrix:
 
 | Scenario                   | Setup                                                                        | Assertion                                                                                                                                                                      |
 | -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Happy path                 | `chainable.returning.mockResolvedValueOnce([ROW])`                           | `expect(result).toEqual(ROW)`                                                                                                                                                  |
-| Validation failure         | pass invalid args                                                            | `rejects.toThrow(z.ZodError)` (import `{ z }` from `"zod"`) — constructor match beats message matching: Zod v4 error messages are JSON strings, so a message string is fragile |
-| Unauthenticated            | `vi.mocked(requireSession).mockRejectedValueOnce(new Error("Unauthorized"))` | `rejects.toThrow("Unauthorized")`                                                                                                                                              |
-| Defaults when args omitted | call with no args                                                            | `chainable.values` called with `objectContaining({ title: "New Chat" })`                                                                                                       |
+| Happy path                 | `chainable.returning.mockResolvedValueOnce([ROW])`                           | `expect(result).toEqual({ ok: true, value: ROW })`                                                                                                                             |
+| Validation failure         | pass invalid args (e.g. empty string, invalid UUID)                          | `expect(result).toEqual({ ok: false, error: expect.objectContaining({ code: "INVALID_INPUT" }) })`                                                                            |
+| Unauthenticated            | `vi.mocked(requireSession).mockRejectedValueOnce(new AppException({ code: "UNAUTHORIZED", message: "Unauthorized" }))` (or `new Error("Unauthorized")`) | `expect(result).toEqual({ ok: false, error: expect.objectContaining({ code: "UNAUTHORIZED" }) })`                                                                            |
+| Defaults when args omitted | call with no args                                                            | `chainable.values` called with `objectContaining({ title: "New Chat" })`; `expect(result).toEqual({ ok: true, value: expect.objectContaining({ title: "New Chat" }) })`     |
 | Per-user scoping           | session has `user.id: "user-1"`                                              | `values` called with `objectContaining({ userId: "user-1" })` — always from session, never from args                                                                           |
-| Ownership guard            | `chainable.where.mockResolvedValueOnce([])`                                  | `rejects.toThrow("Not Found")`                                                                                                                                                 |
+| Ownership guard / Not found| `chainable.where.mockResolvedValueOnce([])`                                  | `expect(result).toEqual({ ok: false, error: expect.objectContaining({ code: "NOT_FOUND" }) })`                                                                                 |
+| Conflict / Unique Violation| Drizzle throws Postgres error code `23505`                                   | `expect(result).toEqual({ ok: false, error: expect.objectContaining({ code: "CONFLICT" }) })`                                                                                   |
+| Unexpected Server Crash    | mock throws unhandled Error (e.g. DB disconnect)                             | `expect(result).toEqual({ ok: false, error: expect.objectContaining({ code: "INTERNAL", ref: expect.any(String) }) })`                                                         |
+| Framework navigation       | action calls `redirect()` or `notFound()`                                    | `await expect(action()).rejects.toThrow()` (`unstable_rethrow` passes framework symbols through)                                                                               |
 | Query contract             | —                                                                            | `insert`/`update`/`delete` `toHaveBeenCalledOnce()`; `set` with `objectContaining({...})`                                                                                      |
 
 ```typescript
-it("binds the authenticated user id", async () => {
+it("inserts a chat and returns ok Result with the new row", async () => {
   chainable.returning.mockResolvedValueOnce([CHAT_ROW]);
-  await createChat("My Chat");
+  const result = await createChat("My Chat");
+  expect(result).toEqual({ ok: true, value: CHAT_ROW });
   expect(chainable.values).toHaveBeenCalledWith(
     expect.objectContaining({ userId: "user-1" }),
   );
 });
+
+it("returns INVALID_INPUT when title is empty", async () => {
+  const result = await createChat("");
+  expect(result).toEqual({
+    ok: false,
+    error: expect.objectContaining({ code: "INVALID_INPUT" }),
+  });
+});
 ```
+
+### Mocking Server Actions in Consumer Tests (Components, Hooks, Stores)
+
+When testing UI components, custom hooks, or Zustand store slices that call Server Actions:
+- **Always mock the return value as a `Result`**:
+  ```typescript
+  vi.mock("@/actions/chats/create-chat", () => ({
+    createChat: vi.fn().mockResolvedValue({ ok: true, value: CHAT_ROW }),
+  }));
+  ```
+- **Test the failure branch**:
+  ```typescript
+  vi.mocked(createChat).mockResolvedValueOnce({
+    ok: false,
+    error: { code: "NOT_FOUND", message: "Not found" },
+  });
+  ```
+- **Silent failure warning**: Because `tsconfig.json` excludes `__tests__` from `next build` typechecking, mocks returning raw rows or rejecting promises will compile without TypeScript errors, but crash at runtime with `TypeError: Cannot read properties of undefined (reading 'ok')`. Search `vi.mock("@/actions/` across `__tests__/` when migrating actions to Results.
 
 Multi-query actions (e.g. fetch chat + messages + attachments): stub `chainable.where` with a call counter that returns rows for the terminal call and the chainable for intermediate calls (§5 of mocking-patterns.md).
 
@@ -243,6 +275,127 @@ it("handles conditionals", () => {
 
 it("ignores null/undefined", () => {
   expect(cn("px-2", null, undefined)).toBe("px-2");
+});
+```
+
+## Error normalizers (toAppError)
+
+Error normalizers convert arbitrary `unknown` throwables (Zod, DB, AI SDK, timeouts) into JSON-safe `AppError` values. To achieve 100% branch coverage, test every branch in the classification pipeline:
+
+```typescript
+describe("toAppError", () => {
+  it("unwraps AppException to its inner error", () => {
+    const err = new AppException({ code: "NOT_FOUND", message: "Not Found" });
+    expect(toAppError(err)).toEqual({ code: "NOT_FOUND", message: "Not Found" });
+  });
+
+  it("maps ZodError to INVALID_INPUT with formatted issues list", () => {
+    const zodError = new ZodError([{ path: ["email"], message: "Invalid email", code: "custom" }]);
+    expect(toAppError(zodError)).toEqual(expect.objectContaining({
+      code: "INVALID_INPUT",
+      message: "Invalid email",
+      issues: ["email: Invalid email"],
+    }));
+  });
+
+  it("maps Postgres unique violation (code 23505) to CONFLICT", () => {
+    expect(toAppError({ code: "23505" })).toEqual(expect.objectContaining({ code: "CONFLICT" }));
+    // Also test cause.code if ORM wraps driver errors
+    expect(toAppError({ cause: { code: "23505" } })).toEqual(expect.objectContaining({ code: "CONFLICT" }));
+  });
+
+  it("maps AI SDK / HTTP APICallError status codes (429, 401, 403, 500)", () => {
+    expect(toAppError({ name: "AI_APICallError", statusCode: 429 })).toEqual(
+      expect.objectContaining({ code: "RATE_LIMIT" }),
+    );
+    expect(toAppError({ name: "AI_APICallError", statusCode: 401 })).toEqual(
+      expect.objectContaining({ code: "INVALID_API_KEY" }),
+    );
+    expect(toAppError({ name: "AI_APICallError", statusCode: 502 })).toEqual(
+      expect.objectContaining({ code: "UPSTREAM_HTTP", statusCode: 502 }),
+    );
+  });
+
+  it("distinguishes TimeoutError from AbortError", () => {
+    const timeout = new Error("Timeout");
+    timeout.name = "TimeoutError";
+    expect(toAppError(timeout)).toEqual(expect.objectContaining({ code: "UPSTREAM_HTTP" }));
+
+    const abort = new Error("Aborted");
+    abort.name = "AbortError";
+    expect(toAppError(abort)).toEqual(expect.objectContaining({ code: "INTERNAL" }));
+  });
+
+  it("falls back to INTERNAL with random correlation ref on unhandled errors", () => {
+    const res = toAppError(new Error("Database disk full"));
+    expect(res).toEqual({
+      code: "INTERNAL",
+      message: expect.stringMatching(/Something went wrong\. \(Ref: [a-f0-9-]+\)/),
+      ref: expect.any(String),
+    });
+  });
+});
+```
+
+## Client error hooks (useApiError)
+
+Test that UI error hooks handle both typed `AppException` instances and plain JSON Result error objects `{ code, message, ...metadata }`:
+
+```typescript
+describe("useApiError", () => {
+  it("extracts code and forwards dynamic metadata to toast notification", () => {
+    const { result } = renderHook(() => useApiError());
+    
+    // Test plain Result error object
+    const handled = result.current.handleApiError({
+      code: "MODEL_DUPLICATE_IMPORT",
+      duplicateCount: 3,
+    });
+    
+    expect(handled).toBe(true);
+    expect(toast.warning).toHaveBeenCalledWith(
+      "3 model(s) skipped (already exist)",
+      expect.any(Object),
+    );
+  });
+});
+```
+
+## Architecture tests with Vitest
+
+Vitest can run automated architectural checks that scan source files using `fs` to prevent regressions (such as unwrapped Server Actions):
+
+```typescript
+import fs from "fs";
+import path from "path";
+import { describe, expect, it } from "vitest";
+
+const ACTIONS_DIR = path.resolve(__dirname, "../../actions");
+export const UNMIGRATED_ACTIONS = new Set<string>([]);
+
+function getActionFiles(dir: string): string[] {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...getActionFiles(full));
+    else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(full);
+  }
+  return files;
+}
+
+describe("Server Actions Architecture", () => {
+  it("ensures every exported action uses defineAction or an entity factory", () => {
+    const files = getActionFiles(ACTIONS_DIR);
+    for (const filePath of files) {
+      const rel = path.relative(process.cwd(), filePath);
+      if (UNMIGRATED_ACTIONS.has(rel)) continue;
+
+      const content = fs.readFileSync(filePath, "utf-8");
+      const wrapped = content.includes("defineAction(") || /createEntityFactory[<(]/.test(content);
+      expect(wrapped, `${rel} must wrap exported actions`).toBe(true);
+    }
+  });
 });
 ```
 

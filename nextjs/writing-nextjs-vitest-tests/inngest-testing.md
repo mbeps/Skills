@@ -161,12 +161,44 @@ vi.mock("@inngest/realtime", () => ({
 }));
 ```
 
+## Result Pattern & Retry Semantics in Durable Steps
+
+Inngest step execution treats returned values and thrown exceptions differently:
+- **Returning a Result (`{ ok: false, error }`)**: Signals **step success** to Inngest. The step is checkpointed and will **NOT be retried**. Use this for expected domain failures (unsupported file type, invalid document schema) where retrying would be wasteful.
+- **Throwing an Error**: Signals **step failure**. Inngest will schedule automatic retries with exponential backoff. Use this for transient failures (database locks, upstream timeouts).
+- **Throwing `NonRetriableError`**: Signals fatal failure; immediately terminates retries and invokes `onFailure`.
+- **Wire Safety**: Steps must return plain JSON primitives or Results. Never return `Error` instances inside `step.run` because they serialize to `{}` in Inngest state.
+
+```typescript
+describe("inngest function step error handling", () => {
+  it("does not retry when step returns a domain failure Result", async () => {
+    stepMock.run.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "UNSUPPORTED_FILE_TYPE", message: "Only PDFs are supported" },
+    });
+
+    const result = await processDocumentFunction({ ...baseParams });
+    expect(result.status).toBe("failed");
+    // Verify no retry was scheduled and failure was cleanly recorded
+  });
+
+  it("propagates transient exception to trigger Inngest retry", async () => {
+    stepMock.run.mockRejectedValueOnce(new Error("Database connection timeout"));
+
+    await expect(processDocumentFunction({ ...baseParams })).rejects.toThrow(
+      "Database connection timeout",
+    );
+  });
+});
+```
+
 ## Gotchas
 
 1. **No checkpoint/retry simulation** — the mock collapses everything to sync. Retry logic and `onFailure` hooks are tested only implicitly via router tests.
 2. **`step.ai.wrap` does not memoise** — each call executes the function. If you need to simulate cached results, use `.mockReturnValueOnce()` / `.mockResolvedValueOnce()`.
 3. **`publishMock` is identity by default** — it returns whatever you pass in. To test error publishing, call `publishMock.mockImplementation((val) => val)` explicitly or rely on the default.
 4. **Channels are often no-ops** — in many projects the `publish` function in `executeWorkflow` is a placeholder (`const publish = () => {};`). Verify before writing channel assertions.
+5. **Returned Results are not retried** — resolving `{ ok: false }` from `step.run` completes the step; ensure tests asserting retry behavior actually reject or throw.
 
 ## References
 
