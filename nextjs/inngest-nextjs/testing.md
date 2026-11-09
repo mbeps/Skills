@@ -49,35 +49,75 @@ curl -X POST http://localhost:8288/e/<fake-key> \
 
 ## Unit Testing Functions
 
-### Mocking Step Methods
+### Direct Function Handler Execution (Lightweight Vitest Pattern)
+
+Inngest function objects expose their handler `fn` and configuration `opts` directly. This enables fast, isolated unit tests without spinning up the Inngest dev server or test harness:
 
 ```typescript
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { NonRetriableError } from "inngest";
+import { executeWorkflow } from "@/lib/inngest/functions/workflow";
 
-vi.mock("@/lib/db", () => ({
-  default: {
-    workflow: { findUniqueOrThrow: vi.fn() },
-    execution: { create: vi.fn(), update: vi.fn() },
-  },
-}));
+describe("executeWorkflow Function", () => {
+  const mockStep = {
+    run: vi.fn(async (_id: string, cb: () => any) => cb()),
+    waitForEvent: vi.fn(),
+    sendEvent: vi.fn(),
+    sleep: vi.fn(),
+  };
 
-vi.mock("@/features/executions/lib/executor-registry", () => ({
-  getExecutor: vi.fn(() => vi.fn(() => Promise.resolve({}))),
-}));
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-vi.mock("@/inngest/client", () => ({
-  inngest: { send: vi.fn() },
-}));
+  it("declares correct function options", () => {
+    const opts = (executeWorkflow as any).opts;
+    expect(opts.retries).toBe(0);
+    expect(opts.concurrency).toEqual({ key: "event.data.userId", limit: 1 });
+    expect(opts.cancelOn).toEqual([
+      {
+        event: "workflow/cancel",
+        if: "async.data.runId == event.data.runId",
+      },
+    ]);
+  });
 
-describe("executeWorkflow", () => {
-  it("should process nodes in topological order", async () => {
-    // Import after mocking
-    const { executeWorkflow } = await import("@/inngest/functions");
-    // Test structure — full function execution requires Inngest test helper
-    // See https://www.inngest.com/docs/functions/test for the official helper
+  it("executes pipeline steps and handles approval", async () => {
+    mockStep.waitForEvent.mockResolvedValueOnce({ data: { runId: "run-1" } });
+
+    const handler = (executeWorkflow as any).fn;
+    const result = await handler({
+      event: { data: { runId: "run-1", userId: "u-1" } },
+      step: mockStep,
+    });
+
+    expect(mockStep.run).toHaveBeenCalledWith("prepare-workflow", expect.any(Function));
+    expect(result).toEqual({ success: true });
+  });
+
+  it("aborts with NonRetriableError on invalid input", async () => {
+    const handler = (executeWorkflow as any).fn;
+    await expect(
+      handler({ event: { data: { runId: "missing-user" } }, step: mockStep }),
+    ).rejects.toThrow(NonRetriableError);
   });
 });
 ```
+
+### Mocking Inngest Client (`inngest.send`)
+
+```typescript
+vi.mock("@/lib/inngest/client", () => ({
+  inngest: {
+    send: vi.fn(),
+    realtime: {
+      publish: vi.fn(),
+    },
+  },
+}));
+```
+
+### Testing Step Checkpoints and Replay
 
 ### Using Inngest Test Helper
 

@@ -13,26 +13,23 @@
 ```typescript
 // app/api/inngest/route.ts
 import { serve } from "inngest/next";
-import { inngest } from "../../../inngest/client";
-import { helloWorld } from "../../../inngest/functions/hello";
+import { inngest } from "@/lib/inngest/client";
+import { inngestFunctions } from "@/lib/inngest/functions";
+
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [helloWorld],
+  functions: inngestFunctions,
+  serveOrigin: process.env.INNGEST_SERVE_ORIGIN || undefined,
 });
 ```
 
-Register multiple function files:
+Export `maxDuration`, `runtime = "nodejs"`, and `dynamic = "force-dynamic"` to allow long-running execution checks without Next.js caching or prematurely terminating serverless invocations.
 
-```typescript
-import { executeWorkflow } from "../../../inngest/functions/workflow";
-import { sendWeeklyDigest } from "../../../inngest/functions/digest";
-
-export const { GET, POST, PUT } = serve({
-  client: inngest,
-  functions: [executeWorkflow, sendWeeklyDigest],
-});
-```
+When hosting behind reverse proxies, container networks, or custom public origins, configure `serveOrigin` so Inngest execution callbacks route to the reachable external host instead of internal container IPs.
 
 ### Connect Worker (Long-Running Process)
 
@@ -70,14 +67,93 @@ INNGEST_DEV=1
 ```typescript
 // inngest/client.ts
 import { Inngest } from "inngest";
-import { env } from "@/lib/env";
+import { env } from "@/config/env";
+
+const isDev = Boolean(
+  env.INNGEST_DEV === "1" ||
+    env.INNGEST_DEV === "true" ||
+    env.NODE_ENV !== "production" ||
+    !env.INNGEST_SIGNING_KEY ||
+    env.INNGEST_SIGNING_KEY === "local",
+);
 
 export const inngest = new Inngest({
   id: "my-app",
-  eventKey: env.INNGEST_EVENT_KEY,
-  inngestBaseUrl: env.INNGEST_BASE_URL,
-  isDev: env.INNGEST_EVENT_KEY === "local" || process.env.NODE_ENV === "development",
+  isDev,
+  baseUrl:
+    env.INNGEST_BASE_URL || (isDev ? "http://127.0.0.1:8288" : undefined),
+  eventKey:
+    env.INNGEST_EVENT_KEY && env.INNGEST_EVENT_KEY !== "local"
+      ? env.INNGEST_EVENT_KEY
+      : undefined,
+  signingKey:
+    env.INNGEST_SIGNING_KEY && env.INNGEST_SIGNING_KEY !== "local"
+      ? env.INNGEST_SIGNING_KEY
+      : undefined,
 });
+```
+
+> [!NOTE]
+> In local development, passing dummy keys like `"local"` to `signingKey` or `eventKey` causes the Inngest SDK to attempt signature verification. Treat `"local"` placeholders as `undefined` so the client runs cleanly against the local dev server without auth headers.
+
+## Inngest REST API v2 & Run Management
+
+When querying or canceling background runs from your application backend or admin dashboard:
+
+### Uniform REST v2 Endpoints
+Inngest Cloud and local dev server (engine v1.45+) expose runs under `/v2/runs`. **There are no `/v1/runs` or `/v1/cancellations` endpoints**; calling them returns HTTP 404.
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| List runs | `GET /v2/runs` | Supports `query` (CEL), `limit`, `status` |
+| Get run details | `GET /v2/runs/{runId}` | Returns run object |
+| Cancel run | `POST /v2/runs/{runId}/cancel` | Returns 200 or 409 if already finished |
+
+### Base URL Sanitization
+Always sanitize `INNGEST_BASE_URL` before forming REST API calls:
+```typescript
+export function resolveInngestApiBaseUrl(): string {
+  const base =
+    env.INNGEST_BASE_URL ||
+    (isDevMode() ? "http://127.0.0.1:8288" : "https://api.inngest.com");
+  return base
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api\/inngest$/, "")
+    .replace(/\/+$/, "");
+}
+```
+Stripping accidental `/api/inngest` suffixes prevents routing requests to Next.js route handlers instead of the Inngest engine.
+
+### Query Invariants
+- `GET /v2/runs` supports filtering by status (`status=RUNNING`) and Common Expression Language queries: `query=event.data.userId == "user-123"`.
+- **Do NOT pass `include=output`**: `GET /v2/runs` rejects `include=output` with HTTP 400 (`unsupported include value "output"`). Output is returned directly on run objects.
+
+### Cloud Trigger Event Dereferencing
+On Inngest Cloud, `/v2/runs` responses return `v2FunctionRun` structures containing `trigger.eventIds: string[]` rather than inline `trigger.data`. To retrieve the triggering event payload:
+```typescript
+const res = await fetch(`${baseUrl}/v1/events/${eventId}`, { headers });
+const { data } = await res.json();
+```
+Deduplicate event fetch requests in-flight using a `Map<string, Promise<...>>` cache during batch run listings.
+
+### Fail-Closed Run Cancellation
+When allowing users to cancel runs, verify tenant ownership on the triggering payload before dispatching `POST /v2/runs/{runId}/cancel`:
+```typescript
+if (!payloadData?.userId || payloadData.userId !== requestingUserId) {
+  throw new Error("Unauthorized or mismatched run owner");
+}
+
+const res = await fetch(`${baseUrl}/v2/runs/${runId}/cancel`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({}),
+});
+
+// Treat 409 or "already ended" as idempotent success
+if (res.ok || res.status === 409) return { success: true };
+const errorText = await res.text();
+if (errorText.toLowerCase().includes("already")) return { success: true };
 ```
 
 ## Production Checklist

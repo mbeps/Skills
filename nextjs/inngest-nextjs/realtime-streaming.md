@@ -8,38 +8,40 @@ Inngest Realtime lets you stream status updates from durable functions to React 
 
 ```typescript
 // inngest/channels/openai.ts
-import { channel, topic } from "@inngest/realtime";
+import { channel, staticSchema } from "inngest/realtime";
 
-export const openAiChannel = channel("openai-execution").addTopic(
-  topic("status").type<{
-    nodeId: string;
-    status: "loading" | "success" | "error";
-  }>(),
-);
+export const openAiChannel = channel({
+  name: ({ nodeId }: { nodeId: string }) => `openai:${nodeId}`,
+  topics: {
+    status: {
+      schema: staticSchema<{
+        nodeId: string;
+        status: "loading" | "success" | "error";
+      }>(),
+    },
+    tokens: {
+      schema: staticSchema<{ token: string }>(),
+    },
+  },
+});
 ```
 
-For complex schemas with nested validation, use `staticSchema`:
+For complex schemas with Zod validation, combine `staticSchema` with `z.infer`:
 
 ```typescript
-import { channel, topic, staticSchema } from "@inngest/realtime";
+import { channel, staticSchema } from "inngest/realtime";
 import { z } from "zod";
-
-export const pipelineChannel = channel("pipeline").addTopics({
-  status: topic("status").type<
-    z.infer<typeof statusSchema>
-  >(),
-  tokens: topic("tokens").type<
-    z.infer<typeof tokenSchema>
-  >(),
-});
 
 const statusSchema = z.object({
   message: z.string(),
   progress: z.number().min(0).max(100),
 });
 
-const tokenSchema = z.object({
-  token: z.string(),
+export const pipelineChannel = channel({
+  name: ({ pipelineId }: { pipelineId: string }) => `pipeline:${pipelineId}`,
+  topics: {
+    status: { schema: staticSchema<z.infer<typeof statusSchema>>() },
+  },
 });
 ```
 
@@ -51,9 +53,11 @@ const tokenSchema = z.object({
 export const myFunction = inngest.createFunction(
   { id: "my-function", triggers: [{ event: "app/task.created" }] },
   async ({ event, step }) => {
+    const ch = openAiChannel({ nodeId: event.data.nodeId });
+
     await step.realtime.publish(
       "starting-status",
-      openAiChannel.status,
+      ch.status,
       { nodeId: event.data.nodeId, status: "loading" },
     );
 
@@ -61,7 +65,7 @@ export const myFunction = inngest.createFunction(
 
     await step.realtime.publish(
       "final-status",
-      openAiChannel.status,
+      ch.status,
       { nodeId: event.data.nodeId, status: "success" },
     );
   },
@@ -74,6 +78,8 @@ export const myFunction = inngest.createFunction(
 export const streamTokens = inngest.createFunction(
   { id: "stream-tokens", triggers: [{ event: "app/generate.start" }] },
   async ({ event, step }) => {
+    const ch = openAiChannel({ nodeId: event.data.nodeId });
+
     const stream = await step.run("generate-stream", () =>
       generateTextStream(event.data.prompt),
     );
@@ -81,7 +87,7 @@ export const streamTokens = inngest.createFunction(
     let text = "";
     for await (const chunk of stream) {
       // High-frequency — safe to replay, uses Inngest's internal dedup
-      await inngest.realtime.publish(openAiChannel.tokens, {
+      await inngest.realtime.publish(ch.tokens, {
         token: chunk.delta,
       });
       text += chunk.delta;
@@ -107,8 +113,10 @@ export async function fetchToken(nodeId: string) {
   const { user } = await getSession();
   if (!user) throw new Error("Unauthorized");
 
+  const ch = openAiChannel({ nodeId });
+
   return getClientSubscriptionToken(inngest, {
-    channel: openAiChannel,
+    channel: ch,
     topics: ["status"],
   });
 }
@@ -120,15 +128,29 @@ export async function fetchToken(nodeId: string) {
 // app/components/node-status.tsx
 "use client";
 
+import { useCallback, useMemo } from "react";
 import { useRealtime } from "inngest/react";
 import { openAiChannel } from "@/inngest/channels/openai";
 import { fetchToken } from "@/app/actions";
 
 export function NodeStatus({ nodeId }: { nodeId: string }) {
+  const fetchNodeToken = useCallback(() => fetchToken(nodeId), [nodeId]);
+
+  const apiBaseUrl = useMemo(
+    () =>
+      typeof window !== "undefined" && process.env.NODE_ENV !== "production"
+        ? `${window.location.protocol}//${window.location.hostname}:8288`
+        : undefined,
+    [],
+  );
+
   const { messages, connectionStatus } = useRealtime({
-    channel: openAiChannel,
+    channel: nodeId ? openAiChannel({ nodeId }) : undefined,
     topics: ["status"] as const,
-    token: () => fetchToken(nodeId),
+    token: fetchNodeToken,
+    enabled: Boolean(nodeId),
+    historyLimit: null,
+    apiBaseUrl,
   });
 
   const status = messages.byTopic.status?.data;
@@ -149,26 +171,27 @@ export function NodeStatus({ nodeId }: { nodeId: string }) {
 
 ## Channel Patterns
 
-### Per-Run Channel (unique per execution)
+### Per-Entity / Parametrised Channel (unique per execution or entity)
 
 ```typescript
-// Dynamic channel name per workflow run
-export const executionChannel = realtime.channel({
+export const executionChannel = channel({
   name: ({ runId }: { runId: string }) => `execution:${runId}`,
   topics: {
-    status: topic("status").type<{ status: string }>(),
-    logs: topic("logs").type<{ line: string }>(),
+    status: { schema: staticSchema<{ status: string }>() },
+    logs: { schema: staticSchema<{ line: string }>() },
   },
 });
 ```
 
-### Shared Channel (all runs share one channel)
+### Static Shared Channel
 
 ```typescript
-// Static channel — all runs publish to same topic
-export const globalChannel = channel("global-updates").addTopic(
-  topic("notifications").type<{ message: string }>(),
-);
+export const globalChannel = channel({
+  name: "global-updates",
+  topics: {
+    notifications: { schema: staticSchema<{ message: string }>() },
+  },
+});
 ```
 
 ## TypeScript Tips

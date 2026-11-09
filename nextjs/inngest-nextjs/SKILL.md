@@ -48,9 +48,14 @@ import { serve } from "inngest/next";
 import { inngest } from "../../../inngest/client";
 import { helloWorld } from "../../../inngest/functions/hello";
 
+export const maxDuration = 300;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [helloWorld],
+  serveOrigin: process.env.INNGEST_SERVE_ORIGIN || undefined,
 });
 ```
 
@@ -264,6 +269,52 @@ export const processInvoice = inngest.createFunction(
 );
 ```
 
+### Declarative Cancellation & Concurrency
+
+```typescript
+export const chatTurn = inngest.createFunction(
+  {
+    id: "generate-chat-response",
+    retries: 0,
+    concurrency: { key: "event.data.chatId", limit: 1 },
+    triggers: [{ event: "chat/response.generate" }],
+    cancelOn: [
+      {
+        event: "chat/response.cancel",
+        if: "async.data.chatId == event.data.chatId && async.data.userId == event.data.userId",
+      },
+    ],
+  },
+  async ({ event, step }) => {
+    // Single in-flight turn per chat; auto-aborts on matching cancel event
+  },
+);
+```
+
+### Human Review / Approval Gate
+
+```typescript
+export const approvalWorkflow = inngest.createFunction(
+  { id: "approval-workflow", triggers: [{ event: "workflow/start" }] },
+  async ({ event, step }) => {
+    await step.run("init", () => setupRun(event.data.runId));
+
+    const approval = await step.waitForEvent("wait-for-approval", {
+      event: "workflow/review.approved",
+      match: "data.runId", // matches event.data.runId == incoming.data.runId
+      timeout: "7d",
+    });
+
+    if (!approval) {
+      await step.run("mark-timed-out", () => failRun(event.data.runId));
+      return { status: "timed_out" };
+    }
+
+    return await step.run("resume-pipeline", () => executePipeline(event.data.runId));
+  },
+);
+```
+
 ### AI SDK Integration
 
 ```typescript
@@ -308,6 +359,11 @@ See [deployment.md](./deployment.md) for serve vs connect models, environment se
 | Skipping step IDs for deduplication | IDs are required for memoisation and deduplication |
 | Unmemoized Realtime token factory | Wrap `token` getter in `useCallback` to prevent infinite token request storms |
 | Omitting `isDev` / `baseUrl` in local dev | Set `isDev: true` and `baseUrl` on client to prevent 401 from defaulting to cloud mode |
+| Passing `"local"` keys to Inngest client | Set `signingKey` and `eventKey` to `undefined` in dev (non-empty strings enable signing checks) |
+| Querying `/v1/runs` or `/v1/cancellations` | Use REST v2 `/v2/runs` (`GET /v2/runs`, `POST /v2/runs/{id}/cancel`); v1 runs routes return 404 |
+| Passing `include=output` to `/v2/runs` | Omit `include=output` (returns 400); output is included on run record by default |
+| Appending `/api/inngest` to `INNGEST_BASE_URL` | Strip `/api/inngest`; base URL points to Inngest engine (8288), not Next.js serve route |
+| Missing `serveOrigin` behind proxy/container | Pass `serveOrigin: env.INNGEST_SERVE_ORIGIN` to `serve()` for explicit callback routing |
 | Duplicate CSP directives for WebSockets | Deduplicate `connect-src`; W3C CSP Level 3 ignores duplicate directives after the first |
 | Relying on `messages.delta` for rapid streams | Read from `messages.all` with an index ref; React batches microtasks and drops intermediate deltas |
 
@@ -328,24 +384,33 @@ export const { GET, POST, PUT } = serve({ client: inngest, functions: [...] });
 
 **Why it matters:** `inngest.serve()` is a v3 pattern. In v4, `serve` is a named export from `inngest/next`. The handler must expose GET, POST, AND PUT methods.
 
-### ❌ Wrong realtime API (`createChannel`, `useInngest().subscribe()`)
+### ❌ Wrong realtime imports or APIs (`@inngest/realtime`, `createChannel`)
 
 ```typescript
-// ❌ WRONG: v3 patterns
+// ❌ WRONG: v3 patterns or obsolete @inngest/realtime package
 import { createChannel } from "inngest/channel";
-const channel = createChannel("my-channel");
-// or
-const inngest = useInngest();
-inngest.subscribe({ channel }, callback);
+import { channel } from "@inngest/realtime";
+const ch = createChannel("my-channel");
 
-// ✅ CORRECT: v4 channel + useRealtime hook
-import { channel, topic } from "@inngest/realtime";
-export const myChannel = channel("my-channel").addTopic(topic("status").type<{ msg: string }>());
-// and in React:
-const { messages } = useRealtime({ channel: myChannel, topics: ["status"], token: () => fetchToken() });
+// ✅ CORRECT: v4 inngest/realtime + inngest/react
+import { channel, staticSchema } from "inngest/realtime";
+export const myChannel = channel({
+  name: ({ id }: { id: string }) => `status:${id}`,
+  topics: {
+    status: { schema: staticSchema<{ msg: string }>() },
+  },
+});
+
+// and in React component:
+import { useRealtime } from "inngest/react";
+const { messages } = useRealtime({
+  channel: myChannel({ id }),
+  topics: ["status"] as const,
+  token: fetchToken,
+});
 ```
 
-**Why it matters:** `createChannel` and `useInngest().subscribe()` are v3 APIs. v4 uses `channel()` from `@inngest/realtime` with typed topics, and the `useRealtime` hook for subscriptions.
+**Why it matters:** Inngest v4 exports Realtime primitives directly from `"inngest/realtime"` and React hooks/helpers from `"inngest/react"`. The separate `@inngest/realtime` package is legacy. Channels are configured with `staticSchema` or topic builders.
 
 ### ❌ Wrong trigger syntax (confusing typed vs simple events)
 
