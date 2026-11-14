@@ -106,13 +106,29 @@ Communication between the two processes occurs exclusively via **GSettings** (`G
 
 ## Language Selection: JavaScript vs. TypeScript
 
-| Feature | Vanilla JavaScript (ESM) | TypeScript (with `@girs` & `esbuild`) |
-|---------|--------------------------|---------------------------------------|
-| **Build Step** | Zero build step; edit files directly | Fast build with `node build.js` / `--watch` |
+| Feature | Vanilla JavaScript (ESM) | TypeScript (with `@girs` & `tsc` / `esbuild`) |
+|---------|--------------------------|----------------------------------------------|
+| **Build Step** | Zero build step; edit files directly | Transpile `src/*.ts` → `dist/*.js` (`tsc` or `esbuild`) |
 | **Type Safety** | Runtime only (optional JSDoc) | Full compile-time static type checking |
 | **API Autocomplete** | Basic IDE inference | Complete autocomplete across GObject, Mutter & Shell |
 | **Best Suited For** | Small extensions (<500 lines), rapid tweaks | Multi-file extensions, complex state, window managers |
 | **Detailed Guide** | [javascript-quickstart.md](references/javascript-quickstart.md) | [typescript-setup.md](references/typescript-setup.md) |
+
+### TypeScript Support (Optional)
+
+TypeScript is optional—GNOME Shell only executes ESM JavaScript at runtime. Use this section only when creating or working in a TypeScript extension (identifiable by `tsconfig.json` and `@girs/gnome-shell` in `package.json`).
+
+1. **Keep output modular and unminified (EGO review rule):** Transpile with `tsc` directly or `esbuild` with `bundle: false` and `minify: false` so `dist/` mirrors `src/` 1:1. Monolithic single-file bundles (`bundle: true`) are routinely rejected by extensions.gnome.org reviewers.
+2. **Required `tsconfig.json` & `package.json` flags:**
+   - Set `"type": "module"` in `package.json` (required by `verbatimModuleSyntax: true`).
+   - Set `"useDefineForClassFields": false` in `tsconfig.json`—ES2022+ defaults it to `true`, which breaks `GObject.registerClass` property getters/setters.
+   - Use `"module": "NodeNext"` and `"moduleResolution": "NodeNext"` (relative imports need `.js` extensions unless `rewriteRelativeImportExtensions: true` is enabled).
+3. **Ambient types & process isolation:** Load `@girs/gjs`, `@girs/gnome-shell/ambient`, and `@girs/gnome-shell/extensions/global` in `ambient.d.ts`. Do not use compositor globals (`global`, `St`, `Meta`) inside `prefs.ts`.
+4. **GObject & `InjectionManager` typing:**
+   - Subclass via `GObject.registerClass({ GTypeName: '...' }, class ...)` and use `override _init(_params?: any, ..._args: any[]): void`.
+   - For `InjectionManager.overrideMethod()`, return a regular `function (this: TargetType, ...)` (not an arrow function) so `this` binds to the patched Shell object.
+
+See **[TypeScript Setup & Tooling](references/typescript-setup.md)** for complete `package.json`, `tsconfig.json`, `ambient.d.ts`, `build.js`, Quick Settings, and `InjectionManager` templates, plus official documentation links.
 
 ---
 
@@ -185,7 +201,7 @@ export default class MyPreferences extends ExtensionPreferences {
 Targeted, deep reference guides covering every subsystem of modern GNOME extension authoring:
 
 - **[JavaScript Quickstart](references/javascript-quickstart.md)**: Full vanilla ESM structure, top panel menus, quick settings indicators, metadata specifications, and built-in instance properties.
-- **[TypeScript Setup & Tooling](references/typescript-setup.md)**: `tsconfig.json`, `ambient.d.ts`, verified `@girs` types (including Mutter and Mtk), `esbuild` build script with schema/locale/gresource compilation, and typed GObject subclassing.
+- **[TypeScript Setup & Tooling](references/typescript-setup.md)**: `tsconfig.json` (`useDefineForClassFields: false`), `ambient.d.ts`, `@girs` version matrix, `tsc` vs. `esbuild` (`bundle: false` for EGO compliance), typed `QuickToggle`/`SystemIndicator`, `InjectionManager`, and official references.
 - **[GNOME Shell UI Components](references/ui-components.md)**: St widgets (`St.BoxLayout`, `St.Label`, `St.Button`), Clutter layout, `PanelMenu.Button`, `QuickToggle`, `QuickMenuToggle`, `SystemIndicator`, OSD popups (`Main.osdWindowManager`), in-shell notifications, and `stylesheet.css`.
 - **[Preferences with Libadwaita](references/preferences-libadwaita.md)**: `Adw.PreferencesWindow`, `Adw.ActionRow`, `Adw.SwitchRow`, `Adw.ComboRow`, `Adw.SpinRow`, `Adw.EntryRow`, multi-page layouts, `Gtk.Builder` `.ui` template loading with `Gtk.BuilderScope`, dark mode sync (`Adw.StyleManager`), and custom CSS.
 - **[Window & Workspace Management](references/window-and-workspace-management.md)**: Mutter window tracking (`Meta.Window`, `Meta.WindowActor`), GNOME 45 geometry migration (`Mtk.Rectangle`), `Shell.WindowTracker`, monitor metrics and scaling, and window/workspace lifecycle signals.
@@ -232,8 +248,9 @@ Targeted, deep reference guides covering every subsystem of modern GNOME extensi
 | Signal handlers from `.ui` files fail to resolve in GTK4 | GTK4 requires closure resolution scope | Attach `Gtk.BuilderScope` with `vfunc_create_closure` to `Gtk.Builder` |
 | Memory leaks or errors after toggling extension | Lingering signal handlers, GLib timers, or undeleted actors | Disconnect all signals via `disconnectObject`, call `GLib.source_remove`, and destroy actors in `disable()` |
 | Extension preferences crash with `schema ... is not installed` | Schema XML was not compiled | Run `glib-compile-schemas --strict schemas/` to produce `gschemas.compiled` |
-| Extension rejected on extensions.gnome.org | Bundling minified/obfuscated code or missing lifecycle symmetry | Ensure `buildOptions.minify = false`, remove `eval()`, and test with `shexli <bundle.zip>` |
+| Extension rejected on extensions.gnome.org | Bundling minified/obfuscated code, monolithic `bundle: true` output, or missing lifecycle symmetry | Ensure `minify: false` and `bundle: false` (or use `tsc`), remove `eval()`, and test with `shexli <bundle.zip>` |
 | `npm error notarget No matching version found for @girs/...` | Non-existent package version in `package.json` | Use verified `@girs` generator versions (`^5.5.0`) and shell versions (`^50.0.0`) |
-| TypeScript `TS2416` or `TS4114` in `_init` / `fillPreferencesWindow` | Method signature mismatch with base GObject / `@girs` types | Use `override _init(_params?: any, ..._args: any[]): void` and `async fillPreferencesWindow(window): Promise<void>` |
+| TypeScript `TS2416` or `TS4114` in `_init` / `fillPreferencesWindow` | Method signature mismatch with base GObject / `@girs` types | Use `override _init(_params?: any, ..._args: any[]): void` and `override async fillPreferencesWindow(window): Promise<void>` |
+| GObject properties/getters break in compiled TypeScript | `useDefineForClassFields` defaults to `true` on `ES2022+` | Set `"useDefineForClassFields": false` in `tsconfig.json` |
 | Overridden Shell methods remain active after disabling | Manual prototype mutation without restoration | Use `InjectionManager` and call `this._injectionManager.clear()` in `disable()` |
 | `TypeError: class heritage ... GLSLEffect is not an object or null` | GNOME 51 removed `Shell.GLSLEffect` in favor of `Clutter.ShaderEffect` | Subclass `Clutter.ShaderEffect`, return `Cogl.Snippet.new(Cogl.SnippetHook.FRAGMENT, declarations, code)` from `vfunc_get_static_snippet()`, and pass uniform names directly to `set_uniform_float(name, n_components, value)` |

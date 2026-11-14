@@ -70,13 +70,12 @@ Install TypeScript, `esbuild`, and the official `@girs` TypeScript type definiti
 >   - GNOME 49 -> Mutter 17 (`@girs/meta-17`, `@girs/mtk-17`)
 >   - GNOME 50 -> Mutter 18 (`@girs/meta-18`, `@girs/mtk-18`)
 > - Generator-based libraries (`@girs/gjs`, `@girs/gtk-4.0`, `@girs/adw-1`): Follow the generator versioning (e.g. `^5.5.0`).
-```
 
 ---
 
 ## 3. TypeScript Configuration (`tsconfig.json`)
 
-Configure TypeScript to target modern ES2023 with strict type checking and NodeNext module resolution:
+Configure TypeScript to target modern ES2023 with strict type checking, `NodeNext` module resolution, and `useDefineForClassFields: false`:
 
 ```json
 {
@@ -87,11 +86,13 @@ Configure TypeScript to target modern ES2023 with strict type checking and NodeN
     "lib": ["ES2023"],
     "strict": true,
     "skipLibCheck": true,
+    "useDefineForClassFields": false,
     "noImplicitOverride": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "rootDir": "./src",
     "outDir": "./dist"
   },
   "include": [
@@ -104,6 +105,12 @@ Configure TypeScript to target modern ES2023 with strict type checking and NodeN
   ]
 }
 ```
+
+> **CRITICAL: `"useDefineForClassFields": false`:**
+> With `target: "ES2022"` or later, TypeScript defaults `useDefineForClassFields` to `true`, which emits `Object.defineProperty` for class fields. That shadows prototype getters/setters and breaks `GObject.registerClass` property initialization. Always set `"useDefineForClassFields": false`.
+>
+> **Relative Imports with `NodeNext`:**
+> Under `moduleResolution: "NodeNext"`, relative imports must include the `.js` extension (e.g., `import { MyToggle } from './toggle.js';`) even though the source file is `toggle.ts`. Alternatively, TypeScript 5.7+ supports `"rewriteRelativeImportExtensions": true` if you write `.ts` extensions when emitting via `tsc`.
 
 ---
 
@@ -125,11 +132,35 @@ declare module 'resource:///org/gnome/shell/misc/config.js' {
 }
 ```
 
+> **Process Isolation Note:** `@girs/gnome-shell/extensions/global` declares compositor globals (`global`, `log`, etc.) that only exist in the GNOME Shell process (`extension.ts`), not in the GTK4 preferences process (`prefs.ts`). Never reference `global` inside `prefs.ts`.
+
 ---
 
-## 5. Complete Production Build Pipeline (`build.js`)
+## 5. Build Pipeline: `tsc` vs. `esbuild`
 
-This `build.js` script compiles TypeScript via `esbuild`, compiles GSettings schemas, compiles `.po` gettext translation catalogs, compiles `.gresource` bundles, and synchronizes static assets:
+> **extensions.gnome.org (EGO) Review Rule on Bundling & Formatting:**
+> EGO requires TypeScript to be transpiled to **readable, well-formatted, modular JavaScript** (`minify: false`). Collapsing an entire multi-file extension into a single monolithic `extension.js` via `bundle: true` makes human review difficult and is routinely rejected.
+>
+> - **Recommended for EGO:** Use **`tsc`** directly (or `esbuild` with **`bundle: false`**) so `dist/` mirrors your `src/` file tree 1:1.
+> - **When to use `bundle: true`:** Only if you need to inline an external pure-JS npm dependency—keep `minify: false`, `keepNames: true`, and keep your own modules readable.
+
+### Option A: Pure `tsc` (Simplest, 100% EGO-Compliant)
+
+If you have no external runtime npm dependencies, `tsc` emits clean, formatted ES modules directly into `dist/` without needing `esbuild`:
+
+```json
+{
+  "scripts": {
+    "build": "tsc && node copy-assets.js",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+### Option B: `esbuild` + Static Asset Pipeline (`build.js`)
+
+This `build.js` script transpiles TypeScript via `esbuild` (preserving modular files with `bundle: false`), compiles GSettings schemas, compiles `.po` gettext translation catalogs, compiles `.gresource` bundles, and synchronizes static assets into `dist/`:
 
 ```javascript
 import * as esbuild from 'esbuild';
@@ -235,23 +266,16 @@ function copyStaticAssets() {
     }
 }
 
-const entryPoints = {};
-if (fs.existsSync('src/extension.ts')) entryPoints.extension = 'src/extension.ts';
-if (fs.existsSync('src/prefs.ts')) entryPoints.prefs = 'src/prefs.ts';
-
 const buildOptions = {
-    entryPoints,
-    bundle: true,
+    entryPoints: ['src/**/*.ts'],
+    bundle: false, // Preserves modular file layout for extensions.gnome.org review
     outdir: 'dist',
+    outbase: 'src',
     format: 'esm',
     target: 'es2023',
     platform: 'neutral',
     sourcemap: false,
     minify: false, // Minification is strictly prohibited by extensions.gnome.org review rules
-    external: [
-        'gi://*',
-        'resource://*',
-    ],
 };
 
 copyStaticAssets();
@@ -402,3 +426,112 @@ const CustomWidget = GObject.registerClass(
     }
 );
 ```
+
+---
+
+## 8. Typed Quick Settings & `InjectionManager` Patterns
+
+### Typed `QuickToggle` & `SystemIndicator`
+
+```typescript
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import St from 'gi://St';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
+import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+
+const FeatureToggle = GObject.registerClass(
+    { GTypeName: 'MyTsFeatureToggle' },
+    class FeatureToggle extends QuickSettings.QuickToggle {
+        override _init(_params?: any): void {
+            super._init({
+                title: _('Feature'), // Use 'title' (not deprecated 'label')
+                subtitle: _('Off'),
+                iconName: 'selection-mode-symbolic',
+                toggleMode: true,
+            });
+            this.connect('notify::checked', () => {
+                this.subtitle = this.checked ? _('On') : _('Off');
+            });
+        }
+    }
+);
+
+const FeatureIndicator = GObject.registerClass(
+    { GTypeName: 'MyTsFeatureIndicator' },
+    class FeatureIndicator extends QuickSettings.SystemIndicator {
+        private _indicator!: St.Icon;
+
+        override _init(settings: Gio.Settings): void {
+            super._init();
+            this._indicator = this._addIndicator();
+            this._indicator.icon_name = 'selection-mode-symbolic';
+            settings.bind('feature-active', this._indicator, 'visible', Gio.SettingsBindFlags.DEFAULT);
+
+            const toggle = new FeatureToggle();
+            settings.bind('feature-active', toggle, 'checked', Gio.SettingsBindFlags.DEFAULT);
+            this.quickSettingsItems.push(toggle);
+        }
+
+        override destroy(): void {
+            this.quickSettingsItems.forEach(item => item.destroy());
+            super.destroy();
+        }
+    }
+);
+```
+
+Register in `enable()` with `Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);` and destroy in `disable()`.
+
+### Typed `InjectionManager.overrideMethod()`
+
+Use a regular `function (this: TargetType, ...)`—**never an arrow function**—for the replacement body so `this` binds to the patched Shell instance at runtime:
+
+```typescript
+import { Extension, InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+export default class MyPatchedExtension extends Extension {
+    private _injectionManager = new InjectionManager();
+
+    override enable(): void {
+        this._injectionManager.overrideMethod(
+            Main.layoutManager,
+            '_addBackgroundMenu',
+            (originalMethod) => {
+                return function (this: typeof Main.layoutManager, ...args: unknown[]) {
+                    // @ts-expect-error: accessing untyped internal Shell property if needed
+                    void this._bgManagers;
+                    return originalMethod?.apply(this, args);
+                };
+            }
+        );
+    }
+
+    override disable(): void {
+        this._injectionManager.clear();
+    }
+}
+```
+
+---
+
+## 9. Common TypeScript Pitfalls
+
+| Error / Symptom | Cause | Fix |
+|-----------------|-------|-----|
+| `TS1295` / `TS1287` with `verbatimModuleSyntax` | Missing `"type": "module"` in `package.json` | Add `"type": "module"` to root `package.json` |
+| GObject property getters/setters or defaults break at runtime | `useDefineForClassFields` defaults to `true` on `ES2022+` | Set `"useDefineForClassFields": false` in `tsconfig.json` |
+| `TS2416` / `TS4114` on `_init` or `fillPreferencesWindow` | Signature mismatch with `@girs` overloads or missing `override` | Use `override _init(_params?: any, ..._args: any[]): void` and `override async fillPreferencesWindow(window: Adw.PreferencesWindow): Promise<void>` |
+| Relative import fails in GJS (`ImportError`) | Missing `.js` extension on relative imports | Write `import { Foo } from './foo.js'` (or enable `rewriteRelativeImportExtensions` with `tsc`) |
+| `esbuild` tries to resolve `gi://` or `resource://` | `bundle: true` without externals | Prefer `bundle: false` (also required by EGO); if bundling an npm dep, add `external: ['gi://*', 'resource://*']` |
+| Extension rejected on EGO | Monolithic single-file bundle or minified output | Transpile with `tsc` or `esbuild` (`bundle: false`, `minify: false`) |
+
+---
+
+## 10. Official References
+
+- **[GJS Guide — TypeScript and LSP](https://gjs.guide/extensions/development/typescript.html)**: Official GNOME JavaScript guide for setting up TypeScript, `tsconfig.json`, and LSP autocomplete.
+- **[GJS Guide — Extension Review Guidelines](https://gjs.guide/extensions/review-guidelines/review-guidelines.html)**: Official extensions.gnome.org rules on transpiled TypeScript, readability, and prohibiting minification/obfuscation.
+- **[`@girs/gnome-shell` on npm](https://www.npmjs.com/package/@girs/gnome-shell)** & **[`ts-for-gir` on GitHub](https://github.com/gjsify/ts-for-gir)**: TypeScript definitions and GIR generator for GJS, GNOME Shell, GTK4, Libadwaita, and Mutter.
