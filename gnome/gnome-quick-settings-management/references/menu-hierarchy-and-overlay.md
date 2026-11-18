@@ -162,6 +162,14 @@ Avoid reparenting toggles out of `_grid` (which breaks submenu constraints, `Qui
 2. **Respect `_overlay`**: `layout._overlay` is a visible placeholder child inside `_grid`. Always skip `child === layout._overlay` in `_getRows()`, call `layout._overlay.allocate_available_size(0, 0, box.get_width(), overlayHeight)` in `vfunc_allocate()`, and add `overlayHeight` after any row where `row.some(c => c.menu?.actor.visible)`.
 3. **Hide off-page toggles without mutating `.visible`**: Built-in toggles bind `.visible` to hardware/service state. Hide inactive-page toggles with `opacity = 0`, `reactive = false`, and `0x0` allocation instead of `.hide()`.
 
+### Trap 5: `Clutter.EVENT_STOP` Cancels `St.Button` `Clutter.ClickGesture` (GNOME 49+)
+
+In GNOME 49+, `St.Button` handles clicks via an attached `Clutter.ClickGesture` (`CLUTTER_PHASE_BUBBLE`), which runs *before* actor event signals (`button-press-event`, `touch-event`). If any actor handler on the button or an ancestor returns `Clutter.EVENT_STOP` on `BUTTON_PRESS` or `TOUCH_BEGIN`, `clutter_sprite_propagate_event` immediately cancels every `Clutter.Gesture` in the emission chain—including the button's own `Clutter.ClickGesture`—causing clicks and taps to silently do nothing.
+
+- **Avoid `EVENT_STOP` on child `St.Button`s:** Let press/touch events propagate, and in parent drag handlers skip starting a drag/grab when the picked target is inside a child `St.Button` or `Slider`.
+- **Use `get_actor_at_pos`, not `event.get_source()`:** In Clutter 17+, `event.get_source()` returns `null` for press/touch events (only populated for `ENTER`/`LEAVE`). Query `global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, ...event.get_coords())`.
+- **Disabling inherited `St.Button` gestures safely:** Set `action.enabled = false` on `actor.get_actions()` rather than calling `clear_actions()`, which can leave `StButton`'s internal C `priv->click_gesture` pointer unparented.
+
 ---
 
 ## GNOME Version Differences (GNOME 45–51+)
