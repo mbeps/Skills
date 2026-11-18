@@ -136,6 +136,21 @@ _shouldPropagateScroll(event, rootScrollView) {
 }
 ```
 
+### Trap 5: Click-Safe Drag/Swipe Over `St.Button` Toggles (GNOME 49+)
+
+`St.Button` attaches a `Clutter.ClickGesture` (`CLUTTER_PHASE_BUBBLE`), which runs ahead of actor event signals:
+- Returning `Clutter.EVENT_STOP` from `BUTTON_PRESS` or `TOUCH_BEGIN` inside `captured-event` cancels `Clutter.ClickGesture`, silently breaking clicks.
+- **Solution**: Always return `Clutter.EVENT_PROPAGATE` on `BUTTON_PRESS` / `TOUCH_BEGIN`. Only return `Clutter.EVENT_STOP` on `MOTION` / `TOUCH_UPDATE` and `BUTTON_RELEASE` / `TOUCH_END` once movement exceeds the drag threshold (`6px`), and temporarily disable the pressed toggle's actions (`for (const a of toggle.get_actions()) a.enabled = false;`, restoring on `GLib.idle_add` after release) rather than calling `clear_actions()`.
+
+---
+
+## Customizing `QuickSettingsLayout` Without Reparenting
+
+Avoid reparenting toggles out of `_grid` (which breaks submenu constraints, `QuickSettingsLayout` row height, and other extensions). Instead:
+1. **Subclass, don't instance-patch**: GJS binds `vfunc_*` C trampolines at `GObject.registerClass` time, so patching `layout.vfunc_allocate` on an instance is ignored. Lazily create and cache one `GObject.registerClass` subclass of `origLayout.constructor` (avoiding duplicate `GTypeName` on reload), swap `grid.layout_manager`, and copy each child's `column-span` via `get_child_meta` / `child_set_property` (restoring `origLayout` and `column-span`s on `disable()`).
+2. **Respect `_overlay`**: `layout._overlay` is a visible placeholder child inside `_grid`. Always skip `child === layout._overlay` in `_getRows()`, call `layout._overlay.allocate_available_size(0, 0, box.get_width(), overlayHeight)` in `vfunc_allocate()`, and add `overlayHeight` after any row where `row.some(c => c.menu?.actor.visible)`.
+3. **Hide off-page toggles without mutating `.visible`**: Built-in toggles bind `.visible` to hardware/service state. Hide inactive-page toggles with `opacity = 0`, `reactive = false`, and `0x0` allocation instead of `.hide()`.
+
 ---
 
 ## GNOME Version Differences (GNOME 45–51+)
@@ -143,6 +158,7 @@ _shouldPropagateScroll(event, rootScrollView) {
 | Feature | GNOME 45 | GNOME 46–50 | GNOME 51+ |
 |---|---|---|---|
 | Container add/remove signals | `actor-added` / `actor-removed` | `child-added` / `child-removed` | `child-added` / `child-removed` |
+| `St.BoxLayout` direction prop | `vertical: boolean` | `orientation: Clutter.Orientation` (48+) | `orientation: Clutter.Orientation` |
 | Indicator scroll listener | `scroll-event` on actor | `scroll-event` on actor | `Clutter.ScrollController` action |
 | Box pointer close options | `menu.close(PopupAnimation.FADE)` | `menu.close({ fadeOnly: true })` | `menu.close({ fadeOnly: true })` |
 | Monitor scaling math | Physical pixels converted via `themeContext.scale_factor` | Same | Same |
