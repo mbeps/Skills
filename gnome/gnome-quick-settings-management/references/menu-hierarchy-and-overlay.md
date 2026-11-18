@@ -144,6 +144,17 @@ _shouldPropagateScroll(event, rootScrollView) {
 
 ---
 
+## Customizing `_overlay` & Submenu Transitions
+
+When replacing default accordion expansion with custom overlay or full-panel page transitions, preserve `_overlay`'s parenting inside `QuickSettingsMenu.actor` (to keep `PopupMenuManager` modal grabs and avoid `_boxPointer` dimming) and handle these constraints:
+
+1. **Discover `_overlay` constraints by `coordinate`, not array index**: Constraint count and ordering vary across Shell versions (`POSITION` + `WIDTH` vs `X` + `Y` + `WIDTH`). Inspect `overlay.get_constraints()` for `Clutter.BindConstraint` instances and check `constraint.coordinate` (`X`, `Y`, `POSITION`, `WIDTH`).
+2. **Do not animate `_grid.translation_x` while upstream `_overlay` position constraints are active**: Upstream `QuickSettingsMenu` updates `_overlay`'s `X`/`Y` `BindConstraint.offset` on `Meta.LaterType.BEFORE_REDRAW` via `this._grid.apply_relative_transform_to_point(this._boxPointer, new Graphene.Point3D())`, which includes `_grid.translation_x`. Disable upstream position constraints and drive replacement `X`/`Y` constraints (bound to `_boxPointer`, which shares `_overlay`'s parent) from `menu.box.apply_relative_transform_to_point(_boxPointer, ...)` plus `menu.box.get_theme_node()` padding/border on `BEFORE_REDRAW`.
+3. **Never show `_grid` and a replacement sizer simultaneously in `menu.box`**: `menu.box` is a vertical `St.BoxLayout` and sums the heights of all visible children. Keep `_grid` and any rest-state sizer mutually exclusive in visibility, ease `menu.box.height` directly during transitions with `clip_to_allocation = true`, and add a temporary `HEIGHT` `BindConstraint` on `_overlay` (bound to `menu.box` minus vertical padding/border) so tall submenus clip cleanly during slides.
+4. **Wrap `menu._header` rather than mutating its `GridLayout`**: To inject a back button beside `menu._header`, reparent `menu._header` into a horizontal `St.BoxLayout` (with no `_delegate` so `PopupMenuBase._getMenuItems()` skips it) at index `0` of `menu.box`, restoring `menu._header` to `menu.box` on teardown. This keeps `setHeader()`, `addHeaderSuffix()`, and RTL mirroring intact.
+
+---
+
 ## Customizing `QuickSettingsLayout` Without Reparenting
 
 Avoid reparenting toggles out of `_grid` (which breaks submenu constraints, `QuickSettingsLayout` row height, and other extensions). Instead:
@@ -160,7 +171,7 @@ Avoid reparenting toggles out of `_grid` (which breaks submenu constraints, `Qui
 | Container add/remove signals | `actor-added` / `actor-removed` | `child-added` / `child-removed` | `child-added` / `child-removed` |
 | `St.BoxLayout` direction prop | `vertical: boolean` | `orientation: Clutter.Orientation` (48+) | `orientation: Clutter.Orientation` |
 | Indicator scroll listener | `scroll-event` on actor | `scroll-event` on actor | `Clutter.ScrollController` action |
-| Box pointer close options | `menu.close(PopupAnimation.FADE)` | `menu.close({ fadeOnly: true })` | `menu.close({ fadeOnly: true })` |
+| Box pointer / submenu close options | `menu.close(PopupAnimation.FADE)` | `menu.close({ fadeOnly: true })` (BoxPointer); `PopupAnimation.NONE` (QuickToggleMenu) | `menu.close({ fadeOnly: true })` (BoxPointer); `{ animate: false }` (QuickToggleMenu) |
 | Monitor scaling math | Physical pixels converted via `themeContext.scale_factor` | Same | Same |
 
 ### GNOME 51+ ScrollController Pattern
