@@ -80,11 +80,13 @@ For each target file, inspect the JSX return tree and identify:
 4. **Header / Summary Metrics**: Are metric calculation cards crowding the main layout?
 
 ### Step 4: Detect Cross-Page Structural Duplication
-Search across the codebase for repeated UI blocks:
+Search across the codebase for repeated UI blocks and layout inconsistencies:
+- Run `fallow dupes --min-occurrences 2 --min-lines 20 components` (note: `fallow dupes` takes a single `[PATH]` argument) to surface structural clones
 - Danger zone / delete confirmation blocks
 - Breadcrumbs / headers
 - Empty state wrappers
 - File attachment badges / lists
+- Page container width variants (verify sibling pages share the same width constraint, excluding intentionally full-bleed workbenches like chat or split-pane views)
 
 ### Step 5: Define Component Specifications
 For each identified candidate, document:
@@ -174,4 +176,7 @@ When providing recommendations to a user or planning a refactor, format the find
 | **Prop Explosion** | Passing 15+ props to a child component. | Bundle related parameters into domain objects or co-locate state closer to the child component. |
 | **Breaking React 19 State Invariants** | Using `useEffect` to sync props to local state in extracted components. | Initialize local state from initial props or use unique `key` props to reset component state on change. |
 | **Leaking Server-Only Code to Client** | Importing server actions or server modules into pure UI presentation components. | Pass action callbacks down as props or keep server action triggers clean. |
+| **Inconsistent Page Container Widths** | Sibling detail/settings pages render at mismatched widths (`full` or `wide` vs. `default`). | Standardize sibling pages on the same layout container variant; reserve `full`/`wide` only for intentionally full-bleed workbenches (chat, split-pane views). |
+| **Merging Divergent Semantics** | Unifying blocks with different DOM/a11y elements (`<button>` vs `<div>`) or save lifecycles (per-tab vs single-submit) causes regressions. | Keep separate unless semantics and lifecycle are identical; use a render-prop `*Shell` when only the outer container differs. |
+| **Leaving 1:1 Pass-Through Wrappers** | Keeping old domain wrappers after centralising into `components/shared/*` adds dead indirection. | Update callers directly to the shared component, delete superseded wrappers, and consolidate their tests. |
 
