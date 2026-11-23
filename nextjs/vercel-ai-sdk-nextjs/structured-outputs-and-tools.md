@@ -237,4 +237,66 @@ Provider serializers (like OpenAI) reconstruct message history by reading `part.
 - If legacy `args` is provided on a `ToolCallPart` instead of `input`, `part.input` remains `undefined`, causing providers to serialize `{}` (empty object) into the LLM prompt.
 - Always map database metadata to pure `input: parsedInput` on `ToolCallPart` and `output: { type: 'text' | 'json', value: parsedOutput }` on `ToolResultPart`.
 - Persist canonical `input` and `output` keys in metadata schemas to eliminate repetitive runtime fallback checks (`tc.args ?? tc.input`).
+
+---
+
+## 8. Human-in-the-Loop Tool Execution Approval (AI SDK v7)
+
+AI SDK v7 `streamText` supports server-enforced tool execution gating via `toolApproval` (`Record<string, "not-applicable" | "user-approval">`) and `experimental_toolApprovalSecret` (`string | Uint8Array` for signing `tool-approval-request` tokens).
+
+### Fail-Closed Policy & Hidden Blocked Tools
+
+1. **Hide blocked tools before `streamText`**: Omit tools marked `"block"` from `tools` (and update capability flags like `hasKbTool` / `hasArtifactTool`) rather than leaving them in the schema and returning `"Denied"` at runtime. This saves prompt tokens and prevents model retry loops.
+2. **Fail closed in `buildToolApproval`**: Build the `toolApproval` map exhaustively from `Object.keys(allTools)` on the server from database state (never trust client-supplied approval lists). Even when per-chat mode is `"auto"`, any blocked tool must still resolve to `"user-approval"` as defense-in-depth, and unrecognised tools in `"ask"` mode must default to `"user-approval"`.
+3. **Preserve MCP server identity**: When multiple MCP connectors expose colliding tool names (e.g. `search` and `search_2`), track `toolServerIdMap[runtimeName] = serverId` and `toolRawNameMap[runtimeName] = rawName` so allowlists and blocklists are evaluated strictly per `serverId` rather than by bare runtime name.
+
+### Resuming Paused Turns (`buildApprovalResumeMessages`)
+
+When a gated tool is invoked, `streamText` emits `tool-approval-request` chunks and pauses without executing the tool. Resume the turn by appending an `[AssistantModelMessage, ToolModelMessage]` pair to `messages` in **strict `pending` emission order** (never trust client decision array order, and reject partial decision sets so AI SDK v7 does not throw `AI_MissingToolResultsError`):
+
+```typescript
+import type { AssistantModelMessage, ModelMessage, ToolModelMessage } from "ai";
+
+export function buildApprovalResumeMessages(
+  pending: readonly PendingApproval[],
+  decisions: readonly ApprovalDecision[],
+): ModelMessage[] {
+  if (pending.length === 0) return [];
+
+  const decisionMap = new Map(decisions.map((d) => [d.approvalId, d.approved]));
+  const assistantContent: Exclude<AssistantModelMessage["content"], string> = [];
+  const toolContent: ToolModelMessage["content"] = [];
+
+  for (const approval of pending) {
+    const approved = decisionMap.get(approval.approvalId);
+    if (approved === undefined) {
+      throw new Error(`Missing approval decision for ${approval.approvalId}`);
+    }
+
+    assistantContent.push({
+      type: "tool-call",
+      toolCallId: approval.toolCallId,
+      toolName: approval.toolName,
+      input: approval.args ?? {},
+    });
+    assistantContent.push({
+      type: "tool-approval-request",
+      approvalId: approval.approvalId,
+      toolCallId: approval.toolCallId,
+      ...(approval.reason !== undefined ? { reason: approval.reason } : {}),
+      signature: approval.signature,
+    });
+    toolContent.push({
+      type: "tool-approval-response",
+      approvalId: approval.approvalId,
+      approved,
+    });
+  }
+
+  return [
+    { role: "assistant", content: assistantContent } satisfies AssistantModelMessage,
+    { role: "tool", content: toolContent } satisfies ToolModelMessage,
+  ];
+}
+```
 ```

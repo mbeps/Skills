@@ -621,3 +621,17 @@ The trace step card provides:
 | **Orchestrator stops after subagent call with empty text** | Model considers tool run its response and outputs no final text | Implement `needsFallbackSynthesis` + `runSynthesisFallbackPass` in background executor |
 | **Scratchpad write fails with FK error** | `messageId` constrained by foreign key to `chat_message` before row exists | Omit FK constraint on `subagent_scratchpad.messageId`; rely on chat cascade deletion and cleanup routines |
 | **Worker misses required report format** | Freeform output makes automated parsing unreliable | Mandate explicit prefixes (`STATUS: DONE`, `STATUS: BLOCKED`, etc.) in worker system instructions |
+| **Gated subagent tools bypass approval or hang on abort** | Top-level `streamText({ toolApproval })` cannot pause nested `ToolLoopAgent` runs across jobs | Wrap gated worker tools with `wrapSubagentToolsWithApproval` using microtask batching, an in-memory `chatApprovalRegistry`, and `cancel(assistantMessageId)` in `finally` |
+
+---
+
+## 10. Human-in-the-Loop Approval for Delegated Subagents
+
+Because `ToolLoopAgent` executes inside the parent's `delegate_task` `execute` generator, top-level `streamText({ toolApproval })` does not pause and resume nested worker tool calls across separate background invocations.
+
+Wrap gated worker tools (`toolApprovalMap[name] === "user-approval"`) with `wrapSubagentToolsWithApproval`:
+1. **Microtask-Coalesced Batching**: Queue gated tool invocations emitted in the same `ToolLoopAgent` step via `queueMicrotask` so multiple calls are persisted and presented in strict emission order (`1 of N`..`N of N`).
+2. **Per-Message Async Lock**: Serialize approval persistence, realtime emission, and waiting per `assistantMessageId` so concurrent `delegate_task` calls never overwrite each other's stored `pendingApprovals`.
+3. **Register Before Persisting**: Call `chatApprovalRegistry.waitForDecisions(assistantMessageId, approvalIds, abortSignal)` *before* persisting `pendingApprovals` and emitting `tool-approval-required`, cancelling the batch via `cancelBatch` if persistence or emit fails.
+4. **Sequential Emission-Order Execution**: On resolution, execute approved tools sequentially in emission order (preventing dependent-tool races like `create_skill` → `write_skill_file`), and return `{ error: "Denied by user" }` for denied tools without invoking `originalExecute`.
+5. **Cleanup on Abort/Finish**: Always call `chatApprovalRegistry.cancel(assistantMessageId)` in the worker `finally` block and in the cancellation endpoint so aborted turns never leave hanging promises.

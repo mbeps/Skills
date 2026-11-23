@@ -336,6 +336,17 @@ export async function POST(req: Request) {
 
 ---
 
+## 5.1 Pausing & Resuming Durable Streams for Tool Approval
+
+When `streamText` runs with `toolApproval` and `experimental_toolApprovalSecret` inside a durable background function:
+1. **Consume approval chunks**: In `consumeModelStream`, collect `tool-approval-request` chunks (ignoring `chunk.isAutomatic === true`) into `pendingApprovals`, and handle `tool-output-denied` chunks by emitting `{ error: "Denied by user" }` tool results.
+2. **Park instead of finishing**: When `pendingApprovals.length > 0`, **skip `runSynthesisFallbackPass`** and **skip emitting `finish`**. Persist `pendingApprovals` and `approvalRound` to assistant message metadata, emit `tool-approval-required` over Inngest Realtime, and return cleanly.
+3. **Seed accumulator on resume**: When `chat/approval.respond` triggers a resume round, seed `accumulator` (`content`, `reasoning`, `completedTools`) from the parked assistant message before draining Round 2's stream so Round 1's output and auto-approved tool traces are preserved.
+4. **Prevent infinite denial loops**: Cap `approvalRound` (e.g. `maxRounds = 10`) in message metadata and append a system prompt directive whenever any decision in the resume payload was denied (`do NOT retry that exact tool call`).
+5. **Cancel in-memory waiters**: Call `chatApprovalRegistry.cancel(assistantMessageId)` in the worker `finally` block and in `/api/chat/stop` so aborted turns never leak hanging promises.
+
+---
+
 ## 6. Durable Knowledge Base Ingestion & Reindexing
 
 Document extraction, chunking, and batch vector embedding (`embedMany`) are computationally heavy and vulnerable to rate limits and large payloads. Wrap ingestion in durable Inngest functions with singleton concurrency, cancellation hooks, and non-retriable error normalization:
