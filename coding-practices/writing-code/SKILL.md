@@ -39,6 +39,7 @@ Before modifying any existing file or interface, assess the blast radius:
 | **Dependencies** | *What does this file import?* | Avoid leaking internal abstractions across boundaries. |
 | **Test Coverage** | *What tests cover this code?* | Locate existing tests that must be executed and kept green. |
 | **Shared Contracts** | *Is this a shared interface/component?* | Multiple modules rely on this. Update consumers in the **same task**. |
+| **Secondary-Path Parity** | *Do other entrypoints wire this same runner/dispatcher?* | Keep scoping, privilege stripping, dry-run guards, and override resolvers equivalent across all paths. |
 
 ```
 File to edit: UserService.ts
@@ -181,6 +182,8 @@ Apply architectural patterns, design patterns, and SOLID principles selectively.
 
 - **Strictly Forbid Hardcoded Secrets**: Never commit API keys, tokens, credentials, or private keys in code or configuration files. Load sensitive values exclusively from secure environment variables or secret management services.
 - **Validate & Sanitise at Public Boundaries**: Enforce strict schema validation and sanitisation on all untrusted external input (HTTP parameters, request bodies, webhooks, file uploads, IPC messages) before processing.
+- **Atomic Validate-and-Write Transactions**: Validate relational/graph invariants and target existence inside the same transaction as the write, holding row or advisory locks coordinated with concurrent mutations and deletions.
+- **Identity-Preserving Allow-Lists & Exact-ID-First Lookups**: Preserve provider/namespace identity when filtering or merging capabilities (avoid bare-name matching or flat spreads across sources), strip inherited privileges before applying narrower child overlays, and scan for exact ID matches before falling back to mutable names.
 - **Restrict Unsafe Dependency Additions**: Do not introduce third-party libraries when standard library or existing project utilities suffice. Vet all required new dependencies for maintenance, licensing, and security vulnerabilities before adding.
 
 ---
