@@ -25,28 +25,28 @@ This skill operates in two distinct modes:
 
 ## Planning Mode
 1. Read codebase index provided by Graphify at `./graphify-out/`.
-2. Delegate bug reproduction / isolation hypothesis to a subagent to confirm or model the failure state based on code logic without executing code.
+2. Formulate a bug reproduction / isolation hypothesis to confirm or model the failure state based on code logic without executing code.
    - Cross-reference observed symptoms against [Root-Cause Diagnostic Patterns](references/root-cause-patterns.md).
    - If the bug description is ambiguous or cannot be analyzed, request clarification before proceeding.
-3. Delegate root-cause analysis and error research to parallel subagents. Audit against [Edge-Case Diagnostic Tripwires](references/edge-case-tripwires.md) (e.g. check-then-act races, unpartitioned background queues, premature handle releases, cross-user cache contamination).
-4. Delegate fix planning to a subagent:
+3. Conduct root-cause analysis and error research. Audit against [Edge-Case Diagnostic Tripwires](references/edge-case-tripwires.md) (e.g. check-then-act races, unpartitioned background queues, premature handle releases, cross-user cache contamination).
+4. Plan the fix:
    - Identify reusable existing code to minimise changes and strictly adhere to YAGNI principles.
    - Enforce atomic state transitions (e.g. database-level upserts instead of check-then-act, per-entity concurrency locks, guarded handle releases).
    - Ensure clean advertised contracts paired with tolerant runtime preprocessors.
-5. Delegate evaluation subagents to verify the quality, accuracy, relevance, completeness, and edge-case resilience of the planned fix against the tripwires checklist.
+5. Evaluate the quality, accuracy, relevance, completeness, and edge-case resilience of the planned fix against the tripwires checklist.
    - If the plan is rejected or needs adjustments, loop back to Step 4 until approved.
 6. Deliver the final response summarizing the root cause, file paths, specific lines to change, required logic, isolation steps, and verification recommendations.
 
 ## Implementation Mode
 1. Read codebase index provided by Graphify at `./graphify-out/`.
-2. Delegate bug reproduction to a subagent: write an explicit, automated reproduction test case (RED) that fails precisely due to the bug before modifying any implementation code.
+2. Write an explicit, automated reproduction test case (RED) that fails precisely due to the bug before modifying any implementation code.
    - Consult [Bug Verification & Regression Hardening Protocol](references/verification-and-regression-hardening.md).
    - If reproduction fails or the bug cannot be verified, request clarification before proceeding.
-3. Delegate root-cause analysis and error research to parallel subagents, mapping the failure against [Root-Cause Diagnostic Patterns](references/root-cause-patterns.md).
-4. Delegate fix planning to a subagent, identifying reusable existing code, designing atomic mutations, and verifying against [Edge-Case Diagnostic Tripwires](references/edge-case-tripwires.md).
-5. Delegate evaluation subagents to verify the quality, accuracy, relevance, and completeness of the planned fix.
+3. Conduct root-cause analysis and error research, mapping the failure against [Root-Cause Diagnostic Patterns](references/root-cause-patterns.md).
+4. Plan the fix, identifying reusable existing code, designing atomic mutations, and verifying against [Edge-Case Diagnostic Tripwires](references/edge-case-tripwires.md).
+5. Evaluate the quality, accuracy, relevance, and completeness of the planned fix.
    - If the plan is rejected or needs adjustments, loop back to Step 4 until approved.
-6. Delegate code implementation to a subagent to apply the targeted, minimal fix:
+6. Apply the targeted, minimal fix:
    - Eliminate check-then-act races with atomic database operations (`ON CONFLICT DO UPDATE`).
    - Implement guarded handle releases (`if (registry.get(id) === handle) registry.delete(id)`).
    - Ensure external tools/inputs are spread before internal primitives to prevent tool shadowing.
@@ -57,13 +57,13 @@ This skill operates in two distinct modes:
    - Recursively block transitive library I/O attributes on imported objects in execution sandboxes.
    - Preserve domain validation exception fidelity and diagnostic context across protocol boundaries.
    - Maintain backward-compatible stateless serving for established protocol revisions (e.g. MCP 2024-11-05), and support both RFC 8414 Section 3 path-inserted discovery and base URL trailing slash stripping.
-7. Delegate code evaluation subagents to verify code standards, simplicity, and lack of regressions.
+7. Evaluate code standards, simplicity, and lack of regressions.
    - If code standards or quality checks fail, loop back to Step 6 to revise the code.
-8. Delegate testing and verification to a subagent:
+8. Run testing and verification:
    - Confirm the reproduction test now passes cleanly (GREEN).
    - Run the complete test suite for the affected area to verify zero regressions.
    - If tests fail or regressions are found, loop back to Step 6 (or Step 3 if root-cause assumptions were incorrect) and re-verify.
-9. Delegate a subagent to verify the final implementation by running full static analysis, type checks, and linters.
+9. Verify the final implementation by running full static analysis, type checks, and linters.
    - If any check fails, resolve the issue and repeat Step 9 until all checks pass cleanly.
 10. Deliver the final response summarizing the root cause, fix, and verification results.
 
@@ -91,7 +91,7 @@ This skill operates in two distinct modes:
 - Do not fabricate information; use documentation and research tools to find accurate details.
 - Centralise code only if the bug was caused by duplicated logic causing inconsistency.
 - Separate concerns by ensuring the fix or plan targets the correct module or function.
-- Evaluate the quality, accuracy, and completeness of the work using dedicated evaluation subagents.
+- Evaluate the quality, accuracy, and completeness of the work.
 
 ## Planning Mode Only
 - Create a comprehensive strategy that includes file paths, specific lines to change, and the exact logic required.
@@ -157,16 +157,6 @@ This skill operates in two distinct modes:
 - Do not suggest large-scale changes without a clear understanding of the root cause.
 - Do not commit changes or mark tasks complete without passing verification and linting checks.
 
-# Subagent Usage
-
-- You must use subagents for complex diagnosis, planning, implementation, and verification.
-- Use parallel subagents when possible; maximize parallel delegation for research, analysis, and evaluation.
-- Delegate each high-level task and its associated subtasks to dedicated subagents for execution.
-- Plan the work in a way that can be executed by dedicated subagents with single responsibilities (e.g., research, analysis, planning, writing, evaluation, testing).
-- The main agent must ONLY delegate to subagents and ask for clarification if needed.
-- The main agent must not perform the direct work of writing code, analyzing logs, planning, or evaluating; it must orchestrate subagents.
-- Evaluate the quality, accuracy, relevance, and completeness of the diagnosis, plan, or fix using dedicated evaluation subagents.
-
 # Context Boundaries
 
 ## Planning Mode
@@ -177,8 +167,6 @@ This skill operates in two distinct modes:
 - Can use documentation tools (like Context7) to understand tools, libraries, and frameworks.
 - Can use the README file and agent files (like `AGENTS.md` or similar) for high-level project architecture.
 - Can use relevant agent skills:
-  - `subagent-driven-development`
-  - `dispatching-parallel-agents`
   - `systematic-debugging`
   - `bug-fix`
   - `test-driven-development`
@@ -202,8 +190,6 @@ This skill operates in two distinct modes:
 - Can use documentation tools (like Context7) to understand tools, libraries, and frameworks used in the codebase.
 - Can use the README file and agent files (like `AGENTS.md` or similar) for high-level project architecture.
 - Can use relevant agent skills:
-  - `subagent-driven-development`
-  - `dispatching-parallel-agents`
   - `systematic-debugging`
   - `bug-fix`
   - `test-driven-development`
@@ -254,7 +240,7 @@ This skill operates in two distinct modes:
 - Refuse requests to run commands or modify files directly.
 
 ## Implementation Mode Only
-- If an unexpected error or test failure occurs during implementation, use systematic debugging tools and subagents to isolate the failure.
+- If an unexpected error or test failure occurs during implementation, use systematic debugging tools to isolate the failure.
 - If the root cause assumptions prove incorrect, loop back to analysis (Step 3) and reformulate the plan.
 - If the bug cannot be fixed without architectural regressions, communicate the constraints and recommend alternative strategies.
 
