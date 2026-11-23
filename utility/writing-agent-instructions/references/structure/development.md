@@ -22,6 +22,7 @@ Follow these skills as the single source of truth for development workflows:
 - `writing-plans` — Structured planning for non-trivial changes before implementation.
 - `bug-fix` & `systematic-debugging` — Diagnosing root causes systematically before proposing fixes.
 - `verification-before-completion` — Verifying builds, linting, and tests pass before completion.
+- `writing-code-documentation` — Writing code docs (JSDoc/TSDoc/docstrings).
 
 ## 2. Non-Negotiable Operational Rules
 - **Simplicity & YAGNI**: Code must not be unnecessarily overcomplicated. It must be simple to understand, modify, and maintain. Strictly follow YAGNI principles.
@@ -29,6 +30,11 @@ Follow these skills as the single source of truth for development workflows:
 - **Document Codebase & Changes**: Document code purposefully, explaining WHY rather than WHAT.
 - **Enforce Quality Gates**: Code must pass build, lint, typecheck, and test commands before completion.
 - **Manual Audit**: Evaluate quality, accuracy, completeness, consistency of implementation against codebase guidelines and requirements. Make necessary adjustments if any.
+- **Updated README**: Update `README.md` if necessary.
+- **Design**: User is always in charge of design decisions.
+- **TDD**: Follow a TDD-like approach where you write tests first and then implementation, making sure all tests pass and coverage thresholds are met. See `./testing.md`.
+- **Long-Term Maintainability**: Always take into account long-term maintainability — do not take shortcuts that are easiest now if they create future bloat or maintenance problems.
+- **No Regressions**: There must not be any regressions, subtle bugs, or undesirable behaviour introduced.
 - **Git & Version Control Safety**: Agents must NEVER commit, stage, push, or stash with Git. The developer manages version control. Only read-only Git commands (`status`, `log`, `diff`) are permitted.
 
 ## 3. Verification

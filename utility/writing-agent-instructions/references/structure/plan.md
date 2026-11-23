@@ -20,6 +20,7 @@ Follow these skills as the single source of truth for planning and design:
 - `ponytail` — Radical simplicity and YAGNI. Minimum code that works, zero unnecessary abstractions, deletion over addition.
 - `brainstorming` — Collaborative problem exploration, requirements clarification, and iterative design before committing to code.
 - `karpathy-guidelines` — Think before coding, surface assumptions, surgical changes, and goal-driven verifiable execution.
+- `using-checklists` — Creating steps and sub-steps that need to be followed to complete designed tasks.
 
 ## 2. Core Philosophy & Engineer Audience
 Plans in this repository are written directly for engineers. They must respect the reader's time and technical competence:
@@ -30,6 +31,10 @@ Plans in this repository are written directly for engineers. They must respect t
 - **Codebase Simplification Opportunities**: Actively evaluate whether the changes can simplify the existing codebase—look for opportunities to delete redundant code, collapse unnecessary indirections, consolidate duplicate utilities, or retire obsolete abstractions.
 - **Anti-Bloat & Zero Fluff**: Plans must not be bloated or unnecessarily lengthy. Strip out tutorial-like prose, obvious explanations of standard framework mechanics, and generic boilerplate — in both directions: tutorial filler, and full implementations pasted in place of a clear specification.
 - **Avoid Overcomplication**: Reject speculative configurability, premature factories, or multi-layered indirections. The best design solves the stated problem with the fewest files and simplest construct.
+- **Follow Conventions**: Plans MUST follow codebase conventions and guidelines.
+- **Ownership**: User is always in charge of design decisions.
+- **Long-Term Maintainability**: Always take into account long-term maintainability — do not take shortcuts that are easiest now if they create future bloat or maintenance problems.
+- **No Regressions**: There must not be any regressions, subtle bugs, or undesirable behaviour introduced.
 
 ## 3. Alternative Approaches & Justification
 Every non-trivial design or plan must document alternative approaches evaluated:
