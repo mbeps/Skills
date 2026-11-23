@@ -91,6 +91,8 @@ Correlate Cognitive Complexity with git commit churn:
 - **Deep-Branch Unimported Dependencies & Phantom Symbols**: Relying on unimported standard library or third-party symbols (e.g. `math`, `re`, `statistics`) that reside exclusively on rare conditional execution branches (financial calculations, regex filters), passing standard unit tests but crashing with `NameError` in production.
 - **Operator & Syntax Rigidity**: Inflexible parsers and filter evaluators that reject common syntactic variants (e.g. requiring strictly `=` and crashing on `==`, or enforcing case sensitivity on operators like `and` vs `AND`), creating unnecessary failure points for clients and AI tool users.
 - **Canonical Format Corruption via Ambiguous Locale Parsing**: Ingesting standardized canonical formats (ISO 8601 date strings, UTC timestamps, standardized decimal numbers) using locale-guessing heuristics (such as `dayfirst=True` or locale-dependent comma decimals), corrupting unambiguous data representations.
+- **Identifier-vs-Name Resolution Shadowing**: Matching a lookup query against `id === q || name === q` in a single `.find()` pass, allowing an earlier item's mutable `name` to shadow a later item's explicit `id`. Always scan the full collection for an exact ID match before falling back to name or alias matching.
+- **Secondary Execution Path Parity Drift**: Delegated, batch, or workflow execution paths omitting resolvers or guards enforced on the primary path (e.g. user-scoped model-override resolvers, dry-run mutation filters, or scoped resource bindings), silently falling back to parent defaults or parent-bound resources.
 
 ---
 

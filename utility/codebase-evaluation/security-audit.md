@@ -20,7 +20,8 @@ Use this module when you need to:
 ### 1. Concurrency Security & Race Conditions (TOCTOU)
 - **Read-Modify-Write Races**: Reading a quota, balance, or reservation from the database, evaluating it in application memory, and writing back the result non-atomically. Allows attackers to execute concurrent requests that double-spend credits, bypass inventory locks, or exceed storage quotas.
 - **Check-Then-Act Upsert Races**: Checking existence via `SELECT` before `INSERT`, allowing concurrent requests to trigger constraint collisions or corrupt version sequences.
-- *Diagnostic Target*: Any mutation without database-level atomic operations (`UPDATE tbl SET balance = balance - 10 WHERE balance >= 10 RETURNING balance`, `INSERT ... ON CONFLICT DO UPDATE`), row locking, or per-entity concurrency queues.
+- **Graph-Invariant & Cross-Entity Reference Races**: Validating parent-child/DAG invariants (depth limits, cycle checks) or target existence outside the write transaction or without shared serialization (advisory locks or row locks), allowing concurrent creates, updates, and deletes to pass validation simultaneously and persist broken invariants or dangling references.
+- *Diagnostic Target*: Any mutation without database-level atomic operations (`UPDATE tbl SET balance = balance - 10 WHERE balance >= 10 RETURNING balance`, `INSERT ... ON CONFLICT DO UPDATE`), row locking (`.for("update")`), or per-tenant advisory locks (`pg_advisory_xact_lock`).
 
 ### 2. Authorization Architecture & Gateway Bypasses
 - **Scattered Access Checks**: Authorization logic implemented ad-hoc via inline `if (user.role === 'admin')` statements scattered across controllers rather than enforced systematically via centralised middleware, gateway boundary guards, or ABAC/RBAC policies.
@@ -49,6 +50,8 @@ Use this module when you need to:
 
 ### 8. Untrusted Spread Precedence & Tool / Handler Shadowing
 - Merging untrusted/external plugins or tool catalogs after internal primitives via object spread (`{ ...systemTools, ...untrustedTools }`), enabling external entities to shadow and hijack core security capabilities.
+- **Namespace-Stripped Capability Allow-Listing (CWE-863)**: Filtering tools or handlers by bare/sanitised name without verifying provider/server identity, allowing a same-named capability from another source or a flat dictionary merge to silently substitute an unauthorized implementation.
+- **Inherited Capability Bleed on Delegated Workers**: Merging parent tools into a child/subagent without stripping privileged inherited tools (e.g. write-access state tools, parent-scoped search tools) before applying the child's narrower permission overlay, or omitting execution-time guards (e.g. dry-run mutation filters) on secondary execution paths.
 
 ### 9. Dependency & Supply Chain Security
 - Cross-referencing installed packages and lockfiles against CVE databases (NVD, GitHub Security Advisory Database).

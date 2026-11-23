@@ -186,6 +186,15 @@ Calling framework `notFound()` without an immediate `return null;` in component 
 ### 57. React Hook Density Cognitive Inflation
 Declaring 15–30 hooks (state, effect, ref, memo, custom hooks) inline in a single component. Modern complexity linters increment cognitive complexity by $+1$ per hook (`react_hook_count`). Decompose into a 3-tier hook architecture: Service/Data hooks, Interaction/Form hooks, and focused Presentational subcomponents with stable `useCallback` handler references.
 
+### 58. Empty-Store Effect Fetch Loops
+Subscribing a `useEffect` to a store collection (`items`) whose loader replaces an empty store with a new empty object/array reference on every empty response (`loadItems([])`), retriggering the effect in an infinite request loop. Read transient store state inside the effect via `getState()` and depend only on the stable loader reference.
+
+### 59. One-Shot Effect vs. Async Hydration First-Render Race
+Guarding a one-shot `useEffect` (e.g. initial auto-send or redirect) behind `sentRef` and `!isLoading` from a hydration hook. On the first render before the hydration hook's own `useEffect` runs, `isLoading` is still `false`, causing the one-shot effect to fire with unhydrated entity/project defaults and lock out re-execution. Gate on explicit entity presence or a module/store hydration-complete flag rather than `!isLoading` alone.
+
+### 60. Default-Applying Effect Clobbering Restored Edit State
+Effects that automatically populate entity defaults (e.g. linked sub-items or toggles) whenever a selection is present, overwriting explicitly restored settings when editing an existing item. Track the initial restored identifier via a ref and apply defaults only on genuinely new user selections.
+
 ---
 
 ## Quality Principles
