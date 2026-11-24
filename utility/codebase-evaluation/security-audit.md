@@ -172,3 +172,9 @@ Audit:
 
 Provide specific locations, severity classifications, and attack vector analyses.
 ```
+
+### Additional Security & Concurrency Checks
+
+- **Owner-Scoped DB Update Before Event Dispatch**: When cancelling or mutating async jobs, verify the owner-scoped database update `.returning()` matches a row before dispatching control/cancel events to background runners, and guard terminal status writes (`ne(status, "failed")`) so late `onFailure` or finalization handlers do not overwrite cancelled state.
+- **Single-Use Approval Gates & Fail-Closed Decisions**: Bind durable human/tool approval waits to a single-use `gateId` (`runId + nodeId + gateId`) and fail closed whenever per-item decisions are missing.
+- **Custom `fetch` Redirect Guards**: Block HTTPS→HTTP protocol downgrades, strip authorization headers and request bodies on cross-origin redirects, and apply `301`/`302`/`303` POST→GET semantics while preserving method and body on `307`/`308` same-origin redirects.

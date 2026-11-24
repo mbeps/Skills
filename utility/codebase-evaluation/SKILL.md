@@ -90,10 +90,10 @@ This skill includes 10 dedicated evaluation modules:
 Exhaustive health check across all 8 dimensions: Architecture, Code Quality, Design, UI Components, Security, Testing, Dependencies, and Documentation. Follows Discovery → Clarification → Evaluation → Reporting.
 
 ### 2. **Architecture & Design Analysis** (`architecture-design-analysis.md`)
-Audits module graphs for circular dependencies (`A ↔ B`), peer domain cycles, and indirection debt. Evaluates coarse dispatcher contract drift, API contract degradation into untyped dictionaries, storage compensation transactions, and polyglot boundary decoupling.
+Audits module graphs for circular dependencies (`A ↔ B`), peer domain cycles, and indirection debt. Evaluates coarse dispatcher contract drift, API contract degradation into untyped dictionaries, storage compensation transactions, token/budget accounting drift (e.g. omitting downstream system/summary overhead), mode-switching stale-index integrity (deletions in a disabled-store mode leaving orphaned records that reappear in enabled modes), and polyglot boundary decoupling.
 
 ### 3. **Quality Analysis** (`quality-analysis.md`)
-Evaluates implementation quality against clean code standards. Calculates Cognitive Complexity, Cyclomatic Complexity, and CRAP scores. Detects arrow code, parameter destructuring bloat, multi-branch conditional ladders, file length ceiling violations (>300 LOC), unmemoized hook callback churn, and concurrency race conditions (TOCTOU, check-then-act upserts).
+Evaluates implementation quality against clean code standards. Calculates Cognitive Complexity, Cyclomatic Complexity, and CRAP scores. Detects arrow code, parameter destructuring bloat, multi-branch conditional ladders, file length ceiling violations (>300 LOC), unmemoized hook callback churn, unconverted boundary exceptions (`AppException` masked as `INTERNAL`), and concurrency/async state hazards (TOCTOU, unserialized read-modify-write on JSON/map columns including first-write upserts, publishing client events before state persistence, releasing in-memory waiters before DB state clears, single-key registry superseding concurrent waits, and async handlers that fail to restore disabled/submitted UI flags on rejection).
 
 ### 4. **Code Duplication** (`code-duplication.md`)
 Rigorously identifies exact clones, semantic similarity, declarative ORM schema duplication, scattered inline variations, and competing engine sprawl.
@@ -108,13 +108,13 @@ Identifies shallow abstraction layers, trivial passthrough wrappers, single-impl
 Audits topological directory architecture, strict file casing, framework route folder purity, Server Actions directory purity, one-export-per-file hygiene, barrel file bottlenecks vs direct imports, centralized structured logging vs console leakage, symmetrical client/server environment schemas, 4-tier domain type architecture, and canonical site registries.
 
 ### 8. **Security Audit** (`security-audit.md`)
-Audits code-level vulnerabilities, secondary-library sandbox escapes, protocol error masking, missing auth gateway route protections, cross-origin trusted origins, hardcoded localhost fallbacks, and destructive action confirmations.
+Audits code-level vulnerabilities, secondary-library sandbox escapes, protocol error masking, missing auth gateway route protections, cross-origin trusted origins, hardcoded localhost fallbacks, destructive action confirmations, owner-scoped cancel/event-dispatch pairing, single-use approval gates, unredacted fallback secrets on joined/shared rows, runtime name-collision authorization bypasses (checking built-in names before external ownership maps), secondary-mode ownership bypasses (IDOR when an alternate mode skips a primary helper's tenant filter), and HTTP redirect downgrade/credential-stripping guards.
 
 ### 9. **Dependency Usage** (`use-dependencies.md`)
 Audits custom logic that reinvents standard libraries or existing packages (Hand-Rolled Utility Sprawl), micro-package dependency drag, multi-tool toolchain sprawl, blocker dependency peer lockouts, and CI/CD secret parity.
 
 ### 10. **UI & Component Analysis** (`ui-component-analysis.md`)
-Audits front-end views for monolithic components, presentation-mutation coupling, high hook density, and state lifecycle coupling. Inspects SSR/hydration hazards (`isMounted`, root DOM structures), responsive layout occlusions, unguarded `notFound()` calls, and accessible design system primitives.
+Audits front-end views for monolithic components, presentation-mutation coupling, high hook density, and state lifecycle coupling. Inspects SSR/hydration hazards (`isMounted`, root DOM structures), responsive layout occlusions, unguarded `notFound()` calls, controlled tab/route state pointing to mode-hidden triggers (leaving no panel rendered), client config hooks lacking error/retry recovery from conservative loading defaults, nested interactive ARIA roles (`role="button"` wrapping inner `<button>` elements), `role="radio"` groups missing roving `tabIndex` or wrapping arrow-key navigation, headless combobox value/placeholder mismatches, orphaned loading toasts on fallback paths, discovery-pruning that drops rules for temporarily absent items, and accessible design system primitives.
 
 
 ---

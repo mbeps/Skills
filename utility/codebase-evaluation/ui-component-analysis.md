@@ -263,3 +263,8 @@ Use the ui-component-analysis module to identify:
 
 Provide specific file references, line numbers, and metric evidence.
 ```
+
+### Additional Accessibility & Headless UI Checks
+
+- **No Nested Interactive ARIA Roles**: Never place `role="button"`, `tabIndex`, or keyboard activation handlers on an outer card/container that wraps inner `<button>` elements (such as toggles or action icons); attach them to a dedicated non-wrapping header element while preserving click delegation.
+- **Headless Combobox Placeholder Rendering**: Verify that headless `ComboboxValue` placeholders render visibly when `value={null}` over grouped items (e.g. via render-prop `children`) rather than assuming a `placeholder` prop renders automatically.
