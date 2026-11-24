@@ -1,6 +1,6 @@
 ---
 name: vercel-ai-sdk-nextjs
-description: Use when integrating or modifying Vercel AI SDK in Next.js App Router projects — covers text/object generation, streaming routes, background Inngest streaming, n8n-style workflow automations (DAG execution, triggers, node executors), subagent orchestration, ToolLoopAgent, reasoning/thinking extraction, long-term memory, context budgeting, 12-layer system prompts, slash command prompts, multi-provider credentials, internal tools architecture, Model Context Protocol (MCP), client hooks, RAG with Qdrant hybrid search, vector embeddings, and Vitest mocking.
+description: Use when integrating or modifying Vercel AI SDK in Next.js App Router projects — covers text/object generation, streaming routes, background Inngest streaming, n8n-style workflow automations (DAG execution, triggers, node executors), subagent orchestration, ToolLoopAgent, reasoning/thinking extraction, long-term memory, context budgeting, 12-layer system prompts, slash command prompts, multi-provider credentials, internal tools architecture, Model Context Protocol (MCP), generative UI (@json-render), client hooks, RAG with Qdrant hybrid search, vector embeddings, and Vitest mocking.
 ---
 
 # Vercel AI SDK + Next.js
@@ -29,6 +29,7 @@ This skill provides reference patterns and production standards for the Vercel A
 | [nextjs-streaming-and-routes.md](nextjs-streaming-and-routes.md) | App Router route handlers, `toDataStreamResponse()`, dispatched background streaming, cancellation endpoints, Server Actions, route config |
 | [structured-outputs-and-tools.md](structured-outputs-and-tools.md) | Zod schema validation, output modes, `tool()` definitions, combining with MCP tools, multi-step execution (`stopWhen: isStepCount`) |
 | [client-hooks.md](client-hooks.md) | `@ai-sdk/react` hooks (`useChat`, `useCompletion`), custom realtime stream consumer hooks (`useRealtime`), reasoning timelines, context usage pill, prompt selection |
+| [generative-ui.md](generative-ui.md) | Declarative `@json-render` UI widgets & charts, local Shadcn/Recharts registry, inline ```` ```spec ```` streaming, Canvas `ui` artifacts, tolerant spec/$cond normalization |
 | [telemetry-and-testing.md](telemetry-and-testing.md) | OpenTelemetry instrumentation, Sentry/Inngest tracing, Vitest unit mocks for `ai` and providers |
 
 ---
@@ -121,6 +122,8 @@ flowchart TD
 | Subagent Approval Gate | `wrapSubagentToolsWithApproval(params)` | Wrapped toolset | Microtask-batched, sequential approval gate for `ToolLoopAgent` |
 | Realtime Subscription Token | `getClientSubscriptionToken(inngest, { channel, topics })` | `string` | Scoped JWT generation via Server Action for Inngest Realtime subscription |
 | Durable Stream Hook | `useStreamResponse(chatId, options)` | `{ isStreaming, content, stopStream }` | Client hook combining Inngest Realtime, watchdog, mount rejoin, and DB sync |
+| Generative UI Catalog | `defineCatalog(schema, { components, actions })` | `getInteractiveUiSystemPrompt()` | Zod-validated inline/Canvas Shadcn UI & Recharts catalog for any model |
+| Spec Normalizer | `parseGenerativeUISpec(raw)` + `autoFixSpec()` | `ParseSpecResult` | Tolerant JSON/JSONL parsing, `$cond` & prop relocation, cycle/node bounds |
 | FullStream Vitest Mock | `mockStreamText({ fullStream: async function* })` | Mock return value | Mocking real-time model deltas in Vitest unit and integration suites |
 
 ---
