@@ -1,6 +1,6 @@
 ---
 name: vercel-ai-sdk-nextjs
-description: Use when integrating or modifying Vercel AI SDK in Next.js App Router projects — covers text/object generation, streaming routes, background Inngest streaming, subagent orchestration, ToolLoopAgent, reasoning/thinking extraction, long-term memory, context budgeting, 12-layer system prompts, slash command prompts, multi-provider credentials, internal tools architecture, Model Context Protocol (MCP), client hooks, RAG with Qdrant hybrid search, vector embeddings, and Vitest mocking.
+description: Use when integrating or modifying Vercel AI SDK in Next.js App Router projects — covers text/object generation, streaming routes, background Inngest streaming, n8n-style workflow automations (DAG execution, triggers, node executors), subagent orchestration, ToolLoopAgent, reasoning/thinking extraction, long-term memory, context budgeting, 12-layer system prompts, slash command prompts, multi-provider credentials, internal tools architecture, Model Context Protocol (MCP), client hooks, RAG with Qdrant hybrid search, vector embeddings, and Vitest mocking.
 ---
 
 # Vercel AI SDK + Next.js
@@ -25,6 +25,7 @@ This skill provides reference patterns and production standards for the Vercel A
 | [mcp-tools-and-transports.md](mcp-tools-and-transports.md) | `@ai-sdk/mcp`, HTTP transports, SSRF-safe redirect fetch, tool timeouts, schema cleaning (`propertyNames`), tool name sanitisation, connection cleanup |
 | [mcp-authentication.md](mcp-authentication.md) | MCP authentication types (`none`, `headers`, `oauth`), AES-256-GCM encrypted headers, OAuth 2.1 PKCE (`OAuthClientProvider`), CSRF state, and token lifecycle |
 | [inngest-and-background-jobs.md](inngest-and-background-jobs.md) | Durable chat streaming functions, Inngest Realtime channels, fallback synthesis pass, clean user aborts, `step.ai.wrap()` DAG memoization, durable KB ingestion & reindexing |
+| [workflow-automations.md](workflow-automations.md) | n8n-style DAG workflow engine, `topologicalSort` (with isolated nodes), `NodeExecutor` registry, `WorkflowContext` + Handlebars templating, manual & webhook/bridge trigger theory, AI & outbound action nodes |
 | [nextjs-streaming-and-routes.md](nextjs-streaming-and-routes.md) | App Router route handlers, `toDataStreamResponse()`, dispatched background streaming, cancellation endpoints, Server Actions, route config |
 | [structured-outputs-and-tools.md](structured-outputs-and-tools.md) | Zod schema validation, output modes, `tool()` definitions, combining with MCP tools, multi-step execution (`stopWhen: isStepCount`) |
 | [client-hooks.md](client-hooks.md) | `@ai-sdk/react` hooks (`useChat`, `useCompletion`), custom realtime stream consumer hooks (`useRealtime`), reasoning timelines, context usage pill, prompt selection |
@@ -108,12 +109,16 @@ flowchart TD
 | Token Transform | `toModelOutput: ({ output }) => ...` | `{ type: "text", value }` | Keeping heavy UI artifacts out of conversational LLM context |
 | MCP Client | `createMCPClient({ transport })` | MCP client instance | Connect to remote tool/prompt servers over HTTP |
 | Durable Inngest Step | `step.ai.wrap('id', generateText, opts)` | `{ steps, text, usage }` | Workflow DAGs, retry-safe background tasks |
+| Workflow DAG Engine | `executeWorkflow` + `getExecutor(type)` | `WorkflowContext` | n8n-style multi-node AI automations, webhook/manual triggers |
 | Hybrid Vector + FTS | `hybridSearch(kbIds, query, userId, topK)` | `ChunkResult[]` | Parallel vector + keyword retrieval merged with RRF (k=60) |
 | Query Embedding | `embedQuery(text, userId)` | `number[]` | Dynamic provider resolution with model prefixing (`query:`) |
 | Passage Batch Embed | `embedDocuments(chunks, userId)` | `number[][]` | Batch embedding with task prefixes (`passage:`) & size limits |
 | KB Search Tool | `registerKnowledgebaseTool(...)` | `{ search_knowledge_base: tool(...) }` | Gated agentic retrieval tool for domain context |
 | Qdrant Partitioning | `ensureQdrantCollection(dim)` | `string` | Auto-creates `kb_chunks_{dim}` with Cosine, keyword & text indexes |
 | Pre-Flight Capability Guard | `validateModelCapabilities(params)` | `void` (throws) | Pre-execution validation of tool calling (`capTools`) and vision (`capVision`) |
+| Tool Approval Policy | `buildToolApproval(toolNames, mode, opts)` | `ToolApprovalMap` | Fail-closed `"not-applicable" \| "user-approval"` map for `streamText` |
+| Approval Turn Resume | `buildApprovalResumeMessages(pending, decisions)` | `ModelMessage[]` | `[assistant, tool]` resume pair in strict emission order |
+| Subagent Approval Gate | `wrapSubagentToolsWithApproval(params)` | Wrapped toolset | Microtask-batched, sequential approval gate for `ToolLoopAgent` |
 | Realtime Subscription Token | `getClientSubscriptionToken(inngest, { channel, topics })` | `string` | Scoped JWT generation via Server Action for Inngest Realtime subscription |
 | Durable Stream Hook | `useStreamResponse(chatId, options)` | `{ isStreaming, content, stopStream }` | Client hook combining Inngest Realtime, watchdog, mount rejoin, and DB sync |
 | FullStream Vitest Mock | `mockStreamText({ fullStream: async function* })` | Mock return value | Mocking real-time model deltas in Vitest unit and integration suites |
@@ -447,6 +452,13 @@ export function createSubagentDispatchTool({
 | Provider prompt serializes `{}` for past tool calls | Reconstructed message history using legacy `args` property | Set pure `input` on `ToolCallPart` and structured `output` on `ToolResultPart` to satisfy provider serializers |
 | Client `useChat` callback renamed to `onEnd` fails to fire | Assumed `onFinish` rename applied to React client hooks | Client `useChat` remains `onFinish({ message, isAbort, isError })`; only server `streamText`/`generateText` renamed to `onEnd` |
 | "Thinking..." spinner continues running during tool calls | UI indicator checked `!streamingContent` without verifying active tool status | Require `activeToolCalls.length === 0` in reasoning stream invariant to stop spinner during external tool execution |
+| `step.ai.wrap()` fails inside workflow DAG node | Orchestrator wrapped `executor()` in `step.run()`, creating nested steps | Keep the DAG loop flat; pass `step` into each `NodeExecutor` so AI nodes call `step.ai.wrap()` directly |
+| Disconnected workflow nodes silently skipped | `toposort(edges)` only sees nodes present in `connections` | Add self-edges `[node.id, node.id]` for any node with zero connections before sorting |
+| `AI_MissingToolResultsError` on tool approval resume | Submitted decisions for only a subset of pending tool calls in a round | Stage decisions client-side (`1 of N`..`N of N`) and reject partial decision sets on the server |
+| Dependent gated tools fail (`"not found"`) on resume | Executed or rebuilt resume messages in client click order instead of emission order | Iterate `pendingApprovals` in stored emission order on both UI and server (`buildApprovalResumeMessages`) |
+| Approval resume wipes Round 1 text or tool traces | Round 2 started with an empty stream accumulator and overwrote the message row | Seed `accumulator` (`content`, `reasoning`, `completedTools`) from the parked assistant message before draining Round 2 |
+| Blocked tools still run under per-chat `"Allow all"` (`"auto"`) | Blocked tools remained in `tools` or policy auto-approved them | Omit blocked tools from `allTools` at runtime and fail closed to `"user-approval"` in `buildToolApproval` |
+| Model endlessly re-requests a denied tool call | No round cap or system prompt feedback after denial | Cap `approvalRound` in metadata (e.g. max 10) and inject a system prompt directive not to retry denied calls |
 
 ---
 
@@ -472,6 +484,7 @@ export function createSubagentDispatchTool({
 - [mcp-tools-and-transports.md](mcp-tools-and-transports.md) — MCP HTTP clients, SSRF-safe redirects, schema sanitisation, and cleanup
 - [mcp-authentication.md](mcp-authentication.md) — Auth types (`none`, `headers`, `oauth` 2.1 PKCE) and credential lifecycle
 - [inngest-and-background-jobs.md](inngest-and-background-jobs.md) — Background streaming functions, Realtime channels, fallback synthesis, and DAG execution
+- [workflow-automations.md](workflow-automations.md) — n8n-style DAG workflow engine, `NodeExecutor` contract, trigger theory (manual, webhooks, bridges), and templatable AI/action nodes
 - [nextjs-streaming-and-routes.md](nextjs-streaming-and-routes.md) — Route handlers, background stream dispatch, stop endpoints, and Server Actions
 - [structured-outputs-and-tools.md](structured-outputs-and-tools.md) — Zod schemas, structured generation, internal tools, and MCP merging
 - [client-hooks.md](client-hooks.md) — `useChat`, custom realtime stream consumers, reasoning timelines, context usage pill, and prompt selection
